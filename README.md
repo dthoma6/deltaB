@@ -1,2 +1,2 @@
-This repository includes tools to analyze delta B contributions to the tearth's total magnetic field.
+This repository includes tools to analyze delta B contributions to the earth's total magnetic field.
 # deltaB

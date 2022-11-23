@@ -203,7 +203,7 @@ def rounded_cumsum_Bz():
     data.
     
     Inputs:
-        None = data reard from BATSRUS file is at origin + base + .out 
+        None = data read from BATSRUS file is at origin + base + .out 
             (see above global constants)
     Outputs:
         None - logs |B| to output
@@ -577,5 +577,5 @@ def process_data_compare( reltol = 0.0001  ):
     plt.ylabel(r'$2 \frac{\delta B_z (P) - \delta B_z (B)}{\delta B_z (P) + \delta B_z (B)}$')
     
 if __name__ == "__main__":
-     # process_data_compare()
-     rounded_cumsum_Bz()
+      process_data_compare()
+     # rounded_cumsum_Bz()

@@ -35,6 +35,7 @@ dBNorm_limits = [10**-15,10**-1]
 dBx_sum_limits = [-0.4,0.4]
 dBy_sum_limits = [-0.4,0.4]
 dBz_sum_limits = [-50,50]
+dBp_sum_limits = [-50,50]
 dB_sum_limits  = [0,50]
 
 import matplotlib.pyplot as plt
@@ -350,9 +351,9 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
     df_r_para.plot.scatter(x='r', y='dBxSum', 
                               ax = plt.subplot(2,4,1),
                               xlim = [1,1000], 
-                              ylim = dBx_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True,  
-                              title = title, 
+                              title = r'$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
                               ylabel=r'$\Sigma_r \delta B_x (j_\parallel)$')
@@ -360,20 +361,20 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
     df_r_anti.plot.scatter(x='r', y='dBxSum', 
                               ax = plt.subplot(2,4,5),
                               xlim = [1,1000], 
-                              ylim = dBx_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True,  
-                              title = title, 
+                              title = r'Anti-$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
-                              ylabel=r'$\Sigma_r \delta B_x (j_\perp)$')
+                              ylabel=r'$\Sigma_r \delta B_x (j_{anti-\parallel})$')
   
     # Plot the cummulative sum of dB as a function of r   
     df_r_para.plot.scatter(x='r', y='dBySum', 
                               ax = plt.subplot(2,4,2),
                               xlim = [1,1000], 
-                              ylim = dBy_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True, 
-                              title = title, 
+                              title = r'$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
                               ylabel=r'$\Sigma_r \delta B_y (j_\parallel)$')
@@ -381,20 +382,20 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
     df_r_anti.plot.scatter(x='r', y='dBySum', 
                               ax = plt.subplot(2,4,6),
                               xlim = [1,1000], 
-                              ylim = dBy_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True, 
-                              title = title, 
+                              title = r'Anti-$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
-                              ylabel=r'$\Sigma_r \delta B_y (j_\perp)$')
+                              ylabel=r'$\Sigma_r \delta B_y (j_{anti-\parallel})$')
   
     # Plot the cummulative sum of dB as a function of r   
     df_r_para.plot.scatter(x='r', y='dBzSum', 
                               ax = plt.subplot(2,4,3),
                               xlim = [1,1000], 
-                              ylim = dBz_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True, 
-                              title = title, 
+                              title = r'$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
                               ylabel=r'$\Sigma_r \delta B_z (j_\parallel)$')
@@ -402,12 +403,12 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
     df_r_anti.plot.scatter(x='r', y='dBzSum', 
                               ax = plt.subplot(2,4,7),
                               xlim = [1,1000], 
-                              ylim = dBz_sum_limits,
+                              ylim = dBp_sum_limits,
                               logx = True, 
-                              title = title, 
+                              title = r'Anti-$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
-                              ylabel=r'$\Sigma_r \delta B_z (j_\perp)$')
+                              ylabel=r'$\Sigma_r \delta B_z (j_{anti-\parallel})$')
   
     # Plot the cummulative sum of dB as a function of r   
     df_r_para.plot.scatter(x='r', y='dBSumMag', 
@@ -415,7 +416,7 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
                               xlim = [1,1000], 
                               ylim = dB_sum_limits,
                               logx = True,
-                              title = title, 
+                              title = r'$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
                               ylabel=r'$| \Sigma_r \delta B (j_\parallel)|$')
@@ -425,10 +426,10 @@ def plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base ):
                               xlim = [1,1000], 
                               ylim = dB_sum_limits,
                               logx = True,
-                              title = title, 
+                              title = r'Anti-$\parallel$ ' + title, 
                               s=1, 
                               xlabel='$r/R_E$', 
-                              ylabel=r'$| \Sigma_r \delta B (j_\perp)|$')
+                              ylabel=r'$| \Sigma_r \delta B (j_{anti-\parallel})|$')
   
     fig = plt.gcf()
     create_directory( 'png-combined-sum-dB-para-anti-r/' ) 
@@ -762,6 +763,8 @@ def plot_jr_jt_jp_vs_x( df, title, base, coord = 'x', cut='' ):
         df = dataframe containing jr, jtheta, jphi and x
         title = title for plots
         base = basename of file where plot will be stored
+        coord = which coordinate is on the x axis - x, y, or z
+        cut = which cut was made, used in plot filenames
     Outputs:
         None 
      """
@@ -848,6 +851,8 @@ def plot_jp_jp_vs_x( df, title, base, coord = 'x', cut='' ):
         df = dataframe containing jparallel, jperpendicular, and x
         title = title for plots
         base = basename of file where plot will be stored
+        coord = which coordinate is on the x axis - x, y, or z
+        cut = which cut was made, used in plot filenames
     Outputs:
         None 
      """
@@ -1230,49 +1235,84 @@ def process_data( base, dirpath = origin ):
     df_para = df[df['jparallel'] >= 0]
     df_anti = df[df['jparallel'] < 0]
     
-    # df_r_para = create_cumulative_sum_dataframe(df_para)
-    # df_r_anti = create_cumulative_sum_dataframe(df_anti)
+    df_r_para = create_cumulative_sum_dataframe(df_para)
+    df_r_anti = create_cumulative_sum_dataframe(df_anti)
 
     # Do plots...
 
     # logging.info('Creating dB (Norm) vs r plots...')
     # plot_db_Norm_r( df, title, base )
 
-    logging.info('Creating cumulative Sum B vs r plots...')
-    plot_cumulative_B( df_r, title, base )
+    # logging.info('Creating cumulative sum B vs r plots...')
+    # plot_cumulative_B( df_r, title, base )
     
-    # logging.info('Creating cumulative Sum B j parallel/anti-parallel vs r plots...')
-    # plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base )
+    logging.info('Creating cumulative sum B j parallel/anti-parallel vs r plots...')
+    plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base )
     
-    logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
-    plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
+    # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
     
-    # logging.info('Creating day/night jx, jy, jz vs r plots...')
-    # plot_jx_jy_jz_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night jx, jy, jz vs r plots...')
+    plot_jx_jy_jz_day_night( df_day, df_night, title, base )
     
-    logging.info('Creating jx, jy, jz vs x plots...')
-    plot_jx_jy_jz_vs_x( df, title, base)
+    # logging.info('Creating jx, jy, jz vs x plots...')
+    # plot_jx_jy_jz_vs_x( df, title, base)
     
-    logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
-    plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
-    plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
-    plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
+    # logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
+    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
+    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
+    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
 
-    logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    plot_jp_jp_vs_x( df, title, base, coord = 'x')
-    plot_jp_jp_vs_x( df, title, base, coord = 'y')
-    plot_jp_jp_vs_x( df, title, base, coord = 'z')
+    # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'x')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'y')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'z')
 
-    logging.info('Creating day/night ux, uy, uz vs r plots...')
-    plot_ux_uy_uz_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day/night ux, uy, uz vs r plots...')
+    # plot_ux_uy_uz_day_night( df_day, df_night, title, base )
     
-    
-    # logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
-    # plot_dBnorm_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
+    plot_dBnorm_day_night( df_day, df_night, title, base )
     
     return
 
-def process_data2( base, dirpath = origin ):
+def perform_cuts( df1, title1, cut_selected ):
+    """perform selected cuts on BATSRUS dataframe, df1.
+        
+    Inputs:
+        df1 = BATSRUS dataframe on which to make cuts
+        title2 = base title for plots, will be modified based on cuts
+        cut_selected = which cut to make
+    Outputs:
+        df2 = dataframe with cuts applied
+        title2 = title to be used in plots
+        cutname = string signifying cut
+    """
+
+    assert( 0 < cut_selected < 4)
+
+    df_tmp = deepcopy( df1 )
+    
+    # Cut asymmetric jr vs y lobes, always make this cut
+    df2 = df_tmp.drop( df_tmp[np.logical_and(df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+    cutname = 'asym-jr-'
+    title2 = r'asym j_r ' + title1
+
+    if( cut_selected > 1):
+        # Cut jphi vs y blob
+        df2 = df2.drop( df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
+        cutname = 'y-jphi-' + cutname
+        title2 = r'y j_{\phi} ' + title2
+
+    if( cut_selected > 2):
+        # Cut jphi vs z blob
+        df2 = df2.drop( df2[np.logical_and(df2['jphi'].abs() > 0.007, df2['z'].abs() < 2)].index)
+        cutname = 'z-jphi-' + cutname
+        title2 = r'z j_{\phi} ' + title2
+
+    return df2, title2, cutname
+
+def process_data_with_cuts( base, dirpath = origin, cut_selected = 1 ):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
         
     Inputs:
@@ -1285,53 +1325,28 @@ def process_data2( base, dirpath = origin ):
         title = title to use in plots, which is derived from base (file basename)
         batsrus = BATSRUS data read by swmfio 
     """
-           
-    df, title = convert_BATSRUS_to_dataframe(base, dirpath)
 
-    # #################################
-    # #################################    
-    # # Cut asymmetric jr vs y lobes
-    # df2 = df.drop( df[np.logical_and(df['jr'].abs() > 0.007, df['y'].abs() < 4)].index)
-    # cut = 'asym-jr-'
-    # title = r'asym j_r ' + title
-    #################################
-    #################################
-    # Cut jphi vs y blob
-    df2 = df.drop( df[np.logical_and(df['jphi'] > 0.007, df['jphi'] < 0.03)].index)
-    cut = 'y-jphi-'
-    title = r'y j_{phi} ' + title
-    # #################################
-    # #################################
-    # # Cut jphi vs z blob
-    # df2 = df.drop( df[np.logical_and(df['jphi'].abs() > 0.007, df['z'].abs() < 2)].index)
-    # cut = 'z-jphi-'
-    # title = r'z j_{phi} ' + title
-    # #################################
-    # #################################
-    # # Cut everything in one dataframe
-    # df2 = df.drop( df[np.logical_and(df['jphi'].abs() > 0.007, df['z'].abs() < 2)].index)
-    # df2 = df2.drop( df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
-    # df2 = df2.drop( df2[np.logical_and(df2['jr'].abs() > 0.007, df2['y'].abs() < 4)].index)
-    # cut = 'all-'
-    # title = 'all ' + title
-    # #################################
-    # #################################
+    # Read BASTRUS file
+    df1, title1 = convert_BATSRUS_to_dataframe(base, dirpath)
+
+    # Perform cuts on BATSRUS data
+    df2, title2, cutname = perform_cuts( df1, title1, cut_selected = cut_selected )
      
     # Do plots...
 
     logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
-    plot_jr_jt_jp_vs_x( df2, title, base, coord = 'x', cut=cut)
-    plot_jr_jt_jp_vs_x( df2, title, base, coord = 'y', cut=cut)
-    plot_jr_jt_jp_vs_x( df2, title, base, coord = 'z', cut=cut)
+    plot_jr_jt_jp_vs_x( df2, title2, base, coord = 'x', cut=cutname)
+    plot_jr_jt_jp_vs_x( df2, title2, base, coord = 'y', cut=cutname)
+    plot_jr_jt_jp_vs_x( df2, title2, base, coord = 'z', cut=cutname)
 
     logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    plot_jp_jp_vs_x( df2, title, base, coord = 'x', cut=cut)
-    plot_jp_jp_vs_x( df2, title, base, coord = 'y', cut=cut)
-    plot_jp_jp_vs_x( df2, title, base, coord = 'z', cut=cut)
+    plot_jp_jp_vs_x( df2, title2, base, coord = 'x', cut=cutname)
+    plot_jp_jp_vs_x( df2, title2, base, coord = 'y', cut=cutname)
+    plot_jp_jp_vs_x( df2, title2, base, coord = 'z', cut=cutname)
 
     return
 
-def process_data_with_cuts( base, dirpath = origin ):
+def process_sum_db_with_cuts( base, dirpath = origin ):
     """Process data in BATSRUS file to create dataframe with calculated quantities,
     but in this case we perform some cuts on the data to isolate high current
     regions.  This cut data is used to determine the fraction of the total B
@@ -1342,53 +1357,44 @@ def process_data_with_cuts( base, dirpath = origin ):
             dirpath + base + '.out'
         dirpath = path to directory containing base
     Outputs:
-        df2 = cumulative sum for input data
-        df2 - df3 = difference for cumulative sums for initial data and asym. jr cut
-        df2 - df4 = difference for cumulative sums for initial data and y jphi cut
-        df2 - df5 = difference for cumulative sums for initial data and z jphi cut
-        df6 = difference for cumulative sums for initial data and all cuts
+        df1 = cumulative sum for input data
+        df1 - df2 = contribution due to points in asym. jr cut
+        df2 - df3 = contribution due to points in y jphi cut
+        df3 - df4 = contribution due to points in z jphi cut
     """
            
-    df2, title = convert_BATSRUS_to_dataframe(base, dirpath)
+    df1, title1 = convert_BATSRUS_to_dataframe(base, dirpath)
    
     logging.info('Creating dataframes with extracted cuts...')
    
     #################################
     #################################    
     # Cut asymmetric jr vs y lobes
-    df3 = df2.drop( df2[np.logical_and(df2['jr'].abs() > 0.007, df2['y'].abs() < 4)].index)
+    df2, title2, cutname2 = perform_cuts( df1, title1, cut_selected = 1 )
     #################################
     #################################
     # Cut jphi vs y blob
-    df4 = df2.drop( df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
+    df3, title3, cutname3 = perform_cuts( df1, title1, cut_selected = 2 )
     #################################
     #################################
     # Cut jphi vs z blob
-    df5 = df2.drop( df2[np.logical_and(df2['jphi'].abs() > 0.007, df2['z'].abs() < 2)].index)
-    #################################
-    #################################
-    # Cut everything in one dataframe
-    df6 = df2.drop( df2[np.logical_and(df2['jphi'].abs() > 0.007, df2['z'].abs() < 2)].index)
-    df6 = df6.drop( df6[np.logical_and(df6['jphi'] > 0.007, df6['jphi'] < 0.03)].index)
-    df6 = df6.drop( df6[np.logical_and(df6['jr'].abs() > 0.007, df6['y'].abs() < 4)].index)
+    df4, title4, cutname4 = perform_cuts( df1, title1, cut_selected = 3 )
     #################################
     #################################
     
     logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
+    df1 = create_cumulative_sum_dataframe( df1 )
     df2 = create_cumulative_sum_dataframe( df2 )
     df3 = create_cumulative_sum_dataframe( df3 )
     df4 = create_cumulative_sum_dataframe( df4 ) 
-    df5 = create_cumulative_sum_dataframe( df5 )
-    df6 = create_cumulative_sum_dataframe( df6 )
 
-    return df2['dBzSum'].iloc[-1], \
+    return df1['dBzSum'].iloc[-1], \
+            df1['dBzSum'].iloc[-1] - df2['dBzSum'].iloc[-1], \
             df2['dBzSum'].iloc[-1] - df3['dBzSum'].iloc[-1], \
-            df2['dBzSum'].iloc[-1] - df4['dBzSum'].iloc[-1], \
-            df2['dBzSum'].iloc[-1] - df5['dBzSum'].iloc[-1], \
-            df6['dBzSum'].iloc[-1]
+            df3['dBzSum'].iloc[-1] - df4['dBzSum'].iloc[-1]
    
-def loop_thru_cuts( files ):
+def loop_sum_db_thru_cuts( files ):
     """Loop thru data in BATSRUS files to create plots showing the effects of
     various cuts on the data.  See process_data_with_cuts for the specific cuts 
     made
@@ -1400,48 +1406,67 @@ def loop_thru_cuts( files ):
         None - other than the plots generated
     """
     
-    from datetime import time 
+    # from datetime import time 
     plt.rcParams["figure.figsize"] = [3.6,3.2]
 
     n = len(files)
     
-    b_all = [None] * n
+    b_original = [None] * n
     b_asym_jr = [None] * n
     b_y_jphi = [None] * n
     b_z_jphi = [None] * n
-    b_rest = [None] * n
+    b_all_cuts = [None] * n
     b_times = [None] * n
     b_index = [None] * n
-    b_test = [None] * n
     
+    # df = pd.DataFrame()
+
     for i in range(n):
+    # for i in range(2):
         # Create the title that we'll use in the graphics
         words = files[i].split('-')
         t = int(words[1])
         h = t//10000
         m = (t%10000) // 100
         logging.info(f'Time: {t} Hours: {h} Minutes: {m}')
-        b_times[i] = time(h, m)
+        b_times[i] = h + m/60
         b_index[i] = i
 
-        b_all[i], b_asym_jr[i], b_y_jphi[i], b_z_jphi[i], b_rest[i] = \
-            process_data_with_cuts(base = files[i])
+        b_original[i], b_asym_jr[i], b_y_jphi[i], b_z_jphi[i] = \
+            process_sum_db_with_cuts(base = files[i])
+        
+        b_all_cuts[i] = b_asym_jr[i] + b_y_jphi[i] + b_z_jphi[i]
     
-        b_test[i] = b_all[i] - b_rest[i] - b_asym_jr[i] - b_y_jphi[i] - b_z_jphi[i]
+    # df['b_all'] = b_all
+    # df['b_asym_jr'] = b_asym_jr
+    # df['b_y_jphi'] = b_y_jphi
+    # df['b_z_jphi'] = b_z_jphi
+    # df['Time'] = b_times
+    # df['b_all_cuts'] = b_asym_jr + b_y_jphi + b_z_jphi
+    
+    # import plotly.express as px
+    
+    # # Plot 
+    # fig = px.Figure()
+    # fig.add_line(df, x='Time', y='b_all', label='All')    
+    # fig.add_line(df, x='Time', y='b_asym_jr', label=r'Asym. $j_r$ cut')
+    # fig.add_line(df, x='Time', y='b_y_jphi', label=r'y $j_\phi$ cut')
+    # fig.add_line(df, x='Time', y='b_z_jphi', label=r'z $j_\phi$ cut')
+    # fig.add_line(df, x='Time', y='b_all_cuts', label=r'All cuts combined')
+    # fig.show()
     
     # from matplotlib.dates import date2num
     # b_plt_times = date2num( np.array(b_times) )
     
-    plt.plot(b_index, b_all,     ls='solid', color='blue')
-    plt.plot(b_index, b_asym_jr, ls='dashed', color='red')
-    plt.plot(b_index, b_y_jphi,  ls='dashdot', color='green')
-    plt.plot(b_index, b_z_jphi,  ls='dotted', color='black')
-    plt.plot(b_index, b_rest,    ls='solid', color='yellow')
-    plt.plot(b_index, b_test,    ls='solid', color='red')
-    plt.xlabel(r'index')
-    plt.ylabel(r'$B_z$')
+    plt.plot(b_times, b_original,ls='solid', color='blue')
+    plt.plot(b_times, b_asym_jr, ls='dashed', color='blue')
+    plt.plot(b_times, b_y_jphi,  ls='dashdot', color='blue')
+    plt.plot(b_times, b_z_jphi,  ls='dotted', color='blue')
+    plt.plot(b_times, b_all_cuts, ls='solid', color='black')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
     plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
-    plt.legend(['All', r'Asym $j_r$', r'y $j_\phi$', r'z $j_\phi$', 'Remainder', 'Test (zero)'])
+    plt.legend(['Original', r'Asym $j_r only$', r'y $j_\phi only$', r'z $j_\phi only$', r'All Cuts'])
     
     return
 
@@ -1507,6 +1532,8 @@ def get_files_unconverted( tgtsubdir = 'png-dBmagNorm-uMag-night',
     l1 = glob.glob( base + '.out')
     
     # Look at the png files in directory
+    if not exists( tgtdir + tgtsubdir ): 
+        makedirs( tgtdir + tgtsubdir )
     os.chdir( tgtdir + tgtsubdir )
     l2 = glob.glob( base + '.png' )
 
@@ -1524,17 +1551,13 @@ def get_files_unconverted( tgtsubdir = 'png-dBmagNorm-uMag-night',
     return l1
 
 if __name__ == "__main__":
-    # files = get_files()
-    files = get_files_unconverted( tgtsubdir = 'png-combined-jxyz-x' )
+    files = get_files()
+    # files = get_files_unconverted( tgtsubdir = 'png-combined-jpp-z-jphi-y-jphi-asym-jr-z' )
     
-    logging.info('Num. of files: ' + str(len(files)))
+    # logging.info('Num. of files: ' + str(len(files)))
  
-    for i in range(len(files)):
-    # for i in range(1):
-        process_data(base = files[i])
-        # process_data2(base = files[i])
-        # process_data_with_cuts(base = files[i])
-        # process_data_dbl_chk(base = files[i])
+    # for i in range(len(files)):
+    #     # process_data(base = files[i])
+    #     process_data_with_cuts(base = files[i], cut_selected = 3)
     
-    # process_data_compare_weigel()
-    # loop_thru_cuts(files)
+    loop_sum_db_thru_cuts(files)

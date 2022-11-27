@@ -858,7 +858,7 @@ def plot_jp_jp_vs_x( df, title, base, coord = 'x', cut='' ):
      """
     
     # Plot jparallel as a function of range x
-    df.plot.scatter(x=coord, y='jparallel', 
+    df.plot.scatter(x=coord, y='jparallelMag', 
                                 ax = plt.subplot(2,4,1),
                                 xlim=[-300,300], 
                                 ylim=j_limits,
@@ -867,7 +867,7 @@ def plot_jp_jp_vs_x( df, title, base, coord = 'x', cut='' ):
                                 title=title, 
                                 s=1)
  
-    df.plot.scatter(x=coord, y='jparallel', 
+    df.plot.scatter(x=coord, y='jparallelMag', 
                                 ax = plt.subplot(2,4,5),
                                 xlim=[-20,20], 
                                 ylim=j_limits,
@@ -892,25 +892,6 @@ def plot_jp_jp_vs_x( df, title, base, coord = 'x', cut='' ):
                                 ylim=j_limits,
                                 xlabel=r'$ ' + coord + '/R_E $', 
                                 ylabel=r'$| j_{\perp} |$', 
-                                title=title, 
-                                s=1)
-
-    # Plot jparallelFrac as a function of range r
-    df.plot.scatter(x=coord, y='jparallelFrac', 
-                                ax = plt.subplot(2,4,3),
-                                xlim=[-300,300], 
-                                ylim=[-1,1],
-                                xlabel=r'$ ' + coord + '/R_E $', 
-                                ylabel=r'$\frac{j_{\parallel}}{| j |}$', 
-                                title=title, 
-                                s=1)
-
-    df.plot.scatter(x=coord, y='jparallelFrac', 
-                                ax = plt.subplot(2,4,7),
-                                xlim=[-20,20], 
-                                ylim=[-1,1],
-                                xlabel=r'$ ' + coord + '/R_E $', 
-                                ylabel=r'$\frac{j_{\parallel}}{| j |}$', 
                                 title=title, 
                                 s=1)
 
@@ -1157,13 +1138,58 @@ def convert_BATSRUS_to_dataframe(base, dirpath = origin):
         
     df['jphi'] = - df['jx'] * np.sin(df['phi']) + df['jy'] * np.cos(df['phi'])
     
+    # Similarly, use dot-products to determine dBr, dBtheta, and dBphi
+    df['dBr'] = df['dBx'] * np.sin(df['theta']) * np.cos(df['phi']) + \
+        df['dBy'] * np.sin(df['theta']) * np.sin(df['phi']) + \
+        df['dBz'] * np.cos(df['theta'])
+      
+    df['dBtheta'] = df['dBx'] * np.cos(df['theta']) * np.cos(df['phi']) + \
+        df['dBy'] * np.cos(df['theta']) * np.sin(df['phi']) - \
+        df['dBz'] * np.sin(df['theta'])
+        
+    df['dBphi'] = - df['dBx'] * np.sin(df['phi']) + df['dBy'] * np.cos(df['phi'])
+ 
     # Use dot product with B/BMag to get j parallel to magnetic field
     # jmag^2 = j parallel^2 + j perpendicular^2 to get jperpendicular
     df['bMag'] = np.sqrt( df['bx']**2 + df['by']**2 + df['bz']**2 )
-    df['jparallel'] = (df['jx'] * df['bx'] + df['jy'] * df['by'] + df['jz'] * df['bz'])/df['bMag']
-    df['jperpendicularMag'] = np.sqrt( df['jMag']**2 - df['jparallel']**2 )
-    df['jparallelFrac'] = df['jparallel'] / df['jMag']
+
+    df['jparallelMag'] = (df['jx'] * df['bx'] + df['jy'] * df['by'] + df['jz'] * df['bz'])/df['bMag']
     
+    df['jparallelx'] = df['jparallelMag'] * df['bx']/df['bMag']
+    df['jparallely'] = df['jparallelMag'] * df['by']/df['bMag']
+    df['jparallelz'] = df['jparallelMag'] * df['bz']/df['bMag']
+    
+    df['jperpendicularMag'] = np.sqrt( df['jMag']**2 - df['jparallelMag']**2 )
+    
+    df['jperpendicularx'] = df['jx'] - df['jparallelx']
+    df['jperpendiculary'] = df['jy'] - df['jparallely']
+    df['jperpendicularz'] = df['jz'] - df['jparallelz']
+
+    # Determine delta B using the parallel and perpendicular currents. They
+    # should sum to the delta B calculated above for the full current, jx, jy, jz
+    df['dBparallelx'] = df['factor']*( df['jparallely']*(Z-df['z']) - df['jparallelz']*(Y-df['y']) )
+    df['dBparallely'] = df['factor']*( df['jparallelz']*(X-df['x']) - df['jparallelx']*(Z-df['z']) )
+    df['dBparallelz'] = df['factor']*( df['jparallelx']*(Y-df['y']) - df['jparallely']*(X-df['x']) )
+
+    df['dBperpendicularx'] = df['factor']*( df['jperpendiculary']*(Z-df['z']) - df['jperpendicularz']*(Y-df['y']) )
+    df['dBperpendiculary'] = df['factor']*( df['jperpendicularz']*(X-df['x']) - df['jperpendicularx']*(Z-df['z']) )
+    df['dBperpendicularz'] = df['factor']*( df['jperpendicularx']*(Y-df['y']) - df['jperpendiculary']*(X-df['x']) )
+        
+    # Divide the parallel currents into two - those parallel and those anti-parallel
+    df['dBparax'] = deepcopy(df['dBparallelx'])
+    df['dBparay'] = deepcopy(df['dBparallely'])
+    df['dBparaz'] = deepcopy(df['dBparallelz'])
+    df['dBparax'][df['jparallelMag'] < 0] = 0
+    df['dBparay'][df['jparallelMag'] < 0] = 0
+    df['dBparaz'][df['jparallelMag'] < 0] = 0
+    
+    df['dBantix'] = deepcopy(df['dBparallelx'])
+    df['dBantiy'] = deepcopy(df['dBparallely'])
+    df['dBantiz'] = deepcopy(df['dBparallelz'])
+    df['dBantix'][df['jparallelMag'] >= 0] = 0
+    df['dBantiy'][df['jparallelMag'] >= 0] = 0
+    df['dBantiz'][df['jparallelMag'] >= 0] = 0
+
     # Create the title that we'll use in the graphics
     words = base.split('-')
     title = 'Time: ' + words[1] + ' (hhmmss)'
@@ -1196,11 +1222,39 @@ def create_cumulative_sum_dataframe( df ):
     df_r['dBxSum'] = df_r['dBx'].cumsum()
     df_r['dBySum'] = df_r['dBy'].cumsum()
     df_r['dBzSum'] = df_r['dBz'].cumsum()
-    df_r['dBxSumMag'] = df_r['dBxSum'].abs()
-    df_r['dBySumMag'] = df_r['dBySum'].abs()
-    df_r['dBzSumMag'] = df_r['dBzSum'].abs()
     df_r['dBSumMag'] = np.sqrt(df_r['dBxSum']**2 + df_r['dBySum']**2 + df_r['dBzSum']**2)
     
+    # Do cumulative sums on currents parallel and perpendicular to the B field
+    df_r['dBparallelxSum'] = df_r['dBparallelx'].cumsum()
+    df_r['dBparallelySum'] = df_r['dBparallely'].cumsum()
+    df_r['dBparallelzSum'] = df_r['dBparallelz'].cumsum()
+    df_r['dBparallelSumMag'] = np.sqrt(df_r['dBparallelxSum']**2 
+                                            + df_r['dBparallelySum']**2 
+                                            + df_r['dBparallelzSum']**2)
+     
+    df_r['dBperpendicularxSum'] = df_r['dBperpendicularx'].cumsum()
+    df_r['dBperpendicularySum'] = df_r['dBperpendiculary'].cumsum()
+    df_r['dBperpendicularzSum'] = df_r['dBperpendicularz'].cumsum()
+    df_r['dBperpendicularSumMag'] = np.sqrt(df_r['dBperpendicularxSum']**2 
+                                            + df_r['dBperpendicularySum']**2 
+                                            + df_r['dBperpendicularzSum']**2)
+    
+    # Do cumulative sums on para and anti currents, which are subsets of the
+    # parallel sum above
+    df_r['dBparaxSum'] = df_r['dBparax'].cumsum()
+    df_r['dBparaySum'] = df_r['dBparay'].cumsum()
+    df_r['dBparazSum'] = df_r['dBparaz'].cumsum()
+    df_r['dBparaSumMag'] = np.sqrt(df_r['dBparaxSum']**2 
+                                            + df_r['dBparaySum']**2 
+                                            + df_r['dBparazSum']**2)
+
+    df_r['dBantixSum'] = df_r['dBantix'].cumsum()
+    df_r['dBantiySum'] = df_r['dBantiy'].cumsum()
+    df_r['dBantizSum'] = df_r['dBantiz'].cumsum()
+    df_r['dBantiSumMag'] = np.sqrt(df_r['dBantixSum']**2 
+                                           + df_r['dBantiySum']**2 
+                                           + df_r['dBantizSum']**2)
+
     return df_r
 
 def process_data( base, dirpath = origin ):
@@ -1229,15 +1283,6 @@ def process_data( base, dirpath = origin ):
     df_day = df[df['x'] >= 0]
     df_night = df[df['x'] < 0]
 
-    # Split the data into j parallel and j anti-parallel
-    logging.info('Creating j parallel/anti-parallel dataframe...')
-    
-    df_para = df[df['jparallel'] >= 0]
-    df_anti = df[df['jparallel'] < 0]
-    
-    df_r_para = create_cumulative_sum_dataframe(df_para)
-    df_r_anti = create_cumulative_sum_dataframe(df_anti)
-
     # Do plots...
 
     # logging.info('Creating dB (Norm) vs r plots...')
@@ -1245,9 +1290,6 @@ def process_data( base, dirpath = origin ):
 
     # logging.info('Creating cumulative sum B vs r plots...')
     # plot_cumulative_B( df_r, title, base )
-    
-    logging.info('Creating cumulative sum B j parallel/anti-parallel vs r plots...')
-    plot_cumulative_B_para_anti( df_r_para, df_r_anti, title, base )
     
     # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
     # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
@@ -1390,9 +1432,31 @@ def process_sum_db_with_cuts( base, dirpath = origin ):
     df4 = create_cumulative_sum_dataframe( df4 ) 
 
     return df1['dBzSum'].iloc[-1], \
+            df1['dBparazSum'].iloc[-1], \
+            df1['dBantizSum'].iloc[-1], \
+            df1['dBparallelzSum'].iloc[-1], \
+            df1['dBperpendicularzSum'].iloc[-1], \
             df1['dBzSum'].iloc[-1] - df2['dBzSum'].iloc[-1], \
+            df1['dBparazSum'].iloc[-1] - df2['dBparazSum'].iloc[-1], \
+            df1['dBantizSum'].iloc[-1] - df2['dBantizSum'].iloc[-1], \
+            df1['dBparallelzSum'].iloc[-1] - df2['dBparallelzSum'].iloc[-1], \
+            df1['dBperpendicularzSum'].iloc[-1] - df2['dBperpendicularzSum'].iloc[-1], \
             df2['dBzSum'].iloc[-1] - df3['dBzSum'].iloc[-1], \
-            df3['dBzSum'].iloc[-1] - df4['dBzSum'].iloc[-1]
+            df2['dBparazSum'].iloc[-1] - df3['dBparazSum'].iloc[-1], \
+            df2['dBantizSum'].iloc[-1] - df3['dBantizSum'].iloc[-1], \
+            df2['dBparallelzSum'].iloc[-1] - df3['dBparallelzSum'].iloc[-1], \
+            df2['dBperpendicularzSum'].iloc[-1] - df3['dBperpendicularzSum'].iloc[-1], \
+            df3['dBzSum'].iloc[-1] - df4['dBzSum'].iloc[-1], \
+            df3['dBparazSum'].iloc[-1] - df4['dBparazSum'].iloc[-1], \
+            df3['dBantizSum'].iloc[-1] - df4['dBantizSum'].iloc[-1], \
+            df3['dBparallelzSum'].iloc[-1] - df4['dBparallelzSum'].iloc[-1], \
+            df3['dBperpendicularzSum'].iloc[-1] - df4['dBperpendicularzSum'].iloc[-1], \
+            df4['dBzSum'].iloc[-1], \
+            df4['dBparazSum'].iloc[-1], \
+            df4['dBantizSum'].iloc[-1], \
+            df4['dBparallelzSum'].iloc[-1], \
+            df4['dBperpendicularzSum'].iloc[-1]               
+
    
 def loop_sum_db_thru_cuts( files ):
     """Loop thru data in BATSRUS files to create plots showing the effects of
@@ -1405,68 +1469,145 @@ def loop_sum_db_thru_cuts( files ):
     Outputs:
         None - other than the plots generated
     """
-    
-    # from datetime import time 
     plt.rcParams["figure.figsize"] = [3.6,3.2]
 
     n = len(files)
     
     b_original = [None] * n
+    b_original_para = [None] * n
+    b_original_anti = [None] * n
+    b_original_parallel = [None] * n
+    b_original_perp = [None] * n
     b_asym_jr = [None] * n
+    b_asym_jr_para = [None] * n
+    b_asym_jr_anti = [None] * n
+    b_asym_jr_parallel = [None] * n
+    b_asym_jr_perp = [None] * n
     b_y_jphi = [None] * n
+    b_y_jphi_para = [None] * n
+    b_y_jphi_anti = [None] * n
+    b_y_jphi_parallel = [None] * n
+    b_y_jphi_perp = [None] * n
     b_z_jphi = [None] * n
-    b_all_cuts = [None] * n
+    b_z_jphi_para = [None] * n
+    b_z_jphi_anti = [None] * n
+    b_z_jphi_parallel = [None] * n
+    b_z_jphi_perp = [None] * n
+    b_residual = [None] * n
+    b_residual_para = [None] * n
+    b_residual_anti = [None] * n
+    b_residual_parallel = [None] * n
+    b_residual_perp = [None] * n
     b_times = [None] * n
     b_index = [None] * n
     
-    # df = pd.DataFrame()
-
     for i in range(n):
-    # for i in range(2):
+    # for i in range(4):
         # Create the title that we'll use in the graphics
         words = files[i].split('-')
+
+        # Convert time to a float
         t = int(words[1])
         h = t//10000
         m = (t%10000) // 100
         logging.info(f'Time: {t} Hours: {h} Minutes: {m}')
+ 
+        # Record time and index for plots
         b_times[i] = h + m/60
         b_index[i] = i
 
-        b_original[i], b_asym_jr[i], b_y_jphi[i], b_z_jphi[i] = \
-            process_sum_db_with_cuts(base = files[i])
-        
-        b_all_cuts[i] = b_asym_jr[i] + b_y_jphi[i] + b_z_jphi[i]
+        # Get the values of various cuts on the data.  We want the sums for the 
+        # main components of the field - the complete field, para and anti are subsets 
+        # of parallel component, parallel (aka para+anti), and perpendicular
+        # 
+        b_original[i], b_original_para[i], b_original_anti[i], b_original_parallel[i], b_original_perp[i], \
+            b_asym_jr[i], b_asym_jr_para[i], b_asym_jr_anti[i], b_asym_jr_parallel[i], b_asym_jr_perp[i], \
+            b_y_jphi[i], b_y_jphi_para[i], b_y_jphi_anti[i], b_y_jphi_parallel[i], b_y_jphi_perp[i], \
+            b_z_jphi[i], b_z_jphi_para[i], b_z_jphi_anti[i], b_z_jphi_parallel[i], b_z_jphi_perp[i], \
+            b_residual[i], b_residual_para[i], b_residual_anti[i], b_residual_parallel[i], b_residual_perp[i] = \
+                process_sum_db_with_cuts(base = files[i])
     
-    # df['b_all'] = b_all
-    # df['b_asym_jr'] = b_asym_jr
-    # df['b_y_jphi'] = b_y_jphi
-    # df['b_z_jphi'] = b_z_jphi
-    # df['Time'] = b_times
-    # df['b_all_cuts'] = b_asym_jr + b_y_jphi + b_z_jphi
-    
-    # import plotly.express as px
-    
-    # # Plot 
-    # fig = px.Figure()
-    # fig.add_line(df, x='Time', y='b_all', label='All')    
-    # fig.add_line(df, x='Time', y='b_asym_jr', label=r'Asym. $j_r$ cut')
-    # fig.add_line(df, x='Time', y='b_y_jphi', label=r'y $j_\phi$ cut')
-    # fig.add_line(df, x='Time', y='b_z_jphi', label=r'z $j_\phi$ cut')
-    # fig.add_line(df, x='Time', y='b_all_cuts', label=r'All cuts combined')
-    # fig.show()
-    
-    # from matplotlib.dates import date2num
-    # b_plt_times = date2num( np.array(b_times) )
-    
-    plt.plot(b_times, b_original,ls='solid', color='blue')
+    plt.figure()
+    plt.plot(b_times, b_original,ls='solid', color='black')
     plt.plot(b_times, b_asym_jr, ls='dashed', color='blue')
     plt.plot(b_times, b_y_jphi,  ls='dashdot', color='blue')
     plt.plot(b_times, b_z_jphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_all_cuts, ls='solid', color='black')
+    plt.plot(b_times, b_residual, ls='solid', color='blue')
     plt.xlabel(r'Time (hr)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
     plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
-    plt.legend(['Original', r'Asym $j_r only$', r'y $j_\phi only$', r'z $j_\phi only$', r'All Cuts'])
+    plt.legend(['Original', r'Asym $j_r$ only', r'y $j_\phi$ only', r'z $j_\phi$ only', r'Residual'])
+    
+    plt.figure()
+    plt.plot(b_times, b_original,ls='solid', color='black')
+    plt.plot(b_times, b_original_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_original_perp,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
+    plt.legend(['Original', r'Parallel', r'Perpendicular'])
+    
+    plt.figure()
+    plt.plot(b_times, b_asym_jr,ls='solid', color='black')
+    plt.plot(b_times, b_asym_jr_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_asym_jr_perp,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
+    plt.legend([r'Asymmetric $j_r$', r'Parallel', r'Perpendicular'])
+    
+    plt.figure()
+    plt.plot(b_times, b_y_jphi,ls='solid', color='black')
+    plt.plot(b_times, b_y_jphi_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_y_jphi_perp,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
+    plt.legend([r'y $j_{\phi}$', r'Parallel', r'Perpendicular'])
+    
+    plt.figure()
+    plt.plot(b_times, b_z_jphi,ls='solid', color='black')
+    plt.plot(b_times, b_z_jphi_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_z_jphi_perp,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
+    plt.legend([r'z $j_{\phi}$', r'Parallel', r'Perpendicular'])
+    
+    plt.figure()
+    plt.plot(b_times, b_residual,ls='solid', color='black')
+    plt.plot(b_times, b_residual_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_residual_perp,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(-dB_sum_limits[1],dB_sum_limits[1])
+    plt.legend([r'Residual', r'Parallel', r'Perpendicular'])
+    
+    plt.figure()
+    plt.plot(b_original_para, b_original_anti,ls='solid', color='blue')
+    plt.xlabel(r'Original $B_z$ Parallel')
+    plt.ylabel(r'Original $B_z$ Anti-Parallel')
+    
+    plt.figure()
+    plt.plot(b_asym_jr_para, b_asym_jr_anti,ls='solid', color='blue')
+    plt.xlabel(r'Asym $j_r$ $B_z$ Parallel')
+    plt.ylabel(r'Asym $j_r$ $B_z$ Anti-Parallel')
+    
+    plt.figure()
+    plt.plot(b_y_jphi_para, b_y_jphi_anti,ls='solid', color='blue')
+    plt.xlabel(r'y $j_\phi$ $B_z$ Parallel')
+    plt.ylabel(r'y $j_\phi$ $B_z$ Anti-Parallel')
+    
+    plt.figure()
+    plt.plot(b_z_jphi_para, b_z_jphi_anti,ls='solid', color='blue')
+    plt.xlabel(r'z $j_\phi$ $B_z$ Parallel')
+    plt.ylabel(r'z $j_\phi$ $B_z$ Anti-Parallel')
+    
+    plt.figure()
+    plt.plot(b_residual_para, b_residual_anti,ls='solid', color='blue')
+    plt.xlabel(r'Residual $B_z$ Parallel')
+    plt.ylabel(r'Residual $B_z$ Anti-Parallel')
+    
     
     return
 

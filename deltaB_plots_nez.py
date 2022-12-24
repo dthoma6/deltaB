@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.
 # -*- coding: utf-8 -*-
 """
 Created on Thu Sep 15 09:42:06 2022
@@ -7,8 +7,13 @@ Created on Thu Sep 15 09:42:06 2022
 """
 ################################################################################
 ################################################################################
-# Derived from deltaB_plots.py. Only signficant difference is rather than
-# plotting B in x,y,z components, its in north-east-zenith coordinates
+# Derived from deltaB_plots.py. Most signficant difference is rather than
+# plotting B in x,y,z components, its in north-east-zenith coordinates.
+#
+# Also refactored plotting code to use plot_2x4() routine below.  Reduced number
+# of lines of code by 25%
+#
+# matplotlib was slow, so converted plotting to VTK
 ################################################################################
 ################################################################################
 
@@ -19,7 +24,6 @@ Created on Thu Sep 15 09:42:06 2022
 # https://ccmc.gsfc.nasa.gov/RoR_WWW/GM/SWMF/2013/Brian_Curtis_042213_7/Brian_Curtis_042213_7_sw.gif
 #
 
-# origin and target define where input data and output plots are stored
 import logging
 from copy import deepcopy
 import swmfio
@@ -28,33 +32,92 @@ from os.path import exists
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-origin = '/Volumes/Physics HD v2/divB_simple1/GM/'
-target = '/Volumes/Physics HD v2/divB_simple1/plots/'
+from collections import namedtuple
+
+COLABA = True
+
+# origin and target define where input data and output plots are stored
+if COLABA:
+    origin = '/Volumes/Physics HD v2/runs/DIPTSUR2/GM/IO2/'
+    target = '/Volumes/Physics HD v2/runs/DIPTSUR2/plots/'
+else:
+    origin = '/Volumes/Physics HD v2/divB_simple1/GM/'
+    target = '/Volumes/Physics HD v2/divB_simple1/plots/'
 
 # rCurrents define range from earth center below which results are not valid
 # measured in Re units
-rCurrents = 3
+if COLABA:
+    rCurrents = 1.8
+else:
+    rCurrents = 3
 
-# Initialize useful variables
-#(X,Y,Z) = (1.0, 0.0, 0.0)
+# Range of values seen in each variable, used to plot graphs
+if COLABA:
+    rlog_limits = [1, 1000]
+    r_limits = [0, 300]
+    rho_limits = [10**-2, 10**4]
+    p_limits = [10**-5, 10**3]
+    jMag_limits = [10**-11, 10**1]
+    j_limits = [-1, 1]
+    jcdf_limits = [-0.1, 0.1]
+    uMag_limits = [10**-3, 10**4]
+    u_limits = [-1100, 1100]
+    dBNorm_limits = [10**-15, 10**-1]
 
-# range of values seen in each variable, used to plot graphs
-rho_limits = [10**-2, 10**2]
-p_limits = [10**-5, 10**2]
-jMag_limits = [10**-11, 10**0]
-j_limits = [-0.3, 0.3]
-uMag_limits = [10**-3, 10**4]
-u_limits = [-1100, 1100]
-dBNorm_limits = [10**-15, 10**-1]
+    dBx_sum_limits = [-1500, 1500]
+    dBy_sum_limits = [-1500, 1500]
+    dBz_sum_limits = [-1500, 1500]
+    dBp_sum_limits = [-1500, 1500]
+    dB_sum_limits = [0, 1500]
+    dB_sum_limits2 = [-1200,200]
 
-dBx_sum_limits = [-0.4, 0.4]
-dBy_sum_limits = [-0.4, 0.4]
-dBz_sum_limits = [-50, 50]
-dBp_sum_limits = [-50, 50]
-dB_sum_limits = [0, 50]
+    plot3d_limits = [-10, 10]
+    xyz_limits = [-300, 300]
+    xyz_limits_small = [-20, 20]
+    
+    vmin = 0.02
+    vmax = 0.5
 
-plot3d_limits = [-10, 10]
+else:
+    rlog_limits = [1, 1000]
+    r_limits = [0, 300]
+    rho_limits = [10**-2, 10**2]
+    p_limits = [10**-5, 10**2]
+    jMag_limits = [10**-11, 10**0]
+    j_limits = [-0.3, 0.3]
+    jcdf_limits = [-0.1, 0.1]
+    uMag_limits = [10**-3, 10**4]
+    u_limits = [-1100, 1100]
+    dBNorm_limits = [10**-15, 10**-1]
+    
+    dBx_sum_limits = [-0.4, 0.4]
+    dBy_sum_limits = [-0.4, 0.4]
+    dBz_sum_limits = [-50, 50]
+    dBp_sum_limits = [-50, 50]
+    dB_sum_limits = [0, 50]
+    dB_sum_limits2 = [0, 50]
+    
+    plot3d_limits = [-10, 10]
+    xyz_limits = [-300, 300]
+    xyz_limits_small = [-20, 20]
+    
+    vmin = 0.007
+    vmax = 0.30
 
+
+# Range of values for cuts
+if COLABA:
+    cut1_jrmin = 0.02
+    cut2_jphimin = 0.02
+    cut2_rmin = 5 # 4 originally
+    cut3_jphimin = 0.02
+else:
+    cut1_jrmin = 0.007
+    cut1_y = 4
+    cut2_jphimin = 0.007
+    cut2_jphimax = 0.03
+    cut3_jphimin = 0.007
+    cut3_z = 2
 
 # Setup logging
 logging.basicConfig(
@@ -70,45 +133,67 @@ plt.rcParams["figure.dpi"] = 300
 plt.rcParams['font.size'] = 7
 plt.rcParams['axes.grid'] = True
 
+# Create namedtuple used to draw multiple plots
+#   df = dataframe with data quick
+#   x, y = names of columns in dataframe to be plotted
+#   logx, logy = Boolean, use log scale in plot
+#   xlabel, ylabel = labels for axes
+#   xlim, ylim = limits of axes
+#   title = plot title
+plotargs = namedtuple('plotargs', ['df',
+                                   'x', 'y',
+                                   'logx', 'logy',
+                                   'xlabel', 'ylabel',
+                                   'xlim', 'ylim',
+                                   'title'])
+
+##############################################################################
+##############################################################################
+# nez from weigel
+# https://github.com/rweigel/magnetovis/blob/newapi2/magnetovis/Sources/BATSRUS_dB_demo.py#L45
+##############################################################################
+##############################################################################
 
 def nez(time, pos, csys):
-    """Unit vectors in geographic north, east, and zenith directions
-    from Weigel"""
+  """Unit vectors in geographic north, east, and zenith dirs"""
 
-    from hxform import hxform as hx
-    import numpy as np
+  from hxform import hxform as hx
 
-    # z axis in geographic
-    Z = hx.transform(np.array([0, 0, 1]), time, 'GEO', csys, lib='cxform')
+  # Geographic z axis in csys
+  Z = hx.transform(np.array([0, 0, 1]), time, 'GEO', csys, lib='cxform')
 
-    # zenith direction ("up")
-    z_geo = pos/np.linalg.norm(pos)
+  # zenith direction ("up")
+  z_geo = pos/np.linalg.norm(pos)
 
-    e_geo = np.cross(z_geo, Z)
-    e_geo = e_geo/np.linalg.norm(e_geo)
+  e_geo = np.cross(Z, z_geo)
+  e_geo = e_geo/np.linalg.norm(e_geo)
 
-    n_geo = np.cross(e_geo, z_geo)
-    n_geo = n_geo/np.linalg.norm(n_geo)
+  # n_geo = np.cross(z_geo, e_geo)
+  n_geo = np.cross(z_geo, e_geo)
+  n_geo = n_geo/np.linalg.norm(n_geo)
 
-    return n_geo, e_geo, z_geo
+  # print(f"Unit vectors for Geographic N, E, and Z in {csys}:")
+  # print(f"North: {n_geo}")
+  # print(f"East:  {e_geo}")
+  # print(f"Z:     {z_geo}")
 
+  return n_geo, e_geo, z_geo
 
-def create_directory(folder):
+def create_directory( folder ):
     """ If directory for output files does not exist, create it
-
+    
     Inputs:
         folder = basename of folder.  Complete path to folder is:
             target + folder
     Outputs:
         None 
      """
-
+    
     logging.info('Looking for directory: ' + target + folder)
     if not exists(target + folder):
         logging.info('Creating directory: ' + target + folder)
         makedirs(target + folder)
     return
-
 
 def date_time(file):
     """Pull date and time from file basename
@@ -135,9 +220,307 @@ def date_time(file):
 
     return y, n, d, h, m, s
 
+def get_files(orgdir=origin, base='3d__*'):
+    """Create a list of files that we will process.  Look in the basedir directory,
+    and get list of file basenames.
+
+    Inputs:
+        base = start of BATSRUS files including wildcards.  Complete path to file is:
+            dirpath + base + '.out'
+        orgdir = path to directory containing input files
+    Outputs:
+        l = list of file basenames.
+    """
+    import os
+    import glob
+
+    # Create a list of files that we will process
+    # Look in the basedir directory.  Get list of file basenames
+
+    # In this version, we find all of the base + '.out' files
+    # and retrieve their basenames
+    os.chdir(orgdir)
+
+    l1 = glob.glob(base + '.out')
+
+    # Strip off extension
+    for i in range(len(l1)):
+        l1[i] = (l1[i].split('.'))[0]
+
+    # Colaba incliudes 697 files, reduce the number by
+    # accepting those only every 15 minutes
+    if COLABA: 
+        l2 = deepcopy(l1) 
+        for i in range(len(l2)):
+            y,n,d,h,m,s = date_time(l2[i])
+            if( m % 15 != 0 ):
+                l1.remove(l2[i])
+
+    l1.sort()
+
+    return l1
+
+def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
+                          orgdir=origin, tgtdir=target, base='3d__*'):
+    """Create a list of files that we will process.  This routine is used when
+    some files have been process and others have not, e.g., the program crashed.
+    Since the output files of other routines use the same basenames as the output
+    files, we compare the files in the input directory (orgdir) to those in the
+    output directory (tgtdir).  From this, we create a list of unprocessed files.
+
+    Inputs:
+        base = start of BATSRUS files including wildcards.  Complete path to file is:
+            dirpath + base + '.out'
+        orgdir = path to directory containing input files
+        tgtdir = path to directory containing output files
+        tgtsubdir = the tgtdir contains multiple subdirectories containing output
+            files from various routines.  tgtdir + tgtsubdir is the name of the
+            directory with the output files that we will compare
+    Outputs:
+        l = list of file basenames
+    """
+    import os
+    import glob
+
+    # In this routine we compare the list of .out input files and .png files
+    # to determine what has already been processed.  Look at all *.out
+    # files and remove from the list (l1) all of the files that already have
+    # been converted to .png files.  The unremoved files are unconverted files.
+
+    os.chdir(orgdir)
+    l1 = glob.glob(base + '.out')
+
+    # Look at the png files in directory
+    if not exists(tgtdir + tgtsubdir):
+        makedirs(tgtdir + tgtsubdir)
+    os.chdir(tgtdir + tgtsubdir)
+    l2 = glob.glob(base + '.png')
+
+    for i in range(len(l1)):
+        l1[i] = (l1[i].split('.'))[0]
+
+    for i in range(len(l2)):
+        l2[i] = (l2[i].split('.'))[0]
+
+    for i in l2:
+        l1.remove(i)
+
+    # Colaba incliudes 697 files, reduce the number by
+    # accepting those only every 15 minutes
+    if COLABA: 
+        l3 = deepcopy(l1) 
+        for i in range(len(l3)):
+            y,n,d,h,m,s = date_time(l3[i])
+            if( m % 15 != 0 ):
+                l1.remove(l3[i])
+
+    l1.sort()
+
+    return l1
+
+# def plot_2x4(base, suffix, plots, cols=4, rows=2 ):
+#     """Plot 2 rows of 4 plots each (8 plots total).  
+
+#     Inputs:
+#         tgt = .
+#         base = basename of file used to create file name for plot.  base is
+#             derived from file with BATSRUS data.
+#         suffix = suffix is used to generate file names and subdirectory.
+#             Plots are saved in target + suffix directory, target is the 
+#             overarching directory for all plots.  It contains subdirectories
+#             (suffix) where different types of plots are saved
+#         plots = a list of plotargs namedtuples that have the plot parameters
+#     Outputs:
+#         None - other than the figures that are saved to files
+#      """
+#     assert( len(plots) > 0 and len(plots) <= cols*rows )
+    
+#     for i in range(len(plots)):
+#        if( plots[i] != None): 
+#            plots[i].df.plot.scatter(x=plots[i].x, y=plots[i].y, 
+#                                     ax = plt.subplot(rows,cols,i+1),
+#                                     logx=plots[i].logx, 
+#                                     logy=plots[i].logy, 
+#                                     xlim=plots[i].xlim, 
+#                                     ylim=plots[i].ylim,
+#                                     xlabel=plots[i].xlabel, 
+#                                     ylabel=plots[i].ylabel, 
+#                                     title=plots[i].title, 
+#                                     s=1)
+
+
+#     fig = plt.gcf()
+#     create_directory(suffix +'/')
+#     logging.info(f'Saving {base} {suffix} plot')
+#     fig.savefig(target + suffix + '/' + base + '.out.' + suffix + '.png')
+#     plt.close(fig)
+
+#     return
+
+from vtkmodules.vtkChartsCore import (
+    vtkAxis,
+    vtkChart,
+    vtkChartXY,
+    vtkPlotPoints
+)
+from vtk import vtkPen
+from vtkmodules.vtkCommonColor import vtkNamedColors
+# from vtkmodules.vtkCommonCore import vtkFloatArray
+from vtkmodules.vtkCommonDataModel import vtkTable
+from vtkmodules.vtkRenderingContext2D import (
+    vtkContextActor,
+    vtkContextScene
+)
+from vtkmodules.vtkRenderingCore import (
+    vtkRenderWindow,
+    # vtkRenderWindowInteractor,
+    vtkRenderer
+)
+from vtk.util import numpy_support as ns
+from vtk import vtkRenderLargeImage, vtkPNGWriter
+
+def plot_NxM(base, suffix, plots, cols=4, rows=2, plottype='scatter' ):
+    """Plot 2 rows of 4 plots each (8 plots total).  
+
+    Inputs:
+        tgt = .
+        base = basename of file used to create file name for plot.  base is
+            derived from file with BATSRUS data.
+        suffix = suffix is used to generate file names and subdirectory.
+            Plots are saved in target + suffix directory, target is the 
+            overarching directory for all plots.  It contains subdirectories
+            (suffix) where different types of plots are saved
+        plots = a list of plotargs namedtuples that have the plot parameters
+    Outputs:
+        None - other than the figures that are saved to files
+     """
+    assert( len(plots) > 0 and len(plots) <= cols*rows )
+    assert( plottype == 'scatter' or plottype == 'line' )
+
+    colors = vtkNamedColors()
+
+    renwin = vtkRenderWindow()
+    renwin.SetWindowName('MultiplePlots')
+    renwin.OffScreenRenderingOn()
+
+    # Setup the viewports
+    renderer_sz_x = 600 * cols
+    renderer_sz_y = 600 * rows
+    renwin.SetSize(renderer_sz_x, renderer_sz_y)
+
+    # Set up viewports, each plot in plots is drawn in a different viewpot
+    # The goal is to have a set of side-by-side plots in rows and columns
+    viewports = list()
+    for row in range(rows):
+        for col in range(cols):
+            viewports.append([float(col) / cols,
+                              float(rows - (row + 1)) / rows,
+                              float(col + 1) / cols,
+                              float(rows - row) / rows])    
+
+    # Link the renderers to the viewports and create the charts
+    renderers = list()
+    charts = list()
+    scenes = list()
+    actors = list()
+    tables = list()
+    x_axes = list()
+    y_axes = list()
+    x_arrays = list()
+    y_arrays = list()
+    points = list()
+    
+    for i in  range( len(plots) ):
+        if( plots[i] != None ):
+            # Create renderer for each chart
+            renderers.append( vtkRenderer() )
+            renderers[-1].SetBackground( colors.GetColor3d('White') )
+            renderers[-1].SetViewport( viewports[i] )
+            renwin.AddRenderer( renderers[-1] )
+    
+            # Create chart along with the scene and actor for it.  THe generic 
+            # flow is chart -> scene -> actor -> renderer -> renderwindow
+            charts.append( vtkChartXY() )
+            scenes.append( vtkContextScene() )
+            actors.append( vtkContextActor() )
+        
+            scenes[-1].AddItem(charts[-1])
+            actors[-1].SetScene(scenes[-1])
+            renderers[-1].AddActor(actors[-1])
+            scenes[-1].SetRenderer(renderers[-1])
+            
+            # Set up characteristics of x and y axes - color, the titles, and
+            # that we will fix the range.  The actual value for the ranges will
+            # be set below.
+            x_axes.append( charts[-1].GetAxis( vtkAxis.BOTTOM ) )
+            x_axes[-1].GetGridPen().SetColor( colors.GetColor4ub( "LightGrey" ) )
+            x_axes[-1].SetTitle( plots[i].xlabel )
+            x_axes[-1].SetBehavior(vtkAxis.FIXED)
+             
+            y_axes.append( charts[-1].GetAxis(vtkAxis.LEFT) )
+            y_axes[-1].GetGridPen().SetColor( colors.GetColor4ub( "LightGrey" ) )
+            y_axes[-1].SetTitle( plots[i].ylabel )
+            y_axes[-1].SetBehavior(vtkAxis.FIXED)
+            
+            # Set title for chart
+            charts[-1].SetTitle( plots[i].title )
+    
+            # Store the data to be plotted in a vtkTable, the data is taken 
+            # from the dataframe in plots, and will be graphed in the associated chart
+            tables.append( vtkTable() ) 
+            
+            x_arrays.append( ns.numpy_to_vtk( (plots[i].df)[ plots[i].x ].to_numpy() ) )
+            x_arrays[-1].SetName( plots[i].xlabel )
+            tables[-1].AddColumn( x_arrays[-1] )
+  
+            y_arrays.append( ns.numpy_to_vtk( (plots[i].df)[ plots[i].y ].to_numpy() ) )
+            y_arrays[-1].SetName( plots[i].ylabel )
+            tables[-1].AddColumn( y_arrays[-1] )
+            
+            # As appropriate, use log scales and set the min/max values for the
+            # axes
+            if( plots[i].logx ):
+                x_axes[-1].LogScaleOn()
+            x_axes[-1].SetMinimum( plots[i].xlim[0] )
+            x_axes[-1].SetMaximum( plots[i].xlim[1] )
+
+            if( plots[i].logy ):
+                y_axes[-1].LogScaleOn()
+            y_axes[-1].SetMinimum( plots[i].ylim[0] )
+            y_axes[-1].SetMaximum( plots[i].ylim[1] )
+
+            # Either plot a scatter plot or a line graph
+            if plottype == 'scatter':
+                points.append( charts[-1].AddPlot( vtkChart.POINTS ) )
+                points[-1].SetMarkerStyle(vtkPlotPoints.CIRCLE)
+            else:  
+                points.append( charts[-1].AddPlot( vtkChart.LINE ) )
+                points[-1].GetPen().SetLineType( vtkPen.SOLID_LINE )
+            points[-1].SetInputData(tables[-1], 0, 1)
+            points[-1].SetColor(*colors.GetColor4ub('Blue'))
+            points[-1].SetWidth(1.0)
+            points[-1].SetMarkerSize(0.1)
+    
+    # Now that the charts are set up, render the graphs
+    renwin.Render()
+
+    # Store the graphic in a file.
+    create_directory(suffix +'/')
+    logging.info(f'Saving {base} {suffix} plot')
+    fn=target + suffix + '/' + base + '.out.' + suffix + '.png'
+    
+    renLgeIm = vtkRenderLargeImage()
+    imgWriter = vtkPNGWriter()
+    renLgeIm.SetInput( renwin.GetRenderers().GetFirstRenderer() )
+    renLgeIm.SetMagnification(1)
+    imgWriter.SetInputConnection( renLgeIm.GetOutputPort() )
+    imgWriter.SetFileName(fn)
+    imgWriter.Write()
+    
+    return
 
 def plot_db_Norm_r(df, title, base):
-    """Plot various forms of the magnitude of dB in each cell versus radius r.
+    """Plot components and magnitude of dB in each cell versus radius r.
     In this procedure, the dB values are normalized by cell volume
 
     Inputs:
@@ -147,47 +530,27 @@ def plot_db_Norm_r(df, title, base):
     Outputs:
         None 
      """
+     
+    plots = [None] * 4
+    
+    plots[0] = plotargs(df, 'r', 'dBxNorm', False, True, 
+                        r'$r/R_E$', r'$| \delta B_x |$ (Norm Cell Vol)', 
+                        r_limits, dBNorm_limits, title)
+    plots[1] = plotargs(df, 'r', 'dByNorm', False, True, 
+                        r'$r/R_E$', r'$| \delta B_y |$ (Norm Cell Vol)', 
+                        r_limits, dBNorm_limits, title)
+    plots[2] = plotargs(df, 'r', 'dBzNorm', False, True, 
+                        r'$r/R_E$', r'$| \delta B_z |$ (Norm Cell Vol)', 
+                        r_limits, dBNorm_limits, title)
+    plots[3] = plotargs(df, 'r', 'dBmagNorm', False, True, 
+                        r'$r/R_E$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        r_limits, dBNorm_limits, title)
 
-    # Plot dB (normalized by cell volume) as a function of range r
-    plt.subplot(2, 4, 1).scatter(x=df['r'], y=df['dBxNorm'], s=1)
-    plt.yscale("log")
-    plt.xlabel(r'$r/R_E$')
-    plt.ylabel(r'$| \delta B_x |$ (Norm Cell Vol)')
-    plt.title(title)
-    plt.ylim(10**-15, 10**-1)
-
-    plt.subplot(2, 4, 2).scatter(x=df['r'], y=df['dByNorm'], s=1)
-    plt.yscale("log")
-    plt.xlabel(r'$r/R_E$')
-    plt.ylabel(r'$| \delta B_y |$ (Norm Cell Vol)')
-    plt.title(title)
-    plt.ylim(10**-15, 10**-1)
-
-    plt.subplot(2, 4, 3).scatter(x=df['r'], y=df['dBzNorm'], s=1)
-    plt.yscale("log")
-    plt.xlabel(r'$r/R_E$')
-    plt.ylabel(r'$| \delta B_z |$ (Norm Cell Vol)')
-    plt.title(title)
-    plt.ylim(10**-15, 10**-1)
-
-    plt.subplot(2, 4, 4).scatter(x=df['r'], y=df['dBmagNorm'], s=1)
-    plt.yscale("log")
-    plt.xlabel(r'$r/R_E$')
-    plt.ylabel(r'$| \delta B |$ (Norm Cell Vol)')
-    plt.title(title)
-    plt.ylim(10**-15, 10**-1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-dBNorm-r/')
-    logging.info(f'Saving {base} combined dBNorm plot')
-    fig.savefig(target + 'png-combined-dBNorm-r/' +
-                base + '.out.combined-dBNorm-r.png')
-    plt.close(fig)
-
+    plot_NxM(base, 'png-dBNorm-r', plots, cols=4, rows=1 )
+    
     return
 
-
-def plot_dBnorm_day_night(df_day, df_night, title, base):
+def plot_dBnorm_various_day_night(df_day, df_night, title, base):
     """Plot dBmagNorm vs rho, p, magnitude of j, and magnitude of u in each cell.  
 
     Inputs:
@@ -201,109 +564,38 @@ def plot_dBnorm_day_night(df_day, df_night, title, base):
         None 
      """
 
-    # Plot dBmagNorm as a function of rho
-    df_day.plot.scatter(x='rho', y='dBmagNorm',
-                        ax=plt.subplot(2, 4, 1),
-                        logx=True,
-                        logy=True,
-                        xlim=rho_limits,
-                        ylim=dBNorm_limits,
-                        xlabel=r'$\rho$',
-                        ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                        title='Day ' + title,
-                        s=1)
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df_day, 'rho', 'dBmagNorm', True, True, 
+                        r'$\rho$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        rho_limits, dBNorm_limits, 'Day ' + title)
+    plots[1] = plotargs(df_day, 'p', 'dBmagNorm', True, True, 
+                        r'$p$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        p_limits, dBNorm_limits, 'Day ' + title)
+    plots[2] = plotargs(df_day, 'jMag', 'dBmagNorm', True, True, 
+                        r'$| j |$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        jMag_limits, dBNorm_limits, 'Day ' + title)
+    plots[3] = plotargs(df_day, 'uMag', 'dBmagNorm', True, True, 
+                        r'$| u |$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        uMag_limits, dBNorm_limits, 'Day ' + title)
+    plots[4] = plotargs(df_night, 'rho', 'dBmagNorm', True, True, 
+                        r'$\rho$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        rho_limits, dBNorm_limits, 'Night ' + title)
+    plots[5] = plotargs(df_night, 'p', 'dBmagNorm', True, True, 
+                        r'$p$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        p_limits, dBNorm_limits, 'Night ' + title)
+    plots[6] = plotargs(df_night, 'jMag', 'dBmagNorm', True, True, 
+                        r'$| j |$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        jMag_limits, dBNorm_limits, 'Night ' + title)
+    plots[7] = plotargs(df_night, 'uMag', 'dBmagNorm', True, True, 
+                        r'$| u |$', r'$| \delta B |$ (Norm Cell Vol)', 
+                        uMag_limits, dBNorm_limits, 'Night ' + title)
 
-    df_night.plot.scatter(x='rho', y='dBmagNorm',
-                          ax=plt.subplot(2, 4, 5),
-                          logx=True,
-                          logy=True,
-                          xlim=rho_limits,
-                          ylim=dBNorm_limits,
-                          xlabel=r'$\rho$',
-                          ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot dBmagNorm as a function of p
-    df_day.plot.scatter(x='p', y='dBmagNorm',
-                                 ax=plt.subplot(2, 4, 2),
-                                 logx=True,
-                                 logy=True,
-                                 xlim=p_limits,
-                                 ylim=dBNorm_limits,
-                                 xlabel=r'$p$',
-                                 ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                                 title='Day ' + title,
-                                 s=1)
-
-    df_night.plot.scatter(x='p', y='dBmagNorm',
-                          ax=plt.subplot(2, 4, 6),
-                          logx=True,
-                          logy=True,
-                          xlim=p_limits,
-                          ylim=dBNorm_limits,
-                          xlabel=r'$p$',
-                          ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot dBmagNorm as a function of jMag
-    df_day.plot.scatter(x='jMag', y='dBmagNorm',
-                        ax=plt.subplot(2, 4, 3),
-                        logx=True,
-                        logy=True,
-                        xlim=jMag_limits,
-                        ylim=dBNorm_limits,
-                        xlabel=r'$| j |$',
-                        ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='jMag', y='dBmagNorm',
-                          ax=plt.subplot(2, 4, 7),
-                          logx=True,
-                          logy=True,
-                          xlim=jMag_limits,
-                          ylim=dBNorm_limits,
-                          xlabel=r'$| j |$',
-                          ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot dBmagNorm as a function of uMag
-    df_day.plot.scatter(x='uMag', y='dBmagNorm',
-                        ax=plt.subplot(2, 4, 4),
-                        logx=True,
-                        logy=True,
-                        xlim=uMag_limits,
-                        ylim=dBNorm_limits,
-                        xlabel=r'$| u |$',
-                        ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='uMag', y='dBmagNorm',
-                          ax=plt.subplot(2, 4, 8),
-                          logx=True,
-                          logy=True,
-                          xlim=uMag_limits,
-                          ylim=dBNorm_limits,
-                          xlabel=r'$| u |$',
-                          ylabel=r'$| \delta B |$ (Norm Cell Vol)',
-                          title='Night ' + title,
-                          s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-dBNorm-day-night/')
-    logging.info(f'Saving {base} combined dBNorm day-night plot')
-    fig.savefig(target + 'png-combined-dBNorm-day-night/' +
-                base + '.out.png-combined-dBNorm-day-night.png')
-    plt.close(fig)
-
+    plot_NxM(base, 'png-dBNorm-various-day-night', plots )
+    
     return
 
-
-def plot_cumulative_B(df_r, title, base):
+def plot_sum_dB(df_r, title, base):
     """Plot various forms of the cumulative sum of dB in each cell versus 
         range r.  To generate the cumulative sum, we order the cells in terms of
         range r from the earth's center.  We start with a small sphere and 
@@ -318,172 +610,24 @@ def plot_cumulative_B(df_r, title, base):
     Outputs:
         None 
      """
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r.plot.scatter(x='r', y='dBxSum',
-                      ax=plt.subplot(2, 4, 1),
-                      xlim=[1, 1000],
-                      ylim=dBx_sum_limits,
-                      logx=True,
-                      title=title,
-                      s=1,
-                      xlabel='$r/R_E$',
-                      ylabel=r'$\Sigma_r \delta B_x $')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r.plot.scatter(x='r', y='dBySum',
-                      ax=plt.subplot(2, 4, 2),
-                      xlim=[1, 1000],
-                      ylim=dBy_sum_limits,
-                      logx=True,
-                      title=title,
-                      s=1,
-                      xlabel='$r/R_E$',
-                      ylabel=r'$\Sigma_r \delta B_y$')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r.plot.scatter(x='r', y='dBzSum',
-                      ax=plt.subplot(2, 4, 3),
-                      xlim=[1, 1000],
-                      ylim=dBz_sum_limits,
-                      logx=True,
-                      title=title,
-                      s=1,
-                      xlabel='$r/R_E$',
-                      ylabel=r'$\Sigma_r \delta B_z$')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r.plot.scatter(x='r', y='dBSumMag',
-                      ax=plt.subplot(2, 4, 4),
-                      xlim=[1, 1000],
-                      ylim=dB_sum_limits,
-                      logx=True,
-                      title=title,
-                      s=1,
-                      xlabel='$r/R_E$',
-                      ylabel=r'$| \Sigma_r \delta B |$')
-
-    fig = plt.gcf()
-    create_directory('png-combined-sum-dB-r/')
-    logging.info(f'Saving {base} combined dB plot')
-    fig.savefig(target + 'png-combined-sum-dB-r/' +
-                base + '.out.combined-sum-dB-r.png')
-    plt.close(fig)
+    plots = [None] * 4
+    
+    plots[0] = plotargs(df_r, 'r', 'dBxSum', True, False, 
+                        r'$r/R_E$', r'$\Sigma_r \delta B_x $', 
+                        rlog_limits, dBx_sum_limits, title)
+    plots[1] = plotargs(df_r, 'r', 'dBySum', True, False, 
+                        r'$r/R_E$', r'$\Sigma_r \delta B_y $', 
+                        rlog_limits, dBy_sum_limits, title)
+    plots[2] = plotargs(df_r, 'r', 'dBzSum', True, False, 
+                        r'$r/R_E$', r'$\Sigma_r \delta B_z $', 
+                        rlog_limits, dBz_sum_limits, title)
+    plots[3] = plotargs(df_r, 'r', 'dBSumMag', True, False, 
+                        r'$r/R_E$', r'$| \Sigma_r \delta B |$', 
+                        rlog_limits, dB_sum_limits, title)
+    
+    plot_NxM(base, 'png-sum-dB-r', plots, cols=4, rows=1 )
 
     return
-
-
-def plot_cumulative_B_para_anti(df_r_para, df_r_anti, title, base):
-    """Plot various forms of the cumulative sum of dB in each cell versus 
-        range r.  These plots examine the contributions of the currents
-        parallel to the magnetic field and anti-parallel.  
-        To generate the cumulative sum, we order the cells in terms of
-        range r from the earth's center.  We start with a small sphere and 
-        vector sum all of the dB contributions inside the sphere.  Expand the
-        sphere slightly and resum.  Repeat until all cells are in the sum.
-
-    Inputs:
-        df_r_para, df_r_anti = dataframe containing cumulative sums ordered from small r to 
-            large r.  One for currents parallel to the B field, and one anti-parallel.
-        title = title for plots
-        base = basename of file where plot will be stored
-    Outputs:
-        None 
-     """
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r_para.plot.scatter(x='r', y='dBxSum',
-                           ax=plt.subplot(2, 4, 1),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_x (j_\parallel)$')
-
-    df_r_anti.plot.scatter(x='r', y='dBxSum',
-                           ax=plt.subplot(2, 4, 5),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'Anti-$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_x (j_{anti-\parallel})$')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r_para.plot.scatter(x='r', y='dBySum',
-                           ax=plt.subplot(2, 4, 2),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_y (j_\parallel)$')
-
-    df_r_anti.plot.scatter(x='r', y='dBySum',
-                           ax=plt.subplot(2, 4, 6),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'Anti-$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_y (j_{anti-\parallel})$')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r_para.plot.scatter(x='r', y='dBzSum',
-                           ax=plt.subplot(2, 4, 3),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_z (j_\parallel)$')
-
-    df_r_anti.plot.scatter(x='r', y='dBzSum',
-                           ax=plt.subplot(2, 4, 7),
-                           xlim=[1, 1000],
-                           ylim=dBp_sum_limits,
-                           logx=True,
-                           title=r'Anti-$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$\Sigma_r \delta B_z (j_{anti-\parallel})$')
-
-    # Plot the cummulative sum of dB as a function of r
-    df_r_para.plot.scatter(x='r', y='dBSumMag',
-                           ax=plt.subplot(2, 4, 4),
-                           xlim=[1, 1000],
-                           ylim=dB_sum_limits,
-                           logx=True,
-                           title=r'$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$| \Sigma_r \delta B (j_\parallel)|$')
-
-    df_r_anti.plot.scatter(x='r', y='dBSumMag',
-                           ax=plt.subplot(2, 4, 8),
-                           xlim=[1, 1000],
-                           ylim=dB_sum_limits,
-                           logx=True,
-                           title=r'Anti-$\parallel$ ' + title,
-                           s=1,
-                           xlabel='$r/R_E$',
-                           ylabel=r'$| \Sigma_r \delta B (j_{anti-\parallel})|$')
-
-    fig = plt.gcf()
-    create_directory('png-combined-sum-dB-para-anti-r/')
-    logging.info(f'Saving {base} combined dB parallel/anti-parallel plot')
-    fig.savefig(target + 'png-combined-sum-dB-para-anti-r/' +
-                base + '.out.combined-sum-dB-para-anti-r.png')
-    plt.close(fig)
-
-    return
-
 
 def plot_cumulative_B_para_perp(df_r, title, base):
     """Plot various forms of the cumulative sum of dB in each cell versus 
@@ -514,16 +658,6 @@ def plot_cumulative_B_para_perp(df_r, title, base):
                       xlabel='$r/R_E$',
                       ylabel=r'$\Sigma_r \delta B_x (j_\parallel)$')
 
-    # df_r.plot.scatter(x='r', y='dBperpendicularxSum',
-    #                   ax=plt.subplot(2, 4, 5),
-    #                   xlim=[1, 1000],
-    #                   ylim=dBx_sum_limits,
-    #                   logx=True,
-    #                   title=r'$\perp$ ' + title,
-    #                   s=1,
-    #                   xlabel='$r/R_E$',
-    #                   ylabel=r'$\Sigma_r \delta B_x (j_{\perp})$')
-    
     plt.subplot(2, 4, 5).scatter(x=df_r['r'], y=df_r['dBperpendicularxSum'], s=1, color='blue')
     plt.subplot(2, 4, 5).scatter(x=df_r['r'], y=df_r['dBperpendicularphixSum'], s=1, color='red')
     plt.subplot(2, 4, 5).scatter(x=df_r['r'], y=df_r['dBperpendicularphiresxSum'], s=1, color='green')
@@ -533,7 +667,7 @@ def plot_cumulative_B_para_perp(df_r, title, base):
     plt.ylabel(r'$\Sigma_r \delta B_x (j_{\perp})$')
     plt.xlim(1, 1000)
     plt.ylim(dBx_sum_limits[0], dBx_sum_limits[1])
-    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residue}$'])
+    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'])
 
     # Plot the cummulative sum of dB as a function of r
     df_r.plot.scatter(x='r', y='dBparallelySum',
@@ -546,16 +680,6 @@ def plot_cumulative_B_para_perp(df_r, title, base):
                       xlabel='$r/R_E$',
                       ylabel=r'$\Sigma_r \delta B_y (j_\parallel)$')
 
-    # df_r.plot.scatter(x='r', y='dBperpendicularySum',
-    #                   ax=plt.subplot(2, 4, 6),
-    #                   xlim=[1, 1000],
-    #                   ylim=dBy_sum_limits,
-    #                   logx=True,
-    #                   title=r'$\perp$ ' + title,
-    #                   s=1,
-    #                   xlabel='$r/R_E$',
-    #                   ylabel=r'$\Sigma_r \delta B_y (j_{\perp})$')
-
     plt.subplot(2, 4, 6).scatter(x=df_r['r'], y=df_r['dBperpendicularySum'], s=1, color='blue')
     plt.subplot(2, 4, 6).scatter(x=df_r['r'], y=df_r['dBperpendicularphiySum'], s=1, color='red')
     plt.subplot(2, 4, 6).scatter(x=df_r['r'], y=df_r['dBperpendicularphiresySum'], s=1, color='green')
@@ -565,7 +689,7 @@ def plot_cumulative_B_para_perp(df_r, title, base):
     plt.ylabel(r'$\Sigma_r \delta B_y (j_{\perp})$')
     plt.xlim(1, 1000)
     plt.ylim(dBy_sum_limits[0], dBy_sum_limits[1])
-    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residue}$'])
+    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'])
 
 
     # Plot the cummulative sum of dB as a function of r
@@ -579,16 +703,6 @@ def plot_cumulative_B_para_perp(df_r, title, base):
                       xlabel='$r/R_E$',
                       ylabel=r'$\Sigma_r \delta B_z (j_\parallel)$')
 
-    # df_r.plot.scatter(x='r', y='dBperpendicularzSum',
-    #                   ax=plt.subplot(2, 4, 7),
-    #                   xlim=[1, 1000],
-    #                   ylim=dBz_sum_limits,
-    #                   logx=True,
-    #                   title=r'$\perp$ ' + title,
-    #                   s=1,
-    #                   xlabel='$r/R_E$',
-    #                   ylabel=r'$\Sigma_r \delta B_z (j_{\perp})$')
-
     plt.subplot(2, 4, 7).scatter(x=df_r['r'], y=df_r['dBperpendicularzSum'], s=1, color='blue')
     plt.subplot(2, 4, 7).scatter(x=df_r['r'], y=df_r['dBperpendicularphizSum'], s=1, color='red')
     plt.subplot(2, 4, 7).scatter(x=df_r['r'], y=df_r['dBperpendicularphireszSum'], s=1, color='green')
@@ -598,7 +712,7 @@ def plot_cumulative_B_para_perp(df_r, title, base):
     plt.ylabel(r'$\Sigma_r \delta B_z (j_{\perp})$')
     plt.xlim(1, 1000)
     plt.ylim(dBz_sum_limits[0], dBz_sum_limits[1])
-    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residue}$'])
+    plt.legend([r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'])
 
 
     # Plot the cummulative sum of dB as a function of r
@@ -623,9 +737,9 @@ def plot_cumulative_B_para_perp(df_r, title, base):
                       ylabel=r'$| \Sigma_r \delta B (j_{\perp})|$')
 
     fig = plt.gcf()
-    create_directory('png-combined-sum-dB-para-perp-comp-r/')
-    logging.info(f'Saving {base} combined dB parallel/perpendicular plot')
-    fig.savefig(target + 'png-combined-sum-dB-para-perp-comp-r/' +
+    create_directory('png-sum-dB-para-perp-comp-r/')
+    logging.info(f'Saving {base} dB parallel/perpendicular plot')
+    fig.savefig(target + 'png-sum-dB-para-perp-comp-r/' +
                 base + '.out.combined-sum-dB-para-perp-comp-r.png')
     plt.close(fig)
 
@@ -645,108 +759,36 @@ def plot_rho_p_jMag_uMag_day_night(df_day, df_night, title, base):
     Outputs:
         None 
      """
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df_day, 'r', 'rho', True, True, 
+                        r'$r$', r'$\rho$', 
+                        rlog_limits, rho_limits, 'Day ' + title)
+    plots[1] = plotargs(df_day, 'r', 'p', True, True, 
+                        r'$r$', r'$p$', 
+                        rlog_limits, p_limits, 'Day ' + title)
+    plots[2] = plotargs(df_day, 'r', 'jMag', True, True, 
+                        r'$r$', r'$| j |$', 
+                        rlog_limits, jMag_limits, 'Day ' + title)
+    plots[3] = plotargs(df_day, 'r', 'uMag', True, True, 
+                        r'$r$', r'$| u |$', 
+                        rlog_limits, uMag_limits, 'Day ' + title)
+    plots[4] = plotargs(df_night, 'r', 'rho', True, True, 
+                        r'$r$', r'$\rho$', 
+                        rlog_limits, rho_limits, 'Night ' + title)
+    plots[5] = plotargs(df_night, 'r', 'p', True, True, 
+                        r'$r$', r'$p$',  
+                        rlog_limits, p_limits, 'Night ' + title)
+    plots[6] = plotargs(df_night, 'r', 'jMag', True, True, 
+                        r'$r$', r'$| j |$',  
+                        rlog_limits, jMag_limits, 'Night ' + title)
+    plots[7] = plotargs(df_night, 'r', 'uMag', True, True, 
+                        r'$r$', r'$| u |$',  
+                        rlog_limits, uMag_limits, 'Night ' + title)
 
-    # Plot rho as a function of range r
-    df_day.plot.scatter(x='r', y='rho',
-                        ax=plt.subplot(2, 4, 1),
-                        logx=True,
-                        logy=True,
-                        xlim=[1, 10**3],
-                        ylim=rho_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$\rho$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='rho',
-                          ax=plt.subplot(2, 4, 5),
-                          logx=True,
-                          logy=True,
-                          xlim=[1, 10**3],
-                          ylim=rho_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$\rho$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot p as a function of range r
-    df_day.plot.scatter(x='r', y='p',
-                        ax=plt.subplot(2, 4, 2),
-                        logx=True,
-                        logy=True,
-                        xlim=[1, 10**3],
-                        ylim=p_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$p$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='p',
-                          ax=plt.subplot(2, 4, 6),
-                          logx=True,
-                          logy=True,
-                          xlim=[1, 10**3],
-                          ylim=p_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$p$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot jMag as a function of range r
-    df_day.plot.scatter(x='r', y='jMag',
-                        ax=plt.subplot(2, 4, 3),
-                        logx=True,
-                        logy=True,
-                        xlim=[1, 10**3],
-                        ylim=jMag_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$|j|$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='jMag',
-                          ax=plt.subplot(2, 4, 7),
-                          logx=True,
-                          logy=True,
-                          xlim=[1, 10**3],
-                          ylim=jMag_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$|j|$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot uMag as a function of range r
-    df_day.plot.scatter(x='r', y='uMag',
-                        ax=plt.subplot(2, 4, 4),
-                        logx=True,
-                        logy=True,
-                        xlim=[1, 10**3],
-                        ylim=uMag_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$|u|$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='uMag',
-                          ax=plt.subplot(2, 4, 8),
-                          logx=True,
-                          logy=True,
-                          xlim=[1, 10**3],
-                          ylim=uMag_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$|u|$',
-                          title='Night ' + title,
-                          s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-day-night/')
-    logging.info(f'Saving {base} combined day-night plot')
-    fig.savefig(target + 'png-combined-day-night/' +
-                base + '.out.png-combined-day-night.png')
-    plt.close(fig)
-
+    plot_NxM(base, 'png-various-r-day-night', plots )
+    
     return
-
 
 def plot_jx_jy_jz_day_night(df_day, df_night, title, base):
     """Plot jx, jy, jz  in each cell versus radius r.  
@@ -762,359 +804,36 @@ def plot_jx_jy_jz_day_night(df_day, df_night, title, base):
         None 
      """
 
-    # Plot jx as a function of range r
-    df_day.plot.scatter(x='r', y='jx',
-                        ax=plt.subplot(2, 4, 1),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=j_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$j_x$',
-                        title='Day ' + title,
-                        s=1)
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df_day, 'r', 'jx', True, False, 
+                        r'$ r/R_E $', r'$j_x$',
+                        rlog_limits, j_limits, 'Day ' + title)
+    plots[1] = plotargs(df_day, 'r', 'jy', True, False, 
+                        r'$ r/R_E $', r'$j_y$', 
+                        rlog_limits, j_limits, 'Day ' + title)
+    plots[2] = plotargs(df_day, 'r', 'jz', True, False, 
+                        r'$ r/R_E $', r'$j_z$', 
+                        rlog_limits, j_limits, 'Day ' + title)
+    plots[3] = plotargs(df_day, 'r', 'jMag', True, False, 
+                        r'$ r/R_E $', r'$| j |$', 
+                        rlog_limits, j_limits, 'Day ' + title)
+    plots[4] = plotargs(df_night, 'r', 'jx', True, False, 
+                        r'$ r/R_E $', r'$j_x$', 
+                        rlog_limits, j_limits, 'Night ' + title)
+    plots[5] = plotargs(df_night, 'r', 'jy', True, False, 
+                        r'$ r/R_E $', r'$j_y$',  
+                        rlog_limits, j_limits, 'Night ' + title)
+    plots[6] = plotargs(df_night, 'r', 'jz', True, False, 
+                        r'$ r/R_E $', r'$j_z$',  
+                        rlog_limits, j_limits, 'Night ' + title)
+    plots[7] = plotargs(df_night, 'r', 'jMag', True, False, 
+                        r'$ r/R_E $', r'$| j |$',  
+                        rlog_limits, j_limits, 'Night ' + title)
 
-    df_night.plot.scatter(x='r', y='jx',
-                          ax=plt.subplot(2, 4, 5),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=j_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$j_x$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot jy as a function of range r
-    df_day.plot.scatter(x='r', y='jy',
-                        ax=plt.subplot(2, 4, 2),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=j_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$j_y$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='jy',
-                          ax=plt.subplot(2, 4, 6),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=j_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$j_y$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot jz as a function of range r
-    df_day.plot.scatter(x='r', y='jz',
-                        ax=plt.subplot(2, 4, 3),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=j_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$j_z$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='jz',
-                          ax=plt.subplot(2, 4, 7),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=j_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$j_z$',
-                          title='Night ' + title,
-                          s=1)
-
-    # Plot jMag as a function of range r
-    df_day.plot.scatter(x='r', y='jMag',
-                        ax=plt.subplot(2, 4, 4),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=j_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$|j|$',
-                        title='Day ' + title,
-                        s=1)
-
-    df_night.plot.scatter(x='r', y='jMag',
-                          ax=plt.subplot(2, 4, 8),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=j_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$|j|$',
-                          title='Night ' + title,
-                          s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-jxyz-day-night/')
-    logging.info(f'Saving {base} combined jx, jy, jz day-night plot')
-    fig.savefig(target + 'png-combined-jxyz-day-night/' +
-                base + '.out.png-combined-jxyz-day-night.png')
-    plt.close(fig)
+    plot_NxM(base, 'png-jxyz-r-day-night', plots )
 
     return
-
-
-def plot_jx_jy_jz_vs_x(df, title, base):
-    """Plot jx, jy, jz  in each cell versus x.  
-
-    Inputs:
-        df = dataframe containing jx, jy, jz and x
-        title = title for plots
-        base = basename of file where plot will be stored
-    Outputs:
-        None 
-     """
-
-    # Plot jx as a function of range x
-    df.plot.scatter(x='x', y='jx',
-                    ax=plt.subplot(2, 4, 1),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_x$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x='x', y='jx',
-                    ax=plt.subplot(2, 4, 5),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_x$',
-                    title=title,
-                    s=1)
-
-    # Plot jy as a function of range r
-    df.plot.scatter(x='x', y='jy',
-                    ax=plt.subplot(2, 4, 2),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_y$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x='x', y='jy',
-                    ax=plt.subplot(2, 4, 6),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_y$',
-                    title=title,
-                    s=1)
-
-    # Plot jz as a function of range x
-    df.plot.scatter(x='x', y='jz',
-                    ax=plt.subplot(2, 4, 3),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_z$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x='x', y='jz',
-                    ax=plt.subplot(2, 4, 7),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$j_z$',
-                    title=title,
-                    s=1)
-
-    # Plot jMag and r as a function of range x
-    df.plot.scatter(x='x', y='jMag',
-                    ax=plt.subplot(2, 4, 4),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$|j|$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x='x', y='r',
-                    ax=plt.subplot(2, 4, 8),
-                    xlim=[-300, 300],
-                    ylim=[-300, 300],
-                    xlabel=r'$ x/R_E $',
-                    ylabel=r'$r/R_E$',
-                    title=title,
-                    s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-jxyz-x/')
-    logging.info(f'Saving {base} combined jx, jy, jz vs x plot')
-    fig.savefig(target + 'png-combined-jxyz-x/' +
-                base + '.out.png-combined-jxyz-x.png')
-    plt.close(fig)
-
-    return
-
-
-def plot_jr_jt_jp_vs_x(df, title, base, coord='x', cut=''):
-    """Plot jr, jtheta, jphi  in each cell versus x.  
-
-    Inputs:
-        df = dataframe containing jr, jtheta, jphi and x
-        title = title for plots
-        base = basename of file where plot will be stored
-        coord = which coordinate is on the x axis - x, y, or z
-        cut = which cut was made, used in plot filenames
-    Outputs:
-        None 
-     """
-
-    # Plot jr as a function of range x
-    df.plot.scatter(x=coord, y='jr',
-                    ax=plt.subplot(2, 4, 1),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_r$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x=coord, y='jr',
-                    ax=plt.subplot(2, 4, 5),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_r$',
-                    title=title,
-                    s=1)
-
-    # Plot jtheta as a function of range r
-    df.plot.scatter(x=coord, y='jtheta',
-                    ax=plt.subplot(2, 4, 2),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_\theta$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x=coord, y='jtheta',
-                    ax=plt.subplot(2, 4, 6),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_\theta$',
-                    title=title,
-                    s=1)
-
-    # Plot jphi as a function of range x
-    df.plot.scatter(x=coord, y='jphi',
-                    ax=plt.subplot(2, 4, 3),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_\phi$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x=coord, y='jphi',
-                    ax=plt.subplot(2, 4, 7),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_\phi$',
-                    title=title,
-                    s=1)
-
-    # Plot jMag as a function of range x
-    df.plot.scatter(x=coord, y='jMag',
-                    ax=plt.subplot(2, 4, 4),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$|j|$',
-                    title=title,
-                    s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-jrtp-'+cut+coord+'/')
-    logging.info(
-        f'Saving {base} combined jr, jtheta, jphi vs ' + coord + ' plot')
-    fig.savefig(target + 'png-combined-jrtp-'+cut+coord+'/' +
-                base + '.out.'+'png-combined-jrtp-'+cut+coord+'.png')
-    plt.close(fig)
-
-    return
-
-
-def plot_jp_jp_vs_x(df, title, base, coord='x', cut=''):
-    """Plot jparallel and jperpendicular to the B field in each cell versus x.  
-
-    Inputs:
-        df = dataframe containing jparallel, jperpendicular, and x
-        title = title for plots
-        base = basename of file where plot will be stored
-        coord = which coordinate is on the x axis - x, y, or z
-        cut = which cut was made, used in plot filenames
-    Outputs:
-        None 
-     """
-
-    # Plot jparallel as a function of range x
-    df.plot.scatter(x=coord, y='jparallelMag',
-                    ax=plt.subplot(2, 4, 1),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_{\parallel}$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x=coord, y='jparallelMag',
-                    ax=plt.subplot(2, 4, 5),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$j_{\parallel}$',
-                    title=title,
-                    s=1)
-
-    # Plot jperpendicularMag as a function of range r
-    df.plot.scatter(x=coord, y='jperpendicularMag',
-                    ax=plt.subplot(2, 4, 2),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$| j_{\perp} |$',
-                    title=title,
-                    s=1)
-
-    df.plot.scatter(x=coord, y='jperpendicularMag',
-                    ax=plt.subplot(2, 4, 6),
-                    xlim=[-20, 20],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$| j_{\perp} |$',
-                    title=title,
-                    s=1)
-
-    # Plot jMag as a function of range x
-    df.plot.scatter(x=coord, y='jMag',
-                    ax=plt.subplot(2, 4, 4),
-                    xlim=[-300, 300],
-                    ylim=j_limits,
-                    xlabel=r'$ ' + coord + '/R_E $',
-                    ylabel=r'$|j|$',
-                    title=title,
-                    s=1)
-
-    fig = plt.gcf()
-    create_directory('png-combined-jpp-'+cut+coord+'/')
-    logging.info(
-        f'Saving {base} combined jparallel, jperpendicular vs ' + coord + ' plot')
-    fig.savefig(target + 'png-combined-jpp-'+cut+coord+'/' +
-                base + '.out.'+'png-combined-jpp-'+cut+coord+'.png')
-    plt.close(fig)
-
-    return
-
 
 def plot_ux_uy_uz_day_night(df_day, df_night, title, base):
     """Plot ux, uy, uz  in each cell versus radius r.  
@@ -1130,96 +849,143 @@ def plot_ux_uy_uz_day_night(df_day, df_night, title, base):
         None 
      """
 
-    # Plot ux as a function of range r
-    df_day.plot.scatter(x='r', y='ux',
-                        ax=plt.subplot(2, 4, 1),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=u_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$u_x$',
-                        title='Day ' + title,
-                        s=1)
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df_day, 'r', 'ux', True, False, 
+                        r'$ r/R_E $', r'$u_x$',
+                        rlog_limits, u_limits, 'Day ' + title)
+    plots[1] = plotargs(df_day, 'r', 'uy', True, False, 
+                        r'$ r/R_E $', r'$u_y$', 
+                        rlog_limits, u_limits, 'Day ' + title)
+    plots[2] = plotargs(df_day, 'r', 'uz', True, False, 
+                        r'$ r/R_E $', r'$u_z$', 
+                        rlog_limits, u_limits, 'Day ' + title)
+    plots[3] = plotargs(df_day, 'r', 'uMag', True, False, 
+                        r'$ r/R_E $', r'$| u |$', 
+                        rlog_limits, u_limits, 'Day ' + title)
+    plots[4] = plotargs(df_night, 'r', 'ux', True, False, 
+                        r'$ r/R_E $', r'$u_x$', 
+                        rlog_limits, u_limits, 'Night ' + title)
+    plots[5] = plotargs(df_night, 'r', 'uy', True, False, 
+                        r'$ r/R_E $', r'$u_y$',  
+                        rlog_limits, u_limits, 'Night ' + title)
+    plots[6] = plotargs(df_night, 'r', 'uz', True, False, 
+                        r'$ r/R_E $', r'$u_z$',  
+                        rlog_limits, u_limits, 'Night ' + title)
+    plots[7] = plotargs(df_night, 'r', 'uMag', True, False, 
+                        r'$ r/R_E $', r'$| u |$',  
+                        rlog_limits, u_limits, 'Night ' + title)
 
-    df_night.plot.scatter(x='r', y='ux',
-                          ax=plt.subplot(2, 4, 5),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=u_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$u_x$',
-                          title='Night ' + title,
-                          s=1)
+    plot_NxM(base, 'png-uxyz-r-day-night', plots )
 
-    # Plot uy as a function of range r
-    df_day.plot.scatter(x='r', y='uy',
-                        ax=plt.subplot(2, 4, 2),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=u_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$u_y$',
-                        title='Day ' + title,
-                        s=1)
+    return
 
-    df_night.plot.scatter(x='r', y='uy',
-                          ax=plt.subplot(2, 4, 6),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=u_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$u_y$',
-                          title='Night ' + title,
-                          s=1)
+def plot_jr_jt_jp_vs_x(df, title, base, coord='x', cut=''):
+    """Plot jr, jtheta, jphi  in each cell versus x.  
 
-    # Plot uz as a function of range r
-    df_day.plot.scatter(x='r', y='uz',
-                        ax=plt.subplot(2, 4, 3),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=u_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$u_z$',
-                        title='Day ' + title,
-                        s=1)
+    Inputs:
+        df = dataframe containing jr, jtheta, jphi and x
+        title = title for plots
+        base = basename of file where plot will be stored
+        coord = which coordinate is on the x axis - x, y, or z
+        cut = which cut was made, used in plot filenames
+    Outputs:
+        None 
+     """
 
-    df_night.plot.scatter(x='r', y='uz',
-                          ax=plt.subplot(2, 4, 7),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=u_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$u_z$',
-                          title='Night ' + title,
-                          s=1)
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df, coord, 'jr', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_r$',
+                    xyz_limits, j_limits, title)
+    plots[1] = plotargs(df, coord, 'jtheta', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\theta$', 
+                    xyz_limits, j_limits, title)
+    plots[2] = plotargs(df, coord, 'jphi', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\phi$', 
+                    xyz_limits, j_limits, title)
+    plots[3] = plotargs(df, coord, 'jMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$| j |$', 
+                    xyz_limits, j_limits, title)
+    plots[4] = plotargs(df, coord, 'jr', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_r$', 
+                    xyz_limits_small, j_limits, title)
+    plots[5] = plotargs(df, coord, 'jtheta', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\theta$',  
+                    xyz_limits_small, j_limits, title)
+    plots[6] = plotargs(df, coord, 'jphi', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\phi$',  
+                    xyz_limits_small, j_limits, title)
+    plots[7] = plotargs(df, coord, 'jMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$| j |$',  
+                    xyz_limits_small, j_limits, title)
+    
+    plot_NxM(base, 'png-jrtp-'+cut+coord, plots )
 
-    # Plot uMag as a function of range r
-    df_day.plot.scatter(x='r', y='uMag',
-                        ax=plt.subplot(2, 4, 4),
-                        logx=True,
-                        xlim=[1, 10**3],
-                        ylim=u_limits,
-                        xlabel=r'$ r/R_E $',
-                        ylabel=r'$|u|$',
-                        title='Day ' + title,
-                        s=1)
+    return
 
-    df_night.plot.scatter(x='r', y='uMag',
-                          ax=plt.subplot(2, 4, 8),
-                          logx=True,
-                          xlim=[1, 10**3],
-                          ylim=u_limits,
-                          xlabel=r'$ r/R_E $',
-                          ylabel=r'$|u|$',
-                          title='Night ' + title,
-                          s=1)
+def plot_jp_jp_vs_x(df, title, base, coord='x', cut=''):
+    """Plot jparallel and jperpendicular to the B field in each cell versus x.  
 
-    fig = plt.gcf()
-    create_directory('png-combined-uxyz-day-night/')
-    logging.info(f'Saving {base} combined ux, uy, uz day-night plot')
-    fig.savefig(target + 'png-combined-uxyz-day-night/' +
-                base + '.out.png-combined-uxyz-day-night.png')
-    plt.close(fig)
+    Inputs:
+        df = dataframe containing jparallel, jperpendicular, and x
+        title = title for plots
+        base = basename of file where plot will be stored
+        coord = which coordinate is on the x axis - x, y, or z
+        cut = which cut was made, used in plot filenames
+    Outputs:
+        None 
+     """
+
+    plots = [None] * 8
+    
+    plots[0] = plotargs(df, coord, 'jparallelMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\parallel$',
+                    xyz_limits, j_limits, title)
+    plots[1] = plotargs(df, coord, 'jperpendicularMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\perp$', 
+                    xyz_limits, j_limits, title)
+    plots[2] = plotargs(df, coord, 'jMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$| j |$', 
+                    xyz_limits, j_limits, title)
+    plots[4] = plotargs(df, coord, 'jparallelMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\parallel$', 
+                    xyz_limits_small, j_limits, title)
+    plots[5] = plotargs(df, coord, 'jperpendicularMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$j_\perp$',  
+                    xyz_limits_small, j_limits, title)
+    plots[6] = plotargs(df, coord, 'jMag', False, False, 
+                    r'$' + coord + '/R_E$', r'$| j |$',  
+                    xyz_limits_small, j_limits, title)
+    
+    plot_NxM(base, 'png-jpp-'+cut+coord, plots, cols=3, rows=2 )
+
+    return
+
+def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base):
+    """Plot jr, jtheta, jphi CDFs  
+
+    Inputs:
+        df_jr, df_jtheta, df_jphi = dataframe CDF data
+        title = title for plots
+        base = basename of file where plot will be stored
+    Outputs:
+        None 
+     """
+
+    plots = [None] * 3
+     
+    plots[0] = plotargs(df_jr, 'jr', 'cdfIndex', False, False, 
+                    r'$j_r$', r'$CDF$',
+                    jcdf_limits, [0,1], title)
+    plots[1] = plotargs(df_jtheta, 'jtheta', 'cdfIndex', False, False, 
+                    r'$j_\theta$', r'$CDF$',
+                    jcdf_limits, [0,1], title)
+    plots[2] = plotargs(df_jphi, 'jphi', 'cdfIndex', False, False, 
+                    r'$j_\phi$', r'$CDF$',
+                    jcdf_limits, [0,1], title)
+    
+    plot_NxM(base, 'png-jrtp-cdf', plots, cols=3, rows=1 )
 
     return
 
@@ -1388,7 +1154,7 @@ def convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin):
     # Divide j perpendicular into a phi piece and everything else (residual)
     df['jperpendicularphix'] = - df['jperpendicularphi'] * np.sin(df['phi'])
     df['jperpendicularphiy'] =   df['jperpendicularphi'] * np.cos(df['phi'])
-    # df['jperpendicularphiy'] = 0
+    # df['jperpendicularphiz'] = 0
 
     df['jperpendicularphiresx'] = df['jperpendicularx'] - df['jperpendicularphix']
     df['jperpendicularphiresy'] = df['jperpendiculary'] - df['jperpendicularphiy']
@@ -1410,21 +1176,6 @@ def convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin):
     df['dBperpendicularz'] = df['factor'] * \
         (df['jperpendicularx']*(Y-df['y']) - df['jperpendiculary']*(X-df['x']))
 
-    # Divide the parallel currents into two - those parallel and those anti-parallel
-    df['dBparax'] = deepcopy(df['dBparallelx'])
-    df['dBparay'] = deepcopy(df['dBparallely'])
-    df['dBparaz'] = deepcopy(df['dBparallelz'])
-    df['dBparax'][df['jparallelMag'] < 0] = 0
-    df['dBparay'][df['jparallelMag'] < 0] = 0
-    df['dBparaz'][df['jparallelMag'] < 0] = 0
-
-    df['dBantix'] = deepcopy(df['dBparallelx'])
-    df['dBantiy'] = deepcopy(df['dBparallely'])
-    df['dBantiz'] = deepcopy(df['dBparallelz'])
-    df['dBantix'][df['jparallelMag'] >= 0] = 0
-    df['dBantiy'][df['jparallelMag'] >= 0] = 0
-    df['dBantiz'][df['jparallelMag'] >= 0] = 0
-    
     # Divide delta B from perpendicular currents into two - those along phi and 
     # everything else (residual)
     df['dBperpendicularphix'] =   df['factor']*df['jperpendicularphiy']*(Z-df['z'])
@@ -1433,11 +1184,11 @@ def convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin):
                                               df['jperpendicularphiy']*(X-df['x']))
         
     df['dBperpendicularphiresx'] = df['factor']*(df['jperpendicularphiresy']*(Z-df['z']) - \
-                                                 df['jperpendicularz']*(Y-df['y']))
+                                                  df['jperpendicularz']*(Y-df['y']))
     df['dBperpendicularphiresy'] = df['factor']*(df['jperpendicularz']*(X-df['x']) - \
-                                                 df['jperpendicularphiresx']*(Z-df['z']))
+                                                  df['jperpendicularphiresx']*(Z-df['z']))
     df['dBperpendicularphiresz'] = df['factor']*(df['jperpendicularphiresx']*(Y-df['y']) - \
-                                                 df['jperpendicularphiresy']*(X-df['x']))
+                                                  df['jperpendicularphiresy']*(X-df['x']))
 
     # Create the title that we'll use in the graphics
     words = base.split('-')
@@ -1479,8 +1230,8 @@ def create_cumulative_sum_dataframe(df):
     df_r['dBparallelySum'] = df_r['dBparallely'].cumsum()
     df_r['dBparallelzSum'] = df_r['dBparallelz'].cumsum()
     df_r['dBparallelSumMag'] = np.sqrt(df_r['dBparallelxSum']**2
-                                       + df_r['dBparallelySum']**2
-                                       + df_r['dBparallelzSum']**2)
+                                        + df_r['dBparallelySum']**2
+                                        + df_r['dBparallelzSum']**2)
 
     df_r['dBperpendicularxSum'] = df_r['dBperpendicularx'].cumsum()
     df_r['dBperpendicularySum'] = df_r['dBperpendiculary'].cumsum()
@@ -1497,24 +1248,38 @@ def create_cumulative_sum_dataframe(df):
     df_r['dBperpendicularphiresySum'] = df_r['dBperpendicularphiresy'].cumsum()
     df_r['dBperpendicularphireszSum'] = df_r['dBperpendicularphiresz'].cumsum()
 
-    # Do cumulative sums on para and anti currents, which are subsets of the
-    # parallel sum above
-    df_r['dBparaxSum'] = df_r['dBparax'].cumsum()
-    df_r['dBparaySum'] = df_r['dBparay'].cumsum()
-    df_r['dBparazSum'] = df_r['dBparaz'].cumsum()
-    df_r['dBparaSumMag'] = np.sqrt(df_r['dBparaxSum']**2
-                                   + df_r['dBparaySum']**2
-                                   + df_r['dBparazSum']**2)
-
-    df_r['dBantixSum'] = df_r['dBantix'].cumsum()
-    df_r['dBantiySum'] = df_r['dBantiy'].cumsum()
-    df_r['dBantizSum'] = df_r['dBantiz'].cumsum()
-    df_r['dBantiSumMag'] = np.sqrt(df_r['dBantixSum']**2
-                                   + df_r['dBantiySum']**2
-                                   + df_r['dBantizSum']**2)
-
     return df_r
 
+def create_jrtp_cdfs(df):
+    """Use the dataframe with BATSRUS dataframe to develop jr, jtheta, jphi
+    CDFs.
+
+    Inputs:
+        df = dataframe with BATSRUS and other calculated quantities
+    Outputs:
+        cdf_jr, cdf_jtheta, cdf_jphi = jr, jtheta, jphi CDFs.
+    """
+
+    # Sort the original data, ascending
+    # Then calculate the total B based upon summing the vector dB values
+    # starting at r=0 and moving out.
+    # Note, the dB for radii smaller than rCurrents should be 0, see
+    # calculation of dBxyz above.
+
+    df_jr = deepcopy(df)
+    df_jtheta = deepcopy(df)
+    df_jphi = deepcopy(df)
+    
+    df_jr = df_jr.sort_values(by='jr', ascending=True)
+    df_jr['cdfIndex'] = np.arange(1, len(df_jr)+1)/float(len(df_jr))
+
+    df_jtheta = df_jtheta.sort_values(by='jtheta', ascending=True)
+    df_jtheta['cdfIndex'] = np.arange(1, len(df_jtheta)+1)/float(len(df_jtheta))
+
+    df_jphi = df_jphi.sort_values(by='jphi', ascending=True)
+    df_jphi['cdfIndex'] = np.arange(1, len(df_jphi)+1)/float(len(df_jphi))
+
+    return df_jr, df_jtheta, df_jphi
 
 def process_data(X, Y, Z, base, dirpath=origin):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
@@ -1537,50 +1302,49 @@ def process_data(X, Y, Z, base, dirpath=origin):
 
     df_r = create_cumulative_sum_dataframe(df)
 
-    # Split the data into dayside (x>=0) and nightside (x<0)
-    # logging.info('Creating dayside/nightside dataframe...')
+    logging.info('Creating dayside/nightside dataframe...')
 
-    # df_day = df[df['x'] >= 0]
-    # df_night = df[df['x'] < 0]
+    df_day = df[df['x'] >= 0]
+    df_night = df[df['x'] < 0]
 
     # Do plots...
 
-    # logging.info('Creating dB (Norm) vs r plots...')
-    # plot_db_Norm_r( df, title, base )
-
-    # logging.info('Creating cumulative sum B vs r plots...')
-    # plot_cumulative_B( df_r, title, base )
+    logging.info('Creating dB (Norm) vs r plots...')
+    plot_db_Norm_r( df, title, base )
+    
+    logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
+    plot_dBnorm_various_day_night( df_day, df_night, title, base )
+    
+    logging.info('Creating cumulative sum B vs r plots...')
+    plot_sum_dB( df_r, title, base )
 
     logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
     plot_cumulative_B_para_perp(df_r, title, base)
 
-    # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
-    # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
+    plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating day/night jx, jy, jz vs r plots...')
-    # plot_jx_jy_jz_day_night( df_day, df_night, title, base )
+    logging.info('Creating day /night jx, jy, jz vs r plots...')
+    plot_jx_jy_jz_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating jx, jy, jz vs x plots...')
-    # plot_jx_jy_jz_vs_x( df, title, base)
+    logging.info('Creating day/night ux, uy, uz vs r plots...')
+    plot_ux_uy_uz_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
+    logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
 
     # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
     # plot_jp_jp_vs_x( df, title, base, coord = 'x')
     # plot_jp_jp_vs_x( df, title, base, coord = 'y')
     # plot_jp_jp_vs_x( df, title, base, coord = 'z')
 
-    # logging.info('Creating day/night ux, uy, uz vs r plots...')
-    # plot_ux_uy_uz_day_night( df_day, df_night, title, base )
-
-    # logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
-    # plot_dBnorm_day_night( df_day, df_night, title, base )
+    logging.info('Creating jrtp CDFs...')
+    df_jr, df_jtheta, df_jphi = create_jrtp_cdfs(df)
+    plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base)
 
     return
-
 
 def perform_cuts(df1, title1, cut_selected):
     """perform selected cuts on BATSRUS dataframe, df1.
@@ -1600,27 +1364,28 @@ def perform_cuts(df1, title1, cut_selected):
     df_tmp = deepcopy(df1)
 
     # Cut asymmetric jr vs y lobes, always make this cut
-    df2 = df_tmp.drop(df_tmp[np.logical_and(
-        df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
-    cutname = 'asym-jr-'
-    title2 = r'asym j_r ' + title1
+    df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+    # df2 = df_tmp.drop(df_tmp[np.logical_and( 
+#        df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+    cutname = r'jr-'
+    title2 = r'$j_r$ Peaks ' + title1
 
     if(cut_selected > 1):
         # Cut jphi vs y blob
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
-        cutname = 'y-jphi-' + cutname
-        title2 = r'y j_{\phi} ' + title2
+            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
+#            df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
+        cutname = 'jphifar-' + cutname
+        title2 = r'$j_\phi$ Peaks (far) ' + title2
 
     if(cut_selected > 2):
         # Cut jphi vs z blob
-        df2 = df2.drop(df2[np.logical_and(df2['jphi'].abs()
-                       > 0.007, df2['z'].abs() < 2)].index)
-        cutname = 'z-jphi-' + cutname
-        title2 = r'z j_{\phi} ' + title2
+        df2 = df2.drop(df2[df2['jphi'].abs() > cut3_jphimin].index)
+#            df2[np.logical_and(df2['jphi'].abs() > 0.007, df2['z'].abs() < 2)].index)
+        cutname = 'jphinear-' + cutname
+        title2 = r'$j_\phi$ (near) ' + title2
 
     return df2, title2, cutname
-
 
 def perform_not_cuts(df1, title1, cut_selected):
     """perform selected cuts on BATSRUS dataframe, df1. Creates the opposite result
@@ -1642,44 +1407,54 @@ def perform_not_cuts(df1, title1, cut_selected):
 
     # Cut asymmetric jr vs y lobes, always make this cut
     if(cut_selected == 1):
-        df2 = df_tmp.drop(df_tmp[np.logical_or(
-            df_tmp['jr'].abs() <= 0.007, df_tmp['y'].abs() >= 4)].index)
-        cutname = 'asym-jr-'
-        title2 = r'asym $j_r$ ' + title1
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() <= cut1_jrmin].index)
+        # df2 = df_tmp.drop(df_tmp[np.logical_or(
+        #     df_tmp['jr'].abs() <= 0.007, df_tmp['y'].abs() >= 4)].index)
+        cutname = 'jr-'
+        title2 = r'$j_r$ Peaks ' + title1
 
     if(cut_selected == 2):
         # Cut jphi vs y blob
-        df2 = df_tmp.drop(df_tmp[np.logical_and(
-            df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+        # df2 = df_tmp.drop(df_tmp[np.logical_and(
+        #     df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
         df2 = df2.drop(
-            df2[np.logical_or(df2['jphi'] <= 0.007, df2['jphi'] >= 0.03)].index)
-        cutname = 'y-jphi-'
-        title2 = r'y $j_{\phi}$ ' + title1
+            df2[np.logical_or(df2['jphi'].abs() <= cut2_jphimin, df2['r'] <= cut2_rmin)].index)
+        # df2 = df2.drop(
+        #     df2[np.logical_or(df2['jphi'] <= 0.007, df2['jphi'] >= 0.03)].index)
+        cutname = 'jphifar-'
+        title2 = r'$j_\phi$ Peaks (far) ' + title1
 
     if(cut_selected == 3):
         # Cut jphi vs z blob
-        df2 = df_tmp.drop(df_tmp[np.logical_and(
-            df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+        # df2 = df_tmp.drop(df_tmp[np.logical_and(
+        #     df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
-        df2 = df2.drop(
-            df2[np.logical_or(df2['jphi'].abs() <= 0.007, df2['z'].abs() >= 2)].index)
-        cutname = 'z-jphi-'
-        title2 = r'z $j_{\phi}$ ' + title1
+            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
+        # df2 = df2.drop(
+            # df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
+        # df2 = df2.drop(
+            # df2[np.logical_or(df2['jphi'].abs() <= 0.007, df2['z'].abs() >= 2)].index)
+        df2 = df2.drop(df2[df2['jphi'].abs() <= cut3_jphimin].index)
+        cutname = 'jphinear-'
+        title2 = r'$j_\phi$ (near) ' + title1
 
     if(cut_selected == 4):
-        # Cut jphi vs z blob
-        df2 = df_tmp.drop(df_tmp[np.logical_and(
-            df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
-        df2 = df2.drop(df2[np.logical_and(df2['jphi'].abs()
-                       > 0.007, df2['z'].abs() < 2)].index)
+            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
+        df2 = df2.drop(df2[df2['jphi'].abs() > cut3_jphimin].index)
+        # df2 = df_tmp.drop(df_tmp[np.logical_and(
+        #     df_tmp['jr'].abs() > 0.007, df_tmp['y'].abs() < 4)].index)
+        # df2 = df2.drop(
+        #     df2[np.logical_and(df2['jphi'] > 0.007, df2['jphi'] < 0.03)].index)
+        # df2 = df2.drop(df2[np.logical_and(df2['jphi'].abs()
+        #                > 0.007, df2['z'].abs() < 2)].index)
         cutname = 'residual-'
-        title2 = r'residual ' + title1
+        title2 = r'Residual ' + title1
 
     return df2, title2, cutname
-
 
 def process_data_with_cuts(X, Y, Z, base, dirpath=origin, cut_selected=1):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
@@ -1709,13 +1484,12 @@ def process_data_with_cuts(X, Y, Z, base, dirpath=origin, cut_selected=1):
     plot_jr_jt_jp_vs_x(df2, title2, base, coord='y', cut=cutname)
     plot_jr_jt_jp_vs_x(df2, title2, base, coord='z', cut=cutname)
 
-    logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    plot_jp_jp_vs_x(df2, title2, base, coord='x', cut=cutname)
-    plot_jp_jp_vs_x(df2, title2, base, coord='y', cut=cutname)
-    plot_jp_jp_vs_x(df2, title2, base, coord='z', cut=cutname)
+    # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
+    # plot_jp_jp_vs_x(df2, title2, base, coord='x', cut=cutname)
+    # plot_jp_jp_vs_x(df2, title2, base, coord='y', cut=cutname)
+    # plot_jp_jp_vs_x(df2, title2, base, coord='z', cut=cutname)
 
     return
-
 
 def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     """Process data in BATSRUS file to create 3D plots of points in cuts
@@ -1747,27 +1521,21 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     df4, title4, cutname4 = perform_not_cuts(df1, title1, cut_selected=3)
     #################################
     #################################
-    # # Cut all - residual
-    # df5, title5, cutname5 = perform_not_cuts( df1, title1, cut_selected = 4 )
-    #################################
-    #################################
 
     logging.info('Plotting 3D extracted cuts...')
 
     plt.rcParams['font.size'] = 5
-    vmin = 0.007
-    vmax = 0.30
-    from matplotlib.colors import LogNorm
-    norm = LogNorm(vmin=vmin, vmax=vmax)
-    cmap = plt.colormaps['viridis']
-    # scale = 10.
+    from matplotlib.colors import LogNorm, CenteredNorm, SymLogNorm
+    # norm = LogNorm(vmin=vmin, vmax=vmax)
+    # norm = CenteredNorm(vcenter=0, halfrange=vmax)
+    norm = SymLogNorm(linthresh=vmin, vmin=-vmax, vmax=vmax)
+    # cmap = plt.colormaps['viridis']
+    cmap = plt.colormaps['coolwarm']
 
     fig = plt.figure()
     ax = fig.add_subplot(2, 4, 1, projection='3d')
-    # ax.scatter(df2['x'], df2['y'], df2['z'], s=1)
     sc = ax.scatter(df2['x'], df2['y'], df2['z'], s=1,
-                    c=df2['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df2['jr'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1775,13 +1543,11 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_xlim(plot3d_limits[0], plot3d_limits[1])
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{r} $', pad=0.2)
 
     ax = fig.add_subplot(2, 4, 2, projection='3d')
-    # ax.scatter(df3['x'], df3['y'], df3['z'], s=1)
     sc = ax.scatter(df3['x'], df3['y'], df3['z'], s=1,
-                    c=df3['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df3['jphi'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1789,13 +1555,11 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_xlim(plot3d_limits[0], plot3d_limits[1])
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
 
     ax = fig.add_subplot(2, 4, 3, projection='3d')
-    # ax.scatter(df4['x'], df4['y'], df4['z'], s=1)
     sc = ax.scatter(df4['x'], df4['y'], df4['z'], s=1,
-                    c=df4['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df4['jphi'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1803,13 +1567,11 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_xlim(plot3d_limits[0], plot3d_limits[1])
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
 
     ax = fig.add_subplot(2, 4, 5, projection='3d')
-    # ax.quiver(df2['x'], df2['y'], df2['z'], scale*df2['jx'], scale*df2['jy'], scale*df2['jz'])
     sc = ax.scatter(df2['x'], df2['y'], df2['z'], s=1,
-                    c=df2['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df2['jr'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1818,13 +1580,11 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
     ax.view_init(-140, 60)
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{r} $', pad=0.2)
 
     ax = fig.add_subplot(2, 4, 6, projection='3d')
-    # ax.quiver(df3['x'], df3['y'], df3['z'],  scale*df3['jx'], scale*df3['jy'], scale*df3['jz'])
     sc = ax.scatter(df3['x'], df3['y'], df3['z'], s=1,
-                    c=df3['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df3['jphi'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1833,13 +1593,11 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
     ax.view_init(-140, 60)
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
 
     ax = fig.add_subplot(2, 4, 7, projection='3d')
-    # ax.quiver(df4['x'], df4['y'], df4['z'],  scale*df4['jx'], scale*df4['jy'], scale*df4['jz'])
     sc = ax.scatter(df4['x'], df4['y'], df4['z'], s=1,
-                    c=df4['jMag'], cmap=cmap, norm=norm)
-    # plt.legend(*sc.legend_elements(), bbox_to_anchor=(1.15, 1.15), loc=2)
+                    c=df4['jphi'], cmap=cmap, norm=norm)
     ax.set_xlabel(r'$x/R_e$')
     ax.set_ylabel(r'$y/R_e$')
     ax.set_zlabel(r'$z/R_e$')
@@ -1848,7 +1606,7 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     ax.set_ylim(plot3d_limits[0], plot3d_limits[1])
     ax.set_zlim(plot3d_limits[0], plot3d_limits[1])
     ax.view_init(-140, 60)
-    fig.colorbar(sc, shrink=0.4, location='right', label=r'|j|', pad=0.2)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
 
     plt.tight_layout()
 
@@ -1859,7 +1617,6 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     plt.close(fig)
 
     return
-
 
 def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
     """Process data in BATSRUS file to create dataframe with calculated quantities,
@@ -1872,11 +1629,11 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
         dirpath = path to directory containing base
-    Outputs:
-        df1 = cumulative sum for input data
-        df1 - df2 = contribution due to points in asym. jr cut
-        df2 - df3 = contribution due to points in y jphi cut
-        df3 - df4 = contribution due to points in z jphi cut
+     Outputs:
+        df1 = cumulative sum for original (all) data in north-east-zenith
+        df1 - df2 = contribution due to points in asym. jr cut in nez
+        df2 - df3 = contribution due to points in y jphi cut in nez
+        df3 - df4 = contribution due to points in z jphi cut in nez
     """
 
     df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath)
@@ -1898,50 +1655,159 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
     #################################
     #################################
 
-    logging.info(
-        'Calculate cumulative sums for dataframes for extracted cuts...')
+    logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
     df1 = create_cumulative_sum_dataframe(df1)
     df2 = create_cumulative_sum_dataframe(df2)
     df3 = create_cumulative_sum_dataframe(df3)
     df4 = create_cumulative_sum_dataframe(df4)
+    
+    y,n,d,h,m,s = date_time(base)
+    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
+    n_geo = (0,0,1)
+    
+    def north_comp( df, n_geo ):
+        """ Local function used to get north component of field defined in df.
+        
+        Inputs:
+            df = dataframe with magnetic field info
+            n_geo = north unit vector
+        Outputs:
+            dBNSum = Total B north component
+            dBparallelNSum = Total B due to currents parallel to B field, 
+                north component
+            dBperpendicularNSum = Total B due to currents perpendicular to B 
+                field, north component
+            dBperpendicularphiNSum = Total B due to currents perpendicular to B 
+                field, north component, but divided into a piece along phi-hat
+                and the residual
+            dBperpendicularphiresNSum =Total B due to currents perpendicular to B 
+                field, north component, but divided into a piece along phi-hat
+                and the residual
+        """
+        dBNSum = df['dBxSum'].iloc[-1]*n_geo[0] + \
+            df['dBySum'].iloc[-1]*n_geo[1] + \
+            df['dBzSum'].iloc[-1]*n_geo[2]
+        dBparallelNSum = df['dBparallelxSum'].iloc[-1]*n_geo[0] + \
+            df['dBparallelySum'].iloc[-1]*n_geo[1] + \
+            df['dBparallelzSum'].iloc[-1]*n_geo[2]
+        dBperpendicularNSum = df['dBperpendicularxSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularzSum'].iloc[-1]*n_geo[2]
+        dBperpendicularphiNSum = df['dBperpendicularphixSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularphiySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularphizSum'].iloc[-1]*n_geo[2]
+        dBperpendicularphiresNSum = df['dBperpendicularphiresxSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularphiresySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularphireszSum'].iloc[-1]*n_geo[2]
+        return dBNSum, dBparallelNSum, dBperpendicularNSum, dBperpendicularphiNSum, \
+            dBperpendicularphiresNSum
+            
+    dBNSum1, dBparallelNSum1, dBperpendicularNSum1, dBperpendicularphiNSum1, \
+        dBperpendicularphiresNSum1 = north_comp( df1, n_geo )
 
-    return df1['dBzSum'].iloc[-1], \
-        df1['dBparazSum'].iloc[-1], \
-        df1['dBantizSum'].iloc[-1], \
-        df1['dBparallelzSum'].iloc[-1], \
-        df1['dBperpendicularzSum'].iloc[-1], \
-        df1['dBperpendicularphizSum'].iloc[-1], \
-        df1['dBperpendicularphireszSum'].iloc[-1], \
-        df1['dBzSum'].iloc[-1] - df2['dBzSum'].iloc[-1], \
-        df1['dBparazSum'].iloc[-1] - df2['dBparazSum'].iloc[-1], \
-        df1['dBantizSum'].iloc[-1] - df2['dBantizSum'].iloc[-1], \
-        df1['dBparallelzSum'].iloc[-1] - df2['dBparallelzSum'].iloc[-1], \
-        df1['dBperpendicularzSum'].iloc[-1] - df2['dBperpendicularzSum'].iloc[-1], \
-        df1['dBperpendicularphizSum'].iloc[-1] - df2['dBperpendicularphizSum'].iloc[-1], \
-        df1['dBperpendicularphireszSum'].iloc[-1] - df2['dBperpendicularphireszSum'].iloc[-1], \
-        df2['dBzSum'].iloc[-1] - df3['dBzSum'].iloc[-1], \
-        df2['dBparazSum'].iloc[-1] - df3['dBparazSum'].iloc[-1], \
-        df2['dBantizSum'].iloc[-1] - df3['dBantizSum'].iloc[-1], \
-        df2['dBparallelzSum'].iloc[-1] - df3['dBparallelzSum'].iloc[-1], \
-        df2['dBperpendicularzSum'].iloc[-1] - df3['dBperpendicularzSum'].iloc[-1], \
-        df2['dBperpendicularphizSum'].iloc[-1] - df3['dBperpendicularphizSum'].iloc[-1], \
-        df2['dBperpendicularphireszSum'].iloc[-1] - df3['dBperpendicularphireszSum'].iloc[-1], \
-        df3['dBzSum'].iloc[-1] - df4['dBzSum'].iloc[-1], \
-        df3['dBparazSum'].iloc[-1] - df4['dBparazSum'].iloc[-1], \
-        df3['dBantizSum'].iloc[-1] - df4['dBantizSum'].iloc[-1], \
-        df3['dBparallelzSum'].iloc[-1] - df4['dBparallelzSum'].iloc[-1], \
-        df3['dBperpendicularzSum'].iloc[-1] - df4['dBperpendicularzSum'].iloc[-1], \
-        df3['dBperpendicularphizSum'].iloc[-1] - df4['dBperpendicularphizSum'].iloc[-1], \
-        df3['dBperpendicularphireszSum'].iloc[-1] - df4['dBperpendicularphireszSum'].iloc[-1], \
-        df4['dBzSum'].iloc[-1], \
-        df4['dBparazSum'].iloc[-1], \
-        df4['dBantizSum'].iloc[-1], \
-        df4['dBparallelzSum'].iloc[-1], \
-        df4['dBperpendicularzSum'].iloc[-1], \
-        df4['dBperpendicularphizSum'].iloc[-1], \
-        df4['dBperpendicularphireszSum'].iloc[-1]
+    dBNSum2, dBparallelNSum2, dBperpendicularNSum2, dBperpendicularphiNSum2, \
+        dBperpendicularphiresNSum2 = north_comp( df2, n_geo )
 
+    dBNSum3, dBparallelNSum3, dBperpendicularNSum3, dBperpendicularphiNSum3, \
+        dBperpendicularphiresNSum3 = north_comp( df3, n_geo )
+
+    dBNSum4, dBparallelNSum4, dBperpendicularNSum4, dBperpendicularphiNSum4, \
+        dBperpendicularphiresNSum4 = north_comp( df4, n_geo )
+
+    return dBNSum1, \
+        dBparallelNSum1, \
+        dBperpendicularNSum1, \
+        dBperpendicularphiNSum1, \
+        dBperpendicularphiresNSum1, \
+        dBNSum1 - dBNSum2, \
+        dBparallelNSum1 - dBparallelNSum2, \
+        dBperpendicularNSum1 - dBperpendicularNSum2, \
+        dBperpendicularphiNSum1 - dBperpendicularphiNSum2, \
+        dBperpendicularphiresNSum1 - dBperpendicularphiresNSum2, \
+        dBNSum2 - dBNSum3, \
+        dBparallelNSum2 - dBparallelNSum3, \
+        dBperpendicularNSum2 - dBperpendicularNSum3, \
+        dBperpendicularphiNSum2 - dBperpendicularphiNSum3, \
+        dBperpendicularphiresNSum2 - dBperpendicularphiresNSum3, \
+        dBNSum3 - dBNSum4, \
+        dBparallelNSum3 - dBparallelNSum4, \
+        dBperpendicularNSum3 - dBperpendicularNSum4, \
+        dBperpendicularphiNSum3 - dBperpendicularphiNSum4, \
+        dBperpendicularphiresNSum3 - dBperpendicularphiresNSum4, \
+        dBNSum4, \
+        dBparallelNSum4, \
+        dBperpendicularNSum4, \
+        dBperpendicularphiNSum4, \
+        dBperpendicularphiresNSum4
+
+def process_sum_db(X, Y, Z, base, dirpath=origin):
+    """Process data in BATSRUS file to create dataframe with calculated quantities
+
+    Inputs:
+        X,Y,Z = position where magnetic field will be measured
+        base = basename of BATSRUS file.  Complete path to file is:
+            dirpath + base + '.out'
+        dirpath = path to directory containing base
+     Outputs:
+        df1 = cumulative sum for original (all) data in north-east-zenith
+    """
+
+    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath)
+
+    logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
+
+    df1 = create_cumulative_sum_dataframe(df1)
+    
+    y,n,d,h,m,s = date_time(base)
+    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
+    n_geo = (0,0,1)
+    
+    def north_comp( df, n_geo ):
+        """ Local function used to get north component of field defined in df.
+        
+        Inputs:
+            df = dataframe with magnetic field info
+            n_geo = north unit vector
+        Outputs:
+            dBNSum = Total B north component
+            dBparallelNSum = Total B due to currents parallel to B field, 
+                north component
+            dBperpendicularNSum = Total B due to currents perpendicular to B 
+                field, north component
+            dBperpendicularphiNSum = Total B due to currents perpendicular to B 
+                field, north component, but divided into a piece along phi-hat
+                and the residual
+            dBperpendicularphiresNSum =Total B due to currents perpendicular to B 
+                field, north component, but divided into a piece along phi-hat
+                and the residual
+        """
+        dBNSum = df['dBxSum'].iloc[-1]*n_geo[0] + \
+            df['dBySum'].iloc[-1]*n_geo[1] + \
+            df['dBzSum'].iloc[-1]*n_geo[2]
+        dBparallelNSum = df['dBparallelxSum'].iloc[-1]*n_geo[0] + \
+            df['dBparallelySum'].iloc[-1]*n_geo[1] + \
+            df['dBparallelzSum'].iloc[-1]*n_geo[2]
+        dBperpendicularNSum = df['dBperpendicularxSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularzSum'].iloc[-1]*n_geo[2]
+        dBperpendicularphiNSum = df['dBperpendicularphixSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularphiySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularphizSum'].iloc[-1]*n_geo[2]
+        dBperpendicularphiresNSum = df['dBperpendicularphiresxSum'].iloc[-1]*n_geo[0] + \
+            df['dBperpendicularphiresySum'].iloc[-1]*n_geo[1] + \
+            df['dBperpendicularphireszSum'].iloc[-1]*n_geo[2]
+        return dBNSum, dBparallelNSum, dBperpendicularNSum, dBperpendicularphiNSum, \
+            dBperpendicularphiresNSum
+            
+    dBNSum1, dBparallelNSum1, dBperpendicularNSum1, dBperpendicularphiNSum1, \
+        dBperpendicularphiresNSum1 = north_comp( df1, n_geo )
+
+    return dBNSum1, \
+        dBparallelNSum1, \
+        dBperpendicularNSum1, \
+        dBperpendicularphiNSum1, \
+        dBperpendicularphiresNSum1
 
 def loop_sum_db_thru_cuts(X, Y, Z, files):
     """Loop thru data in BATSRUS files to create plots showing the effects of
@@ -1959,36 +1825,26 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
     n = len(files)
 
     b_original = [None] * n
-    b_original_para = [None] * n
-    b_original_anti = [None] * n
     b_original_parallel = [None] * n
     b_original_perp = [None] * n
     b_original_perpphi = [None] * n
     b_original_perpphires = [None] * n
     b_asym_jr = [None] * n
-    b_asym_jr_para = [None] * n
-    b_asym_jr_anti = [None] * n
     b_asym_jr_parallel = [None] * n
     b_asym_jr_perp = [None] * n
     b_asym_jr_perpphi = [None] * n
     b_asym_jr_perpphires = [None] * n
     b_y_jphi = [None] * n
-    b_y_jphi_para = [None] * n
-    b_y_jphi_anti = [None] * n
     b_y_jphi_parallel = [None] * n
     b_y_jphi_perp = [None] * n
     b_y_jphi_perpphi = [None] * n
     b_y_jphi_perpphires = [None] * n
     b_z_jphi = [None] * n
-    b_z_jphi_para = [None] * n
-    b_z_jphi_anti = [None] * n
     b_z_jphi_parallel = [None] * n
     b_z_jphi_perp = [None] * n
     b_z_jphi_perpphi = [None] * n
     b_z_jphi_perpphires = [None] * n
     b_residual = [None] * n
-    b_residual_para = [None] * n
-    b_residual_anti = [None] * n
     b_residual_parallel = [None] * n
     b_residual_perp = [None] * n
     b_residual_perpphi = [None] * n
@@ -1996,8 +1852,8 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
     b_times = [None] * n
     b_index = [None] * n
 
-    for i in range(n):
-        # for i in range(4):
+    for i in range(n):        
+    # for i in range(4):
         # Create the title that we'll use in the graphics
         words = files[i].split('-')
 
@@ -2012,18 +1868,17 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
         b_index[i] = i
 
         # Get the values of various cuts on the data.  We want the sums for the
-        # main components of the field - the complete field, para and anti are subsets
-        # of parallel component, parallel (aka para+anti), and perpendicular
-        #
-        b_original[i], b_original_para[i], b_original_anti[i], b_original_parallel[i], b_original_perp[i], \
+        # main components of the field - the complete field, parallel and perpendicular
+        # (perpphi and perpphires are components of perpendicular)
+        b_original[i], b_original_parallel[i], b_original_perp[i], \
             b_original_perpphi[i], b_original_perpphires[i], \
-            b_asym_jr[i], b_asym_jr_para[i], b_asym_jr_anti[i], b_asym_jr_parallel[i], b_asym_jr_perp[i], \
+            b_asym_jr[i], b_asym_jr_parallel[i], b_asym_jr_perp[i], \
             b_asym_jr_perpphi[i], b_asym_jr_perpphires[i], \
-            b_y_jphi[i], b_y_jphi_para[i], b_y_jphi_anti[i], b_y_jphi_parallel[i], b_y_jphi_perp[i], \
+            b_y_jphi[i], b_y_jphi_parallel[i], b_y_jphi_perp[i], \
             b_y_jphi_perpphi[i], b_y_jphi_perpphires[i], \
-            b_z_jphi[i], b_z_jphi_para[i], b_z_jphi_anti[i], b_z_jphi_parallel[i], b_z_jphi_perp[i], \
+            b_z_jphi[i], b_z_jphi_parallel[i], b_z_jphi_perp[i], \
             b_z_jphi_perpphi[i], b_z_jphi_perpphires[i], \
-            b_residual[i], b_residual_para[i], b_residual_anti[i], b_residual_parallel[i], b_residual_perp[i], \
+            b_residual[i], b_residual_parallel[i], b_residual_perp[i], \
             b_residual_perpphi[i], b_residual_perpphires[i] = \
             process_sum_db_with_cuts(X, Y, Z, base=files[i])
 
@@ -2034,192 +1889,197 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
     plt.plot(b_times, b_z_jphi,  ls='dotted', color='blue')
     plt.plot(b_times, b_residual, ls='solid', color='blue')
     plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend(['Original', r'Asym $j_r$ only', r'y $j_\phi$ only',
-               r'z $j_\phi$ only', r'Residual'])
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend(['Original', r'$j_r$ Peaks', r'$j_\phi$ Peaks (far)', r'$j_\phi$ Peaks (near)', r'Residual'])
 
     plt.figure()
     plt.plot(b_times, b_original, ls='solid', color='black')
     plt.plot(b_times, b_original_parallel, ls='dashed', color='blue')
     plt.plot(b_times, b_original_perpphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_original_perpphires,  ls='dotdash', color='blue')
+    plt.plot(b_times, b_original_perpphires,  ls='dashdot', color='blue')
     plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend(['Original', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residue'])
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend(['Original', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
     plt.figure()
     plt.plot(b_times, b_asym_jr, ls='solid', color='black')
     plt.plot(b_times, b_asym_jr_parallel, ls='dashed', color='blue')
     plt.plot(b_times, b_asym_jr_perpphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_asym_jr_perpphires,  ls='dotdash', color='blue')
+    plt.plot(b_times, b_asym_jr_perpphires,  ls='dashdot', color='blue')
     plt.xlabel(r'Time (hr)')
-    plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend([r'Asymmetric $j_r$', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residue'])
+    plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend([r'$j_r$ Peaks', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
     plt.figure()
     plt.plot(b_times, b_y_jphi, ls='solid', color='black')
     plt.plot(b_times, b_y_jphi_parallel, ls='dashed', color='blue')
     plt.plot(b_times, b_y_jphi_perpphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_y_jphi_perpphires,  ls='dotdash', color='blue')
+    plt.plot(b_times, b_y_jphi_perpphires,  ls='dashdot', color='blue')
     plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend([r'y $j_{\phi}$', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residue'])
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend([r'$j_\phi$ Peaks (far)', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
     plt.figure()
     plt.plot(b_times, b_z_jphi, ls='solid', color='black')
     plt.plot(b_times, b_z_jphi_parallel, ls='dashed', color='blue')
     plt.plot(b_times, b_z_jphi_perpphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_z_jphi_perpphires,  ls='dotdash', color='blue')
+    plt.plot(b_times, b_z_jphi_perpphires,  ls='dashdot', color='blue')
     plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend([r'z $j_{\phi}$', r'Perpendicular $\phi$', r'Perpendicular Residue'])
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend([r'$j_\phi$ Peaks (near)', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
     plt.figure()
     plt.plot(b_times, b_residual, ls='solid', color='black')
     plt.plot(b_times, b_residual_parallel, ls='dashed', color='blue')
     plt.plot(b_times, b_residual_perpphi,  ls='dotted', color='blue')
-    plt.plot(b_times, b_residual_perpphires,  ls='dotdash', color='blue')
+    plt.plot(b_times, b_residual_perpphires,  ls='dashdot', color='blue')
     plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
     plt.ylabel(r'Total $B_z$ at (1,0,0)')
-    plt.ylim(-dB_sum_limits[1], dB_sum_limits[1])
-    plt.legend([r'Residual', r'Perpendicular $\phi$', r'Perpendicular Residue'])
-
-    plt.figure()
-    plt.plot(b_original_para, b_original_anti, ls='solid', color='blue')
-    plt.xlabel(r'Original $B_z$ Parallel')
-    plt.ylabel(r'Original $B_z$ Anti-Parallel')
-
-    plt.figure()
-    plt.plot(b_asym_jr_para, b_asym_jr_anti, ls='solid', color='blue')
-    plt.xlabel(r'Asym $j_r$ $B_z$ Parallel')
-    plt.ylabel(r'Asym $j_r$ $B_z$ Anti-Parallel')
-
-    plt.figure()
-    plt.plot(b_y_jphi_para, b_y_jphi_anti, ls='solid', color='blue')
-    plt.xlabel(r'y $j_\phi$ $B_z$ Parallel')
-    plt.ylabel(r'y $j_\phi$ $B_z$ Anti-Parallel')
-
-    plt.figure()
-    plt.plot(b_z_jphi_para, b_z_jphi_anti, ls='solid', color='blue')
-    plt.xlabel(r'z $j_\phi$ $B_z$ Parallel')
-    plt.ylabel(r'z $j_\phi$ $B_z$ Anti-Parallel')
-
-    plt.figure()
-    plt.plot(b_residual_para, b_residual_anti, ls='solid', color='blue')
-    plt.xlabel(r'Residual $B_z$ Parallel')
-    plt.ylabel(r'Residual $B_z$ Anti-Parallel')
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend([r'Residual', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
     return
 
-
-def get_files(orgdir=origin, base='3d__*'):
-    """Create a list of files that we will process.  Look in the basedir directory,
-    and get list of file basenames.
-
-    Inputs:
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
-        orgdir = path to directory containing input files
-    Outputs:
-        l = list of file basenames.
-    """
-    import os
-    import glob
-
-    # Create a list of files that we will process
-    # Look in the basedir directory.  Get list of file basenames
-
-    # In this version, we find all of the base + '.out' files
-    # and retrieve their basenames
-    os.chdir(orgdir)
-
-    l = glob.glob(base + '.out')
-
-    # Strip off extension
-    for i in range(len(l)):
-        l[i] = (l[i].split('.'))[0]
-
-    l.sort()
-
-    return l
-
-
-def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
-                          orgdir=origin, tgtdir=target, base='3d__*'):
-    """Create a list of files that we will process.  This routine is used when
-    some files have been process and others have not, e.g., the program crashed.
-    Since the output files of other routines use the same basenames as the output
-    files, we compare the files in the input directory (orgdir) to those in the
-    output directory (tgtdir).  From this, we create a list of unprocessed files.
+def loop_sum_db(X, Y, Z, files):
+    """Loop thru data in BATSRUS files to create plots showing the breakdown of
+    parallel and perpendicular to B field components
 
     Inputs:
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
-        orgdir = path to directory containing input files
-        tgtdir = path to directory containing output files
-        tgtsubdir = the tgtdir contains multiple subdirectories containing output
-            files from various routines.  tgtdir + tgtsubdir is the name of the
-            directory with the output files that we will compare
+        files = list of files to be processed, each entry is the basename of 
+            a BATSRUS file
     Outputs:
-        l = list of file basenames
+        None - other than the plots generated
     """
-    import os
-    import glob
+    plt.rcParams["figure.figsize"] = [3.6, 3.2]
 
-    # In this routine we compare the list of .out input files and .png files
-    # to determine what has already been processed.  Look at all *.out
-    # files and remove from the list (l1) all of the files that already have
-    # been converted to .png files.  The unremoved files are unconverted files.
+    n = len(files)
 
-    os.chdir(orgdir)
-    l1 = glob.glob(base + '.out')
+    b_original = [None] * n
+    b_original_parallel = [None] * n
+    b_original_perp = [None] * n
+    b_original_perpphi = [None] * n
+    b_original_perpphires = [None] * n
+    b_times = [None] * n
+    b_index = [None] * n
 
-    # Look at the png files in directory
-    if not exists(tgtdir + tgtsubdir):
-        makedirs(tgtdir + tgtsubdir)
-    os.chdir(tgtdir + tgtsubdir)
-    l2 = glob.glob(base + '.png')
+    for i in range(n):        
+    # for i in range(4):
+        # Create the title that we'll use in the graphics
+        words = files[i].split('-')
 
-    for i in range(len(l1)):
-        l1[i] = (l1[i].split('.'))[0]
+        # Convert time to a float
+        t = int(words[1])
+        h = t//10000
+        m = (t % 10000) // 100
+        logging.info(f'Time: {t} Hours: {h} Minutes: {m}')
 
-    for i in range(len(l2)):
-        l2[i] = (l2[i].split('.'))[0]
+        # Record time and index for plots
+        b_times[i] = h + m/60
+        b_index[i] = i
 
-    for i in l2:
-        l1.remove(i)
+        # Get the values of various cuts on the data.  We want the sums for the
+        # main components of the field - the complete field, parallel and perpendicular
+        # (perpphi and perpphires are components of perpendicular)
+        b_original[i], b_original_parallel[i], b_original_perp[i], \
+            b_original_perpphi[i], b_original_perpphires[i] = \
+            process_sum_db(X, Y, Z, base=files[i])
 
-    l1.sort()
+    plt.figure()
+    plt.plot(b_times, b_original, ls='solid', color='black')
+    plt.plot(b_times, b_original_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_original_perpphi,  ls='dotted', color='blue')
+    plt.plot(b_times, b_original_perpphires,  ls='dashdot', color='blue')
+    plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylabel(r'Total $B_z$ at (1,0,0)')
+    plt.ylim(dB_sum_limits2[0], dB_sum_limits2[1])
+    plt.legend(['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
-    return l1
+    b_fraction_parallel = [m/n for m, n in zip(b_original_parallel, b_original)]
+    b_fraction_perpphi = [m/n for m, n in zip(b_original_perpphi, b_original)]
+    b_fraction_perpphires = [m/n for m, n in zip(b_original_perpphires, b_original)]
+    
+    plt.figure()
+    plt.plot(b_times, b_fraction_parallel, ls='dashed', color='blue')
+    plt.plot(b_times, b_fraction_perpphi,  ls='dotted', color='blue')
+    plt.plot(b_times, b_fraction_perpphires,  ls='dashdot', color='blue')
+    plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylabel(r'Fraction of Total $B_z$ at (1,0,0)')
+    plt.ylim(-0.5,1.5)
+    plt.legend([r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'])
 
+    plt.figure()
+    plt.plot(b_times, b_fraction_parallel, ls='dashed', color='blue')
+    plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylabel(r'Fraction of Total $B_z$ at (1,0,0)')
+    plt.ylim(-0.5,1.5)
+    plt.legend([r'Parallel'])
+
+    plt.figure()
+    plt.plot(b_times, b_fraction_perpphi,  ls='dotted', color='blue')
+    plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylabel(r'Fraction of Total $B_z$ at (1,0,0)')
+    plt.ylim(-0.5,1.5)
+    plt.legend([r'Perpendicular $\phi$'])
+
+    plt.figure()
+    plt.plot(b_times, b_fraction_perpphires,  ls='dashdot', color='blue')
+    plt.xlabel(r'Time (hr)')
+    # plt.ylabel(r'Total $B_N$ at (1,0,0)')
+    plt.ylabel(r'Fraction of Total $B_z$ at (1,0,0)')
+    plt.ylim(-0.5,1.5)
+    plt.legend([r'Perpendicular Residual'])
+
+    return
 
 if __name__ == "__main__":
-    files = get_files()
-    # files = get_files_unconverted( tgtsubdir = 'png-combined-sum-dB-para-perp-comp-r/' )
+    # if COLABA:
+    #     files = get_files(base='3d__var_2_e*')
+    # else:
+    #     files = get_files(base='3d__*')
+        
+    if COLABA:
+        files = get_files_unconverted( tgtsubdir = 'png-jrtp-cdf/', base='3d__var_2_e*' )
+    else:
+        files = get_files_unconverted( tgtsubdir = 'png-jrtp-cdf/', base='3d__*' )
 
-    # logging.info('Num. of files: ' + str(len(files)))
+    logging.info('Num. of files: ' + str(len(files)))
 
     X = 1
     Y = 0
     Z = 0
 
-    # for i in range(len(files)):
+    for i in range(len(files)):
     # for i in range(1):
+        process_data(X, Y, Z, files[i])
+        # process_data_with_cuts(X, Y, Z, files[i], cut_selected = 3)
+        # if(i>1): process_3d_cut_plots(X, Y, Z, files[i])
+        # process_3d_cut_plots(X, Y, Z, files[i])
+
+    # loop_sum_db_thru_cuts(X, Y, Z, files)
+    # loop_sum_db(X, Y, Z, files)
+    
+    # time = "2001-01-01T12:00:00"
+    # n_geo, e_geo, z_geo = nez(time, (1,0,0), 'GSM')
+    # print( n_geo, e_geo, z_geo)
+    
+    # for i in range(len(files)):
         # y,n,d,h,m,s = date_time(files[i])
         # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), ((X,Y,Z), (X,Y,Z), (X,Y,Z)), 'GSM')
         # print(n_geo, e_geo, z_geo)
 
-        # process_data(X, Y, Z, base = files[i])
 
-        # process_data_with_cuts(X, Y, Z, base = files[i], cut_selected = 3)
-
-        # if(i>1): process_3d_cut_plots(X, Y, Z, base = files[i])
-
-    loop_sum_db_thru_cuts(X, Y, Z, files)
 

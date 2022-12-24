@@ -1392,19 +1392,19 @@ def process_data( base, dirpath = origin ):
     # Split the data into dayside (x>=0) and nightside (x<0)
     # logging.info('Creating dayside/nightside dataframe...')
     
-    # df_day = df[df['x'] >= 0]
-    # df_night = df[df['x'] < 0]
+    df_day = df[df['x'] >= 0]
+    df_night = df[df['x'] < 0]
 
     # Do plots...
 
-    # logging.info('Creating dB (Norm) vs r plots...')
-    # plot_db_Norm_r( df, title, base )
+    logging.info('Creating dB (Norm) vs r plots...')
+    plot_db_Norm_r( df, title, base )
 
     # logging.info('Creating cumulative sum B vs r plots...')
     # plot_cumulative_B( df_r, title, base )
     
-    logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
-    plot_cumulative_B_para_perp( df_r, title, base )
+    # logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
+    # plot_cumulative_B_para_perp( df_r, title, base )
     
     # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
     # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
@@ -1992,13 +1992,13 @@ def get_files_unconverted( tgtsubdir = 'png-dBmagNorm-uMag-night',
     return l1
 
 if __name__ == "__main__":
-    # files = get_files()
-    files = get_files_unconverted( tgtsubdir = 'png-3d-cuts/' )
+    files = get_files()
+    # files = get_files_unconverted( tgtsubdir = 'png-3d-cuts/' )
     
     logging.info('Num. of files: ' + str(len(files)))
  
     for i in range(len(files)):
-        # process_data(base = files[i])
+        process_data(base = files[i])
         # process_data_with_cuts(base = files[i], cut_selected = 3)
-        if(i>1): process_3d_cut_plots(base = files[i])
+        # if(i>1): process_3d_cut_plots(base = files[i])
         

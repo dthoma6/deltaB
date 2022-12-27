@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#
+# List all of the 3d__var_2*.out files in directory dir
+# Extract from them the time (hms), and only process the
+# files on 15 minute intervals (00, 15, 30, 45). Process
+# those files in the python script.
+#
+
+dir="/Volumes/Physics HD v2/runs/DIPTSUR2/GM/IO2"
+
+files=`ls "$dir" | grep out | grep 3d__var_2 | cut -d "." -f 1`
+
+for file in $files
+do 
+	hms=`echo $file | cut -d "-" -f 2`
+	m=${hms:2:2}
+	if [ $m -eq "00" ]
+	then
+		python deltaB_plots_nez.py -i $file
+	fi
+	if [ $m -eq "15" ]
+	then
+		python deltaB_plots_nez.py -i $file
+	fi
+	if [ $m -eq "30" ]
+	then
+		python deltaB_plots_nez.py -i $file
+	fi
+	if [ $m -eq "45" ]
+	then
+		python deltaB_plots_nez.py -i $file
+	fi
+done

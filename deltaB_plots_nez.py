@@ -14,6 +14,8 @@ Created on Thu Sep 15 09:42:06 2022
 # of lines of code by 25%
 #
 # matplotlib was slow, so converted plotting to VTK
+#
+# converted constants, eg., origin to caps ORIGIN
 ################################################################################
 ################################################################################
 
@@ -42,88 +44,89 @@ COLABA = True
 
 # origin and target define where input data and output plots are stored
 if COLABA:
-    origin = '/Volumes/Physics HD v2/runs/DIPTSUR2/GM/IO2/'
-    target = '/Volumes/Physics HD v2/runs/DIPTSUR2/plots/'
+    ORIGIN = '/Volumes/Physics HD v2/runs/DIPTSUR2/GM/IO2/'
+    TARGET = '/Volumes/Physics HD v2/runs/DIPTSUR2/plots/'
 else:
-    origin = '/Volumes/Physics HD v2/divB_simple1/GM/'
-    target = '/Volumes/Physics HD v2/divB_simple1/plots/'
+    ORIGIN = '/Volumes/Physics HD v2/divB_simple1/GM/'
+    TARGET = '/Volumes/Physics HD v2/divB_simple1/plots/'
 
 # rCurrents define range from earth center below which results are not valid
 # measured in Re units
 if COLABA:
-    rCurrents = 1.8
+    RCURRENTS = 1.8
 else:
-    rCurrents = 3
+    RCURRENTS = 3
 
 # Range of values seen in each variable, used to plot graphs
 if COLABA:
-    rlog_limits = [1, 1000]
-    r_limits = [0, 300]
-    rho_limits = [10**-2, 10**4]
-    p_limits = [10**-5, 10**3]
-    jMag_limits = [10**-11, 10**1]
-    j_limits = [-1, 1]
-    jcdf_limits = [-0.1, 0.1]
-    uMag_limits = [10**-3, 10**4]
-    u_limits = [-1100, 1100]
-    dBNorm_limits = [10**-15, 10**-1]
+    RLOG_LIMITS = [1, 1000]
+    R_LIMITS = [0, 300]
+    RHO_LIMITS = [10**-2, 10**4]
+    P_LIMITS = [10**-5, 10**3]
+    JMAG_LIMITS = [10**-11, 10**1]
+    J_LIMITS = [-1, 1]
+    JCDF_LIMITS = [-0.1, 0.1]
+    UMAG_LIMITS = [10**-3, 10**4]
+    U_LIMITS = [-1100, 1100]
+    DBNORM_LIMITS = [10**-15, 10**-1]
 
-    dBx_sum_limits = [-1500, 1500]
-    dBy_sum_limits = [-1500, 1500]
-    dBz_sum_limits = [-1500, 1500]
-    dBp_sum_limits = [-1500, 1500]
-    dB_sum_limits = [0, 1500]
-    dB_sum_limits2 = [-1200,200]
+    DBX_SUM_LIMITS = [-1500, 1500]
+    DBY_SUM_LIMITS = [-1500, 1500]
+    DBZ_SUM_LIMITS = [-1500, 1500]
+    DBP_SUM_LIMITS = [-1500, 1500]
+    DB_SUM_LIMITS = [0, 1500]
+    DB_SUM_LIMITS2 = [-1200,400]
 
-    plot3d_limits = [-10, 10]
-    xyz_limits = [-300, 300]
-    xyz_limits_small = [-20, 20]
+    PLOT3D_LIMITS = [-10, 10]
+    XYZ_LIMITS = [-300, 300]
+    XYZ_LIMITS_SMALL = [-20, 20]
     
-    time_limits = [4,16]
+    TIME_LIMITS = [4,16]
+    FRAC_LIMITS = [-0.5,1.5]
     
-    vmin = 0.02
-    vmax = 0.5
+    VMIN = 0.02
+    VMAX = 0.5
 
 else:
-    rlog_limits = [1, 1000]
-    r_limits = [0, 300]
-    rho_limits = [10**-2, 10**2]
-    p_limits = [10**-5, 10**2]
-    jMag_limits = [10**-11, 10**0]
-    j_limits = [-0.3, 0.3]
-    jcdf_limits = [-0.1, 0.1]
-    uMag_limits = [10**-3, 10**4]
-    u_limits = [-1100, 1100]
-    dBNorm_limits = [10**-15, 10**-1]
+    RLOG_LIMITS = [1, 1000]
+    R_LIMITS = [0, 300]
+    RHO_LIMITS = [10**-2, 10**2]
+    P_LIMITS = [10**-5, 10**2]
+    JMAG_LIMITS = [10**-11, 10**0]
+    J_LIMITS = [-0.3, 0.3]
+    JCDF_LIMITS = [-0.1, 0.1]
+    UMAG_LIMITS = [10**-3, 10**4]
+    U_LIMITS = [-1100, 1100]
+    DBNORM_LIMITS = [10**-15, 10**-1]
     
-    dBx_sum_limits = [-0.4, 0.4]
-    dBy_sum_limits = [-0.4, 0.4]
-    dBz_sum_limits = [-50, 50]
-    dBp_sum_limits = [-50, 50]
-    dB_sum_limits = [0, 50]
-    dB_sum_limits2 = [0, 50]
+    DBX_SUM_LIMITS = [-0.4, 0.4]
+    DBY_SUM_LIMITS = [-0.4, 0.4]
+    DBZ_SUM_LIMITS = [-50, 50]
+    DBP_SUM_LIMITS = [-50, 50]
+    DB_SUM_LIMITS = [0, 50]
+    DB_SUM_LIMITS2 = [0, 50]
     
-    plot3d_limits = [-10, 10]
-    xyz_limits = [-300, 300]
-    xyz_limits_small = [-20, 20]
+    PLOT3D_LIMITS = [-10, 10]
+    XYZ_LIMITS = [-300, 300]
+    XYZ_LIMITS_SMALL = [-20, 20]
     
-    vmin = 0.007
-    vmax = 0.30
+    VMIN = 0.007
+    VMAX = 0.30
 
 
 # Range of values for cuts
 if COLABA:
-    cut1_jrmin = 0.02
-    cut2_jphimin = 0.02
-    cut2_rmin = 5 # 4 originally
-    cut3_jphimin = 0.02
+    CUT1_JRMIN = 0.02
+    CUT2_JPHIMIN = 0.02
+    CUT2_RMIN = 5 # 4 ORIGINALLY
+    CUT3_JPHIMIN = 0.02
 else:
-    cut1_jrmin = 0.007
-    cut1_y = 4
-    cut2_jphimin = 0.007
-    cut2_jphimax = 0.03
-    cut3_jphimin = 0.007
-    cut3_z = 2
+    CUT1_JRMIN = 0.007
+    CUT1_Y = 4
+    CUT2_JPHIMIN = 0.007
+    CUT2_JPHIMAX = 0.03
+    CUT3_JPHIMIN = 0.007
+    CUT3_Z = 2
 
 # Setup logging
 logging.basicConfig(
@@ -188,7 +191,7 @@ def date_time(file):
 
     return y, n, d, h, m, s
 
-def get_files(orgdir=origin, base='3d__*'):
+def get_files(orgdir=ORIGIN, base='3d__*'):
     """Create a list of files that we will process.  Look in the basedir directory,
     and get list of file basenames.
 
@@ -229,7 +232,7 @@ def get_files(orgdir=origin, base='3d__*'):
     return l1
 
 def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
-                          orgdir=origin, tgtdir=target, base='3d__*'):
+                          orgdir=ORIGIN, tgtdir=TARGET, base='3d__*'):
     """Create a list of files that we will process.  This routine is used when
     some files have been process and others have not, e.g., the program crashed.
     Since the output files of other routines use the same basenames as the output
@@ -286,6 +289,12 @@ def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
 
     return l1
 
+#############################################################################
+#############################################################################
+# plot_... routines generate various plots of BATSRUS data
+#############################################################################
+#############################################################################
+
 def plot_db_Norm_r(df, title, base):
     """Plot components and magnitude of dB in each cell versus radius r.
     In this procedure, the dB values are normalized by cell volume
@@ -302,18 +311,18 @@ def plot_db_Norm_r(df, title, base):
     
     plots[0] = plotargs(df, 'r', 'dBxNorm', False, True, 
                         r'$r/R_E$', r'$| \delta B_x |$ (Norm Cell Vol)', 
-                        r_limits, dBNorm_limits, title)
+                        R_LIMITS, DBNORM_LIMITS, title)
     plots[1] = plotargs(df, 'r', 'dByNorm', False, True, 
                         r'$r/R_E$', r'$| \delta B_y |$ (Norm Cell Vol)', 
-                        r_limits, dBNorm_limits, title)
+                        R_LIMITS, DBNORM_LIMITS, title)
     plots[2] = plotargs(df, 'r', 'dBzNorm', False, True, 
                         r'$r/R_E$', r'$| \delta B_z |$ (Norm Cell Vol)', 
-                        r_limits, dBNorm_limits, title)
+                        R_LIMITS, DBNORM_LIMITS, title)
     plots[3] = plotargs(df, 'r', 'dBmagNorm', False, True, 
                         r'$r/R_E$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        r_limits, dBNorm_limits, title)
+                        R_LIMITS, DBNORM_LIMITS, title)
 
-    plot_NxM(target, base, 'png-dBNorm-r', plots, cols=4, rows=1 )
+    plot_NxM(TARGET, base, 'png-dBNorm-r', plots, cols=4, rows=1 )
     
     return
 
@@ -335,30 +344,30 @@ def plot_dBnorm_various_day_night(df_day, df_night, title, base):
     
     plots[0] = plotargs(df_day, 'rho', 'dBmagNorm', True, True, 
                         r'$\rho$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        rho_limits, dBNorm_limits, 'Day ' + title)
+                        RHO_LIMITS, DBNORM_LIMITS, 'Day ' + title)
     plots[1] = plotargs(df_day, 'p', 'dBmagNorm', True, True, 
                         r'$p$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        p_limits, dBNorm_limits, 'Day ' + title)
+                        P_LIMITS, DBNORM_LIMITS, 'Day ' + title)
     plots[2] = plotargs(df_day, 'jMag', 'dBmagNorm', True, True, 
                         r'$| j |$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        jMag_limits, dBNorm_limits, 'Day ' + title)
+                        JMAG_LIMITS, DBNORM_LIMITS, 'Day ' + title)
     plots[3] = plotargs(df_day, 'uMag', 'dBmagNorm', True, True, 
                         r'$| u |$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        uMag_limits, dBNorm_limits, 'Day ' + title)
+                        UMAG_LIMITS, DBNORM_LIMITS, 'Day ' + title)
     plots[4] = plotargs(df_night, 'rho', 'dBmagNorm', True, True, 
                         r'$\rho$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        rho_limits, dBNorm_limits, 'Night ' + title)
+                        RHO_LIMITS, DBNORM_LIMITS, 'Night ' + title)
     plots[5] = plotargs(df_night, 'p', 'dBmagNorm', True, True, 
                         r'$p$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        p_limits, dBNorm_limits, 'Night ' + title)
+                        P_LIMITS, DBNORM_LIMITS, 'Night ' + title)
     plots[6] = plotargs(df_night, 'jMag', 'dBmagNorm', True, True, 
                         r'$| j |$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        jMag_limits, dBNorm_limits, 'Night ' + title)
+                        JMAG_LIMITS, DBNORM_LIMITS, 'Night ' + title)
     plots[7] = plotargs(df_night, 'uMag', 'dBmagNorm', True, True, 
                         r'$| u |$', r'$| \delta B |$ (Norm Cell Vol)', 
-                        uMag_limits, dBNorm_limits, 'Night ' + title)
+                        UMAG_LIMITS, DBNORM_LIMITS, 'Night ' + title)
 
-    plot_NxM(target, base, 'png-dBNorm-various-day-night', plots )
+    plot_NxM(TARGET, base, 'png-dBNorm-various-day-night', plots )
     
     return
 
@@ -381,18 +390,18 @@ def plot_sum_dB(df_r, title, base):
     
     plots[0] = plotargs(df_r, 'r', 'dBxSum', True, False, 
                         r'$r/R_E$', r'$\Sigma_r \delta B_x $', 
-                        rlog_limits, dBx_sum_limits, title)
+                        RLOG_LIMITS, DBX_SUM_LIMITS, title)
     plots[1] = plotargs(df_r, 'r', 'dBySum', True, False, 
                         r'$r/R_E$', r'$\Sigma_r \delta B_y $', 
-                        rlog_limits, dBy_sum_limits, title)
+                        RLOG_LIMITS, DBY_SUM_LIMITS, title)
     plots[2] = plotargs(df_r, 'r', 'dBzSum', True, False, 
                         r'$r/R_E$', r'$\Sigma_r \delta B_z $', 
-                        rlog_limits, dBz_sum_limits, title)
+                        RLOG_LIMITS, DBZ_SUM_LIMITS, title)
     plots[3] = plotargs(df_r, 'r', 'dBSumMag', True, False, 
                         r'$r/R_E$', r'$| \Sigma_r \delta B |$', 
-                        rlog_limits, dB_sum_limits, title)
+                        RLOG_LIMITS, DB_SUM_LIMITS, title)
     
-    plot_NxM(target, base, 'png-sum-dB-r', plots, cols=4, rows=1 )
+    plot_NxM(TARGET, base, 'png-sum-dB-r', plots, cols=4, rows=1 )
 
     return
 
@@ -417,62 +426,62 @@ def plot_cumulative_B_para_perp(df_r, title, base):
     plots = [None] * 8
     
     plots[0] = plotargs_multiy(df_r, 'r', 
-                        ['dBparallelxSum'], 
-                        True, False, 
-                        r'$r/R_E$', r'$\Sigma_r \delta B_x (j_{\parallel})$',
-                        [r'$\parallel$'], 
-                        rlog_limits, dBx_sum_limits, r'$\parallel$ ' + title)
+                    ['dBparallelxSum'], 
+                    True, False, 
+                    r'$r/R_E$', r'$\Sigma_r \delta B_x (j_{\parallel})$',
+                    [r'$\parallel$'], 
+                    RLOG_LIMITS, DBX_SUM_LIMITS, r'$\parallel$ ' + title)
 
     plots[4] = plotargs_multiy(df_r, 'r', 
-                        ['dBperpendicularxSum', 'dBperpendicularphixSum', 'dBperpendicularphiresxSum'], 
-                        True, False, 
-                        r'$r/R_E$', r'$\Sigma_r \delta B_x (j_{\perp})$',
-                        [r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'], 
-                        rlog_limits, dBx_sum_limits, r'$\perp$ ' + title)
+                    ['dBperpendicularxSum', 'dBperpendicularphixSum', 'dBperpendicularphiresxSum'], 
+                    True, False, 
+                    r'$r/R_E$', r'$\Sigma_r \delta B_x (j_{\perp})$',
+                    [r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'], 
+                    RLOG_LIMITS, DBX_SUM_LIMITS, r'$\perp$ ' + title)
 
     plots[1] = plotargs_multiy(df_r, 'r', 
-                        ['dBparallelySum'], 
-                        True, False, 
-                        r'$r/R_E$', r'$\Sigma_r \delta B_y (j_{\parallel})$',
-                        [r'$\parallel$'], 
-                        rlog_limits, dBy_sum_limits, r'$\parallel$ ' + title)
+                    ['dBparallelySum'], 
+                    True, False, 
+                    r'$r/R_E$', r'$\Sigma_r \delta B_y (j_{\parallel})$',
+                    [r'$\parallel$'], 
+                    RLOG_LIMITS, DBY_SUM_LIMITS, r'$\parallel$ ' + title)
 
     plots[5] = plotargs_multiy(df_r, 'r', 
-                        ['dBperpendicularySum', 'dBperpendicularphiySum', 'dBperpendicularphiresySum'], 
-                        True, False, 
-                        r'$r/R_E$', r'$\Sigma_r \delta B_y (j_{\perp})$',
-                        [r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'], 
-                        rlog_limits, dBy_sum_limits, r'$\perp$ ' + title)
+                    ['dBperpendicularySum', 'dBperpendicularphiySum', 'dBperpendicularphiresySum'], 
+                    True, False, 
+                    r'$r/R_E$', r'$\Sigma_r \delta B_y (j_{\perp})$',
+                    [r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'], 
+                    RLOG_LIMITS, DBY_SUM_LIMITS, r'$\perp$ ' + title)
 
     plots[2] = plotargs_multiy(df_r, 'r', 
                      ['dBparallelzSum'], 
                      True, False, 
                      r'$r/R_E$', r'$\Sigma_r \delta B_z (j_{\parallel})$',
                      [r'$\parallel$'], 
-                     rlog_limits, dBz_sum_limits, r'$\parallel$ ' + title)
+                     RLOG_LIMITS, DBZ_SUM_LIMITS, r'$\parallel$ ' + title)
     
     plots[6] = plotargs_multiy(df_r, 'r', 
                      ['dBperpendicularzSum', 'dBperpendicularphizSum', 'dBperpendicularphireszSum'], 
                      True, False, 
                      r'$r/R_E$', r'$\Sigma_r \delta B_z (j_{\perp})$',
                      [r'$\perp_{tot}$', r'$\perp_\phi$', r'$\perp_{residual}$'], 
-                     rlog_limits, dBz_sum_limits, r'$\perp$ ' + title)
+                     RLOG_LIMITS, DBZ_SUM_LIMITS, r'$\perp$ ' + title)
 
     plots[3] = plotargs_multiy(df_r, 'r', 
                      ['dBparallelSumMag'], 
                      True, False, 
                      r'$r/R_E$', r'$| \Sigma_r \delta B (j_\parallel)|$',
                      [r'$\parallel$'], 
-                     rlog_limits, dBz_sum_limits, r'$\parallel$ ' + title)
+                     RLOG_LIMITS, DBZ_SUM_LIMITS, r'$\parallel$ ' + title)
     
     plots[7] = plotargs_multiy(df_r, 'r', 
                      ['dBperpendicularSumMag'], 
                      True, False, 
                      r'$r/R_E$', r'$| \Sigma_r \delta B (j_\perp)|$',
                      [r'$\perp$'], 
-                     rlog_limits, dBz_sum_limits, r'$\perp$ ' + title)
+                     RLOG_LIMITS, DBZ_SUM_LIMITS, r'$\perp$ ' + title)
         
-    plot_NxM_multiy(target, base, 'png-sum-dB-para-perp-comp-r', plots, plottype = 'line')
+    plot_NxM_multiy(TARGET, base, 'png-sum-dB-para-perp-comp-r', plots, plottype = 'line')
 
     return
 
@@ -494,30 +503,30 @@ def plot_rho_p_jMag_uMag_day_night(df_day, df_night, title, base):
     
     plots[0] = plotargs(df_day, 'r', 'rho', True, True, 
                         r'$r$', r'$\rho$', 
-                        rlog_limits, rho_limits, 'Day ' + title)
+                        RLOG_LIMITS, RHO_LIMITS, 'Day ' + title)
     plots[1] = plotargs(df_day, 'r', 'p', True, True, 
                         r'$r$', r'$p$', 
-                        rlog_limits, p_limits, 'Day ' + title)
+                        RLOG_LIMITS, P_LIMITS, 'Day ' + title)
     plots[2] = plotargs(df_day, 'r', 'jMag', True, True, 
                         r'$r$', r'$| j |$', 
-                        rlog_limits, jMag_limits, 'Day ' + title)
+                        RLOG_LIMITS, JMAG_LIMITS, 'Day ' + title)
     plots[3] = plotargs(df_day, 'r', 'uMag', True, True, 
                         r'$r$', r'$| u |$', 
-                        rlog_limits, uMag_limits, 'Day ' + title)
+                        RLOG_LIMITS, UMAG_LIMITS, 'Day ' + title)
     plots[4] = plotargs(df_night, 'r', 'rho', True, True, 
                         r'$r$', r'$\rho$', 
-                        rlog_limits, rho_limits, 'Night ' + title)
+                        RLOG_LIMITS, RHO_LIMITS, 'Night ' + title)
     plots[5] = plotargs(df_night, 'r', 'p', True, True, 
                         r'$r$', r'$p$',  
-                        rlog_limits, p_limits, 'Night ' + title)
+                        RLOG_LIMITS, P_LIMITS, 'Night ' + title)
     plots[6] = plotargs(df_night, 'r', 'jMag', True, True, 
                         r'$r$', r'$| j |$',  
-                        rlog_limits, jMag_limits, 'Night ' + title)
+                        RLOG_LIMITS, JMAG_LIMITS, 'Night ' + title)
     plots[7] = plotargs(df_night, 'r', 'uMag', True, True, 
                         r'$r$', r'$| u |$',  
-                        rlog_limits, uMag_limits, 'Night ' + title)
+                        RLOG_LIMITS, UMAG_LIMITS, 'Night ' + title)
 
-    plot_NxM(target, base, 'png-various-r-day-night', plots )
+    plot_NxM(TARGET, base, 'png-various-r-day-night', plots )
     
     return
 
@@ -539,30 +548,30 @@ def plot_jx_jy_jz_day_night(df_day, df_night, title, base):
     
     plots[0] = plotargs(df_day, 'r', 'jx', True, False, 
                         r'$ r/R_E $', r'$j_x$',
-                        rlog_limits, j_limits, 'Day ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Day ' + title)
     plots[1] = plotargs(df_day, 'r', 'jy', True, False, 
                         r'$ r/R_E $', r'$j_y$', 
-                        rlog_limits, j_limits, 'Day ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Day ' + title)
     plots[2] = plotargs(df_day, 'r', 'jz', True, False, 
                         r'$ r/R_E $', r'$j_z$', 
-                        rlog_limits, j_limits, 'Day ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Day ' + title)
     plots[3] = plotargs(df_day, 'r', 'jMag', True, False, 
                         r'$ r/R_E $', r'$| j |$', 
-                        rlog_limits, j_limits, 'Day ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Day ' + title)
     plots[4] = plotargs(df_night, 'r', 'jx', True, False, 
                         r'$ r/R_E $', r'$j_x$', 
-                        rlog_limits, j_limits, 'Night ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Night ' + title)
     plots[5] = plotargs(df_night, 'r', 'jy', True, False, 
                         r'$ r/R_E $', r'$j_y$',  
-                        rlog_limits, j_limits, 'Night ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Night ' + title)
     plots[6] = plotargs(df_night, 'r', 'jz', True, False, 
                         r'$ r/R_E $', r'$j_z$',  
-                        rlog_limits, j_limits, 'Night ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Night ' + title)
     plots[7] = plotargs(df_night, 'r', 'jMag', True, False, 
                         r'$ r/R_E $', r'$| j |$',  
-                        rlog_limits, j_limits, 'Night ' + title)
+                        RLOG_LIMITS, J_LIMITS, 'Night ' + title)
 
-    plot_NxM(target, base, 'png-jxyz-r-day-night', plots )
+    plot_NxM(TARGET, base, 'png-jxyz-r-day-night', plots )
 
     return
 
@@ -584,30 +593,30 @@ def plot_ux_uy_uz_day_night(df_day, df_night, title, base):
     
     plots[0] = plotargs(df_day, 'r', 'ux', True, False, 
                         r'$ r/R_E $', r'$u_x$',
-                        rlog_limits, u_limits, 'Day ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Day ' + title)
     plots[1] = plotargs(df_day, 'r', 'uy', True, False, 
                         r'$ r/R_E $', r'$u_y$', 
-                        rlog_limits, u_limits, 'Day ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Day ' + title)
     plots[2] = plotargs(df_day, 'r', 'uz', True, False, 
                         r'$ r/R_E $', r'$u_z$', 
-                        rlog_limits, u_limits, 'Day ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Day ' + title)
     plots[3] = plotargs(df_day, 'r', 'uMag', True, False, 
                         r'$ r/R_E $', r'$| u |$', 
-                        rlog_limits, u_limits, 'Day ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Day ' + title)
     plots[4] = plotargs(df_night, 'r', 'ux', True, False, 
                         r'$ r/R_E $', r'$u_x$', 
-                        rlog_limits, u_limits, 'Night ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Night ' + title)
     plots[5] = plotargs(df_night, 'r', 'uy', True, False, 
                         r'$ r/R_E $', r'$u_y$',  
-                        rlog_limits, u_limits, 'Night ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Night ' + title)
     plots[6] = plotargs(df_night, 'r', 'uz', True, False, 
                         r'$ r/R_E $', r'$u_z$',  
-                        rlog_limits, u_limits, 'Night ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Night ' + title)
     plots[7] = plotargs(df_night, 'r', 'uMag', True, False, 
                         r'$ r/R_E $', r'$| u |$',  
-                        rlog_limits, u_limits, 'Night ' + title)
+                        RLOG_LIMITS, U_LIMITS, 'Night ' + title)
 
-    plot_NxM(target, base, 'png-uxyz-r-day-night', plots )
+    plot_NxM(TARGET, base, 'png-uxyz-r-day-night', plots )
 
     return
 
@@ -628,30 +637,30 @@ def plot_jr_jt_jp_vs_x(df, title, base, coord='x', cut=''):
     
     plots[0] = plotargs(df, coord, 'jr', False, False, 
                     r'$' + coord + '/R_E$', r'$j_r$',
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[1] = plotargs(df, coord, 'jtheta', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\theta$', 
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[2] = plotargs(df, coord, 'jphi', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\phi$', 
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[3] = plotargs(df, coord, 'jMag', False, False, 
                     r'$' + coord + '/R_E$', r'$| j |$', 
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[4] = plotargs(df, coord, 'jr', False, False, 
                     r'$' + coord + '/R_E$', r'$j_r$', 
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     plots[5] = plotargs(df, coord, 'jtheta', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\theta$',  
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     plots[6] = plotargs(df, coord, 'jphi', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\phi$',  
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     plots[7] = plotargs(df, coord, 'jMag', False, False, 
                     r'$' + coord + '/R_E$', r'$| j |$',  
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     
-    plot_NxM(target, base, 'png-jrtp-'+cut+coord, plots )
+    plot_NxM(TARGET, base, 'png-jrtp-'+cut+coord, plots )
 
     return
 
@@ -672,24 +681,24 @@ def plot_jp_jp_vs_x(df, title, base, coord='x', cut=''):
     
     plots[0] = plotargs(df, coord, 'jparallelMag', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\parallel$',
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[1] = plotargs(df, coord, 'jperpendicularMag', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\perp$', 
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[2] = plotargs(df, coord, 'jMag', False, False, 
                     r'$' + coord + '/R_E$', r'$| j |$', 
-                    xyz_limits, j_limits, title)
+                    XYZ_LIMITS, J_LIMITS, title)
     plots[4] = plotargs(df, coord, 'jparallelMag', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\parallel$', 
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     plots[5] = plotargs(df, coord, 'jperpendicularMag', False, False, 
                     r'$' + coord + '/R_E$', r'$j_\perp$',  
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     plots[6] = plotargs(df, coord, 'jMag', False, False, 
                     r'$' + coord + '/R_E$', r'$| j |$',  
-                    xyz_limits_small, j_limits, title)
+                    XYZ_LIMITS_SMALL, J_LIMITS, title)
     
-    plot_NxM(target, base, 'png-jpp-'+cut+coord, plots, cols=3, rows=2 )
+    plot_NxM(TARGET, base, 'png-jpp-'+cut+coord, plots, cols=3, rows=2 )
 
     return
 
@@ -708,19 +717,26 @@ def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base):
      
     plots[0] = plotargs(df_jr, 'jr', 'cdfIndex', False, False, 
                     r'$j_r$', r'$CDF$',
-                    jcdf_limits, [0,1], title)
+                    JCDF_LIMITS, [0,1], title)
     plots[1] = plotargs(df_jtheta, 'jtheta', 'cdfIndex', False, False, 
                     r'$j_\theta$', r'$CDF$',
-                    jcdf_limits, [0,1], title)
+                    JCDF_LIMITS, [0,1], title)
     plots[2] = plotargs(df_jphi, 'jphi', 'cdfIndex', False, False, 
                     r'$j_\phi$', r'$CDF$',
-                    jcdf_limits, [0,1], title)
+                    JCDF_LIMITS, [0,1], title)
     
-    plot_NxM(target, base, 'png-jrtp-cdf', plots, cols=3, rows=1 )
+    plot_NxM(TARGET, base, 'png-jrtp-cdf', plots, cols=3, rows=1 )
 
     return
 
-def process_data(X, Y, Z, base, dirpath=origin):
+#############################################################################
+#############################################################################
+# process_data is the workhorse, it uses the above plot_... functions
+# and the BATSRUS_dataframe.py routines to generate various plots
+#############################################################################
+#############################################################################
+
+def process_data(X, Y, Z, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
 
     Inputs:
@@ -735,61 +751,70 @@ def process_data(X, Y, Z, base, dirpath=origin):
         batsrus = BATSRUS data read by swmfio 
     """
 
-    df, title = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin, rCurrents=rCurrents)
+    df, title = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Creating cumulative sum dB dataframe...')
 
     df_r = create_cumulative_sum_dataframe(df)
 
-    # logging.info('Creating dayside/nightside dataframe...')
-    # df_day = df[df['x'] >= 0]
-    # df_night = df[df['x'] < 0]
+    logging.info('Creating dayside/nightside dataframe...')
+    df_day = df[df['x'] >= 0]
+    df_night = df[df['x'] < 0]
 
     # Do plots...
 
-    # logging.info('Creating dB (Norm) vs r plots...')
-    # plot_db_Norm_r( df, title, base )
+    logging.info('Creating dB (Norm) vs r plots...')
+    plot_db_Norm_r( df, title, base )
     
-    # logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
-    # plot_dBnorm_various_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
+    plot_dBnorm_various_day_night( df_day, df_night, title, base )
     
-    # logging.info('Creating cumulative sum B vs r plots...')
-    # plot_sum_dB( df_r, title, base )
+    logging.info('Creating cumulative sum B vs r plots...')
+    plot_sum_dB( df_r, title, base )
 
     logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
     plot_cumulative_B_para_perp(df_r, title, base)
 
-    # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
-    # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
+    plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating day /night jx, jy, jz vs r plots...')
-    # plot_jx_jy_jz_day_night( df_day, df_night, title, base )
+    logging.info('Creating day /night jx, jy, jz vs r plots...')
+    plot_jx_jy_jz_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating day/night ux, uy, uz vs r plots...')
-    # plot_ux_uy_uz_day_night( df_day, df_night, title, base )
+    logging.info('Creating day/night ux, uy, uz vs r plots...')
+    plot_ux_uy_uz_day_night( df_day, df_night, title, base )
 
-    # logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
-    # plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
+    logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
+    plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
 
-    # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    # plot_jp_jp_vs_x( df, title, base, coord = 'x')
-    # plot_jp_jp_vs_x( df, title, base, coord = 'y')
-    # plot_jp_jp_vs_x( df, title, base, coord = 'z')
+    logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
+    plot_jp_jp_vs_x( df, title, base, coord = 'x')
+    plot_jp_jp_vs_x( df, title, base, coord = 'y')
+    plot_jp_jp_vs_x( df, title, base, coord = 'z')
 
-    # logging.info('Creating jrtp CDFs...')
-    # df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
-    # plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base)
+    logging.info('Creating jrtp CDFs...')
+    df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
+    plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base)
 
     return
+
+#############################################################################
+#############################################################################
+# perform_cuts and perform_not_cuts cut the jr and jphi peaks from the 
+# BATSRUS data.  process_data_with_cuts generate plots with the cut data
+# removed.  While process_3d_cut_plots generate VTK files containing the
+# data cut from BATSRUS.  Use a VTK viewer to see the cut data in 3D.
+#############################################################################
+#############################################################################
 
 def perform_cuts(df1, title1, cut_selected):
     """perform selected cuts on BATSRUS dataframe, df1.
 
     Inputs:
         df1 = BATSRUS dataframe on which to make cuts
-        title2 = base title for plots, will be modified based on cuts
+        title1 = base title for plots, will be modified based on cuts
         cut_selected = which cut to make
     Outputs:
         df2 = dataframe with cuts applied
@@ -801,23 +826,25 @@ def perform_cuts(df1, title1, cut_selected):
 
     df_tmp = deepcopy(df1)
 
-    # Cut asymmetric jr vs y lobes, always make this cut
-    df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
-    cutname = r'jr-'
+    # Cut jr peaks, always make this cut
+    df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > CUT1_JRMIN].index)
+    cutname = r'cut1-jr-'
     title2 = r'$j_r$ Peaks ' + title1
 
     if(cut_selected > 1):
-        # Cut jphi vs y blob
+        # Cut jphi peaks far from earth, which builds on the jr cut above
+        # Note, this cuts peaks with r > cut2_rmin
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
-        cutname = 'jphifar-' + cutname
+            df2[np.logical_and(df2['jphi'].abs() > CUT2_JPHIMIN, df2['r'] > CUT2_RMIN)].index)
+        cutname = 'cut2-jphi-far-' + cutname
         title2 = r'$j_\phi$ Peaks (far) ' + title2
 
     if(cut_selected > 2):
-        # Cut jphi vs z blob
-        df2 = df2.drop(df2[df2['jphi'].abs() > cut3_jphimin].index)
-        cutname = 'jphinear-' + cutname
-        title2 = r'$j_\phi$ (near) ' + title2
+        # Cut jphi peaks near earth, which builds on the jr and jphi cuts above
+        # so it gets the jphi peaks for r <= cut2_rmin
+        df2 = df2.drop(df2[df2['jphi'].abs() > CUT3_JPHIMIN].index)
+        cutname = 'cut3-jphi-near-' + cutname
+        title2 = r'$j_\phi$ Peaks (near) ' + title2
 
     return df2, title2, cutname
 
@@ -839,40 +866,41 @@ def perform_not_cuts(df1, title1, cut_selected):
 
     df_tmp = deepcopy(df1)
 
-    # Cut asymmetric jr vs y lobes, always make this cut
+    # Isolate jr peaks
     if(cut_selected == 1):
-        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() <= cut1_jrmin].index)
-        cutname = 'jr-'
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() <= CUT1_JRMIN].index)
+        cutname = 'cut1-jr-'
         title2 = r'$j_r$ Peaks ' + title1
 
     if(cut_selected == 2):
-        # Cut jphi vs y blob
-        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+        # Isolate jphi peaks far from earth, ie., r > cut2_rmin
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > CUT1_JRMIN].index)
         df2 = df2.drop(
-            df2[np.logical_or(df2['jphi'].abs() <= cut2_jphimin, df2['r'] <= cut2_rmin)].index)
-        cutname = 'jphifar-'
+            df2[np.logical_or(df2['jphi'].abs() <= CUT2_JPHIMIN, df2['r'] <= CUT2_RMIN)].index)
+        cutname = 'cut2-jphi-far-'
         title2 = r'$j_\phi$ Peaks (far) ' + title1
 
     if(cut_selected == 3):
-        # Cut jphi vs z blob
-        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+        # Isolate jphi peaks near earth, ie., r <= cut2_rmin
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > CUT1_JRMIN].index)
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
-        df2 = df2.drop(df2[df2['jphi'].abs() <= cut3_jphimin].index)
-        cutname = 'jphinear-'
-        title2 = r'$j_\phi$ (near) ' + title1
+            df2[np.logical_and(df2['jphi'].abs() > CUT2_JPHIMIN, df2['r'] > CUT2_RMIN)].index)
+        df2 = df2.drop(df2[df2['jphi'].abs() <= CUT3_JPHIMIN].index)
+        cutname = 'cut3-jphi-near-'
+        title2 = r'$j_\phi$ Peaks (near) ' + title1
 
     if(cut_selected == 4):
-        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > cut1_jrmin].index)
+        # Isolate residual, that is, anything not isolated above
+        df2 = df_tmp.drop(df_tmp[df_tmp['jr'].abs() > CUT1_JRMIN].index)
         df2 = df2.drop(
-            df2[np.logical_and(df2['jphi'].abs() > cut2_jphimin, df2['r'] > cut2_rmin)].index)
-        df2 = df2.drop(df2[df2['jphi'].abs() > cut3_jphimin].index)
+            df2[np.logical_and(df2['jphi'].abs() > CUT2_JPHIMIN, df2['r'] > CUT2_RMIN)].index)
+        df2 = df2.drop(df2[df2['jphi'].abs() > CUT3_JPHIMIN].index)
         cutname = 'residual-'
         title2 = r'Residual ' + title1
 
     return df2, title2, cutname
 
-def process_data_with_cuts(X, Y, Z, base, dirpath=origin, cut_selected=1):
+def process_data_with_cuts(X, Y, Z, base, dirpath=ORIGIN, cut_selected=1):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
 
     Inputs:
@@ -888,7 +916,7 @@ def process_data_with_cuts(X, Y, Z, base, dirpath=origin, cut_selected=1):
     """
 
     # Read BASTRUS file
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin, rCurrents=rCurrents)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     # Perform cuts on BATSRUS data
     df2, title2, cutname = perform_cuts(df1, title1, cut_selected=cut_selected)
@@ -907,7 +935,7 @@ def process_data_with_cuts(X, Y, Z, base, dirpath=origin, cut_selected=1):
 
     return
 
-def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
+def process_3d_cut_plots(X, Y, Z, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create 3D plots of points in cuts
 
     Inputs:
@@ -919,7 +947,7 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
         None - other than the saved plot file
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin, rCurrents=rCurrents)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -948,21 +976,29 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=origin):
     cuts2 = pointcloud( df2, xyz, colorvars )
     cuts2.convert_to_vtk()
     # cuts2.display_vtk()
-    cuts2.write_vtk_to_file( target, base, 'vtk-3d-cut1' )
+    cuts2.write_vtk_to_file( TARGET, base, 'vtk-3d-cut1' )
     
     cuts3 = pointcloud( df3, xyz, colorvars )
     cuts3.convert_to_vtk()
     # cuts3.display_vtk()
-    cuts3.write_vtk_to_file( target, base, 'vtk-3d-cut2' )
+    cuts3.write_vtk_to_file( TARGET, base, 'vtk-3d-cut2' )
     
     cuts4 = pointcloud( df4, xyz, colorvars )
     cuts4.convert_to_vtk()
     # cuts4.display_vtk()
-    cuts4.write_vtk_to_file( target, base, 'vtk-3d-cut3' )
+    cuts4.write_vtk_to_file( TARGET, base, 'vtk-3d-cut3' )
     
     return
 
-def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
+#############################################################################
+#############################################################################
+# The process_sum_db... and the loop_sum_... routines work together to
+# generate plots of how the BATSRUS data evolves over time.  The with_cuts
+# look at how jr and jphi peaks affect the results
+#############################################################################
+#############################################################################
+
+def process_sum_db_with_cuts(X, Y, Z, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities,
     but in this case we perform some cuts on the data to isolate high current
     regions.  This cut data is used to determine the fraction of the total B
@@ -980,7 +1016,7 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
         df3 - df4 = contribution due to points in z jphi cut in nez
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin, rCurrents=rCurrents)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -1085,7 +1121,7 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=origin):
         dBperpendicularphiNSum4, \
         dBperpendicularphiresNSum4
 
-def process_sum_db(X, Y, Z, base, dirpath=origin):
+def process_sum_db(X, Y, Z, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities
 
     Inputs:
@@ -1097,7 +1133,7 @@ def process_sum_db(X, Y, Z, base, dirpath=origin):
         df1 = cumulative sum for original (all) data in north-east-zenith
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=origin, rCurrents=rCurrents)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
@@ -1153,7 +1189,7 @@ def process_sum_db(X, Y, Z, base, dirpath=origin):
         dBperpendicularphiNSum1, \
         dBperpendicularphiresNSum1
 
-def loop_sum_db_thru_cuts(X, Y, Z, files):
+def loop_sum_db_with_cuts(X, Y, Z, files):
     """Loop thru data in BATSRUS files to create plots showing the effects of
     various cuts on the data.  See process_data_with_cuts for the specific cuts 
     made
@@ -1258,8 +1294,8 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
                         False, False, 
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
-                        ['Total', r'Parallel', r'$Perpendicular $\phi$', r'Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'All')   
+                        ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Uncut')   
         
     plots[1] = plotargs_multiy(df, r'Time (hr)', 
                         ['$j_r$ Total', r'$j_r$ Parallel', r'$j_r$ Perpendicular $\phi$', r'$j_r$ Perpendicular Residual'], 
@@ -1267,23 +1303,23 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
                         ['$j_r$ Total', r'$j_r$ Parallel', r'$j_r$ Perpendicular $\phi$', r'$j_r$ Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'$j_r$')   
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 1: $j_r$')   
         
     plots[2] = plotargs_multiy(df, r'Time (hr)', 
                         ['$y j_\phi$ Total', r'$y j_\phi$ Parallel', r'$y j_\phi$ Perpendicular $\phi$', r'$y j_\phi$ Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
-                        ['$y j_\phi$ Total', r'$y j_\phi$ Parallel', r'$y j_\phi$ Perpendicular $\phi$', r'$y j_\phi$ Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'$y j_\phi$')   
+                        ['$y j_\phi$ Total', r'$y j_\phi$ Parallel', r'$y j_\phi$ Perpendicular $\phi$', r'y $j_\phi$ Perpendicular Residual'], 
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 2: y $j_\phi$')   
         
     plots[3] = plotargs_multiy(df, r'Time (hr)', 
                         ['$z j_\phi$ Total', r'$z j_\phi$ Parallel', r'$z j_\phi$ Perpendicular $\phi$', r'$z j_\phi$ Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
-                        ['$z j_\phi$ Total', r'$z j_\phi$ Parallel', r'$z j_\phi$ Perpendicular $\phi$', r'$z j_\phi$ Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'$z j_\phi$')   
+                        ['$z j_\phi$ Total', r'$z j_\phi$ Parallel', r'$z j_\phi$ Perpendicular $\phi$', r'z $j_\phi$ Perpendicular Residual'], 
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 3: z$j_\phi$')   
         
     plots[4] = plotargs_multiy(df, r'Time (hr)', 
                         ['Residual Total', r'Residual Parallel', r'Residual Perpendicular $\phi$', r'Residual Perpendicular Residual'], 
@@ -1291,9 +1327,9 @@ def loop_sum_db_thru_cuts(X, Y, Z, files):
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
                         ['Residual Total', r'Residual Parallel', r'Residual Perpendicular $\phi$', r'Residual Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'$z j_\phi$')   
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Residual')   
         
-    plot_NxM_multiy(target, 'para-perp-by-peak', 'parallel-perpendicular-composition', 
+    plot_NxM_multiy(TARGET, 'para-perp-by-peak', 'parallel-perpendicular-composition', 
                     plots, cols=5, rows=1, plottype = 'line')
 
     return
@@ -1354,7 +1390,7 @@ def loop_sum_db(X, Y, Z, files):
                         r'Fraction Perpendicular $\phi$': b_fraction_perpphi, 
                         r'Fraction Perpendicular Residual': b_fraction_perpphires } )
 
-    plots = [None] * 5
+    plots = [None] * 4
     
     plots[0] = plotargs_multiy(df, r'Time (hr)', 
                         ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
@@ -1362,42 +1398,34 @@ def loop_sum_db(X, Y, Z, files):
                         r'Time (hr)',
                         r'Total $B_z$ at (1,0,0)',
                         ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
-                        time_limits, dB_sum_limits2, r'Total')   
-        
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'Total')   
+            
     plots[1] = plotargs_multiy(df, r'Time (hr)', 
-                        [r'Fraction Parallel', r'Fraction Perpendicular $\phi$', r'Fraction Perpendicular Residual'], 
-                        False, False, 
-                        r'Time (hr)',
-                        r'Fraction of Total $B_z$ at (1,0,0)',
-                        [r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
-                        time_limits, [-1,1], r'Fraction')
-    
-    plots[2] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Parallel'], 
                         False, False, 
                         r'Time (hr)',
                         r'Fraction of Total $B_z$ at (1,0,0)',
                         [r'Parallel'], 
-                        time_limits, [-1,1], r'Fraction Parallel')
+                        TIME_LIMITS, FRAC_LIMITS, r'Parallel')
     
-    plots[3] = plotargs_multiy(df, r'Time (hr)', 
+    plots[2] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Perpendicular $\phi$'], 
                         False, False, 
                         r'Time (hr)',
                         r'Fraction of Total $B_z$ at (1,0,0)',
                         [r'Perpendicular $\phi$'], 
-                        time_limits, [-1,1], r'Fraction Perpendicular $\phi$')
+                        TIME_LIMITS, FRAC_LIMITS, r'Perpendicular $\phi$')
     
-    plots[4] = plotargs_multiy(df, r'Time (hr)', 
+    plots[3] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
                         r'Fraction of Total $B_z$ at (1,0,0)',
                         [r'Perpendicular Residual'], 
-                        time_limits, [-1,1], r'Fraction Perpendicular Residual')
+                        TIME_LIMITS, FRAC_LIMITS, r'Perpendicular Residual')
     
-    plot_NxM_multiy(target, 'para-perp', 'parallel-perpendicular-composition', 
-                    plots, cols=5, rows=1, plottype = 'line')
+    plot_NxM_multiy(TARGET, 'para-perp', 'parallel-perpendicular-composition', 
+                    plots, cols=4, rows=1, plottype = 'line')
     
     return
 
@@ -1419,11 +1447,10 @@ def main(argv):
     Y = 0
     Z = 0
 
-    # print("test: " + inputfile)
-    process_data(X, Y, Z, inputfile)
-    # process_data_with_cuts(X, Y, Z, inputfile, cut_selected = 3)
+    # process_data(X, Y, Z, inputfile)
+    process_data_with_cuts(X, Y, Z, inputfile, cut_selected = 3)
     # process_3d_cut_plots(X, Y, Z, inputfile)
-    # process_3d_cut_plots(X, Y, Z, inputfile)
+
 
 def main2(argv):
     if COLABA:
@@ -1437,10 +1464,10 @@ def main2(argv):
     Y = 0
     Z = 0
 
-    loop_sum_db_thru_cuts(X, Y, Z, files)
+    loop_sum_db_with_cuts(X, Y, Z, files)
     loop_sum_db(X, Y, Z, files)
     
 
 if __name__ == "__main__":
-   main2(sys.argv[1:])
+   main(sys.argv[1:])
 

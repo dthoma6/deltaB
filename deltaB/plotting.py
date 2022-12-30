@@ -140,17 +140,6 @@ def plot_NxM(target, base, suffix, plots, cols=4, rows=2, size = 600, plottype='
                               float(rows - row) / rows])    
 
     # Link the renderers to the viewports and create the charts
-    renderers = list()
-    charts = list()
-    scenes = list()
-    actors = list()
-    tables = list()
-    x_axes = list()
-    y_axes = list()
-    x_arrays = list()
-    y_arrays = list()
-    points = list()
-    
     for i in  range( len(plots) ):
         if( plots[i] != None ):
             # Create renderer for each chart
@@ -214,13 +203,16 @@ def plot_NxM(target, base, suffix, plots, cols=4, rows=2, size = 600, plottype='
             if plottype == 'scatter':
                 points = charts.AddPlot( vtkChart.POINTS )
                 points.SetMarkerStyle(vtkPlotPoints.CIRCLE)
+                points.SetColor(*colors.GetColor4ub('Black'))
+                points.SetMarkerSize(0.1)
             else:  
                 points = charts.AddPlot( vtkChart.LINE )
                 points.GetPen().SetLineType( vtkPen.SOLID_LINE )
+                points.SetColor(*colors.GetColor4ub('Black'))
+                points.SetWidth(3.0)
+            
+            # Specify the data to be plotted
             points.SetInputData(tables, 0, 1)
-            points.SetColor(*colors.GetColor4ub('Blue'))
-            points.SetWidth(1.0)
-            points.SetMarkerSize(0.1)
     
     # Now that the charts are set up, render them
     renwin.Render()
@@ -355,26 +347,45 @@ def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plott
 
             # Either plot a scatter plot or a line graph
             for k in range( len(plots[i].y) ):
+                # Select different symbols/line styles for each y
+                style = k%5
+                
+                # Select appropriate parameters for scatter or line plot
                 if plottype == 'scatter':
                     points = charts.AddPlot( vtkChart.POINTS )
-                    points.SetMarkerStyle(vtkPlotPoints.CIRCLE)
-                    points.SetMarkerSize(0.1)
+
+                    if style == 0:
+                        points.SetMarkerStyle(vtkPlotPoints.CIRCLE)
+                    elif style == 1:
+                        points.SetMarkerStyle(vtkPlotPoints.CROSS)
+                    elif style == 2:
+                        points.SetMarkerStyle(vtkPlotPoints.PLUS)
+                    elif style == 3:
+                        points.SetMarkerStyle(vtkPlotPoints.SQUARE)
+                    elif style == 4:
+                        points.SetMarkerStyle(vtkPlotPoints.DIAMOND) 
+                        
+                    points.SetColor(*colors.GetColor4ub('Black'))
+                    points.SetMarkerSize(-3.0)
                 else:  
                     points = charts.AddPlot( vtkChart.LINE )
-                    points.GetPen().SetLineType( vtkPen.SOLID_LINE )
-                points.SetInputData(tables, 0, 1+k)
-                color = k%5
-                if color == 0:
+
+                    if style == 0:
+                        points.GetPen().SetLineType( vtkPen.SOLID_LINE )
+                    elif style == 1:
+                        points.GetPen().SetLineType( vtkPen.DASH_LINE )
+                    elif style == 2:
+                        points.GetPen().SetLineType( vtkPen.DASH_DOT_LINE )
+                    elif style == 3:
+                        points.GetPen().SetLineType( vtkPen.DASH_DOT_DOT_LINE )
+                    elif style == 4:
+                        points.GetPen().SetLineType( vtkPen.DASH_DOT_LINE )                  
+
                     points.SetColor(*colors.GetColor4ub('Black'))
-                elif color == 1:
-                    points.SetColor(*colors.GetColor4ub('Blue'))
-                elif color == 2:
-                    points.SetColor(*colors.GetColor4ub('Red'))
-                elif color == 3:
-                    points.SetColor(*colors.GetColor4ub('Green'))
-                elif color == 4:
-                    points.SetColor(*colors.GetColor4ub('Orange'))                   
-                points.SetWidth(1.0)
+                    points.SetWidth(3.0)
+                
+                # Specify the data to be plotted
+                points.SetInputData(tables, 0, 1+k)
                 
     # Now that the charts are set up, render them
     renwin.Render()

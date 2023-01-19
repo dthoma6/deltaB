@@ -15,4 +15,5 @@ logging.basicConfig(
 from .plotting import plotargs, plotargs_multiy, create_directory, \
     plot_NxM, plot_NxM_multiy, pointcloud
 from .BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
-    create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes
+    create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes, \
+    calc_gap_dB

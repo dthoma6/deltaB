@@ -38,7 +38,8 @@ import numpy as np
 from deltaB.plotting import plotargs, plotargs_multiy, create_directory, \
     plot_NxM, plot_NxM_multiy, pointcloud
 from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
-    create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes
+    create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes, \
+    calc_gap_dB
 
 COLABA = True
 
@@ -122,11 +123,9 @@ if COLABA:
     CUT3_JPHIMIN = 0.02
 else:
     CUT1_JRMIN = 0.007
-    CUT1_Y = 4
     CUT2_JPHIMIN = 0.007
-    CUT2_JPHIMAX = 0.03
+    CUT2_RMIN = 2
     CUT3_JPHIMIN = 0.007
-    CUT3_Z = 2
 
 # Setup logging
 logging.basicConfig(
@@ -170,7 +169,8 @@ def date_time(file):
     """Pull date and time from file basename
 
     Inputs:
-        file = basename of file.  
+        file = basename of file.
+        
     Outputs:
         month, day, year, hour, minute, second 
      """
@@ -198,7 +198,9 @@ def get_files(orgdir=ORIGIN, base='3d__*'):
     Inputs:
         base = start of BATSRUS files including wildcards.  Complete path to file is:
             dirpath + base + '.out'
+            
         orgdir = path to directory containing input files
+        
     Outputs:
         l = list of file basenames.
     """
@@ -242,11 +244,15 @@ def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
     Inputs:
         base = start of BATSRUS files including wildcards.  Complete path to file is:
             dirpath + base + '.out'
+            
         orgdir = path to directory containing input files
+        
         tgtdir = path to directory containing output files
+        
         tgtsubdir = the tgtdir contains multiple subdirectories containing output
             files from various routines.  tgtdir + tgtsubdir is the name of the
             directory with the output files that we will compare
+            
     Outputs:
         l = list of file basenames
     """
@@ -301,8 +307,11 @@ def plot_db_Norm_r(df, title, base):
 
     Inputs:
         df = dataframe with BATSRUS data and calculated variables
+        
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -332,10 +341,14 @@ def plot_dBnorm_various_day_night(df_day, df_night, title, base):
     Inputs:
         df_day = dataframe containing r, rho, jMag, uMag for day side of earth,
             x >= 0
+            
         df_night = dataframe containing r, rho, jMag, uMag for night side of 
             earth, x < 0
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -381,8 +394,11 @@ def plot_sum_dB(df_r, title, base):
     Inputs:
         df_r = dataframe containing cumulative sums ordered from small r to 
             large r
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -417,8 +433,11 @@ def plot_cumulative_B_para_perp(df_r, title, base):
     Inputs:
         df_r = dataframe containing cumulative sums ordered from small r to 
             large r
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -492,10 +511,14 @@ def plot_rho_p_jMag_uMag_day_night(df_day, df_night, title, base):
     Inputs:
         df_day = dataframe containing r, rho, jMag, uMag for day side of earth,
             x >= 0
+            
         df_night = dataframe containing r, rho, jMag, uMag for night side of 
             earth, x < 0
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -536,10 +559,14 @@ def plot_jx_jy_jz_day_night(df_day, df_night, title, base):
     Inputs:
         df_day = dataframe containing r, rho, jMag, uMag for day side of earth,
             x >= 0
+            
         df_night = dataframe containing r, rho, jMag, uMag for night side of 
             earth, x < 0
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -581,10 +608,14 @@ def plot_ux_uy_uz_day_night(df_day, df_night, title, base):
     Inputs:
         df_day = dataframe containing r, rho, jMag, uMag for day side of earth,
             x >= 0
+            
         df_night = dataframe containing r, rho, jMag, uMag for night side of 
             earth, x < 0
+            
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
@@ -625,10 +656,15 @@ def plot_jr_jt_jp_vs_x(df, title, base, coord='x', cut=''):
 
     Inputs:
         df = dataframe containing jr, jtheta, jphi and x
+        
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
         coord = which coordinate is on the x axis - x, y, or z
+        
         cut = which cut was made, used in plot filenames
+        
     Outputs:
         None 
      """
@@ -669,10 +705,15 @@ def plot_jp_jp_vs_x(df, title, base, coord='x', cut=''):
 
     Inputs:
         df = dataframe containing jparallel, jperpendicular, and x
+        
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
         coord = which coordinate is on the x axis - x, y, or z
+        
         cut = which cut was made, used in plot filenames
+        
     Outputs:
         None 
      """
@@ -707,21 +748,24 @@ def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base):
 
     Inputs:
         df_jr, df_jtheta, df_jphi = dataframe CDF data
+        
         title = title for plots
+        
         base = basename of file where plot will be stored
+        
     Outputs:
         None 
      """
 
     plots = [None] * 3
      
-    plots[0] = plotargs(df_jr, 'jr', 'cdfIndex', False, False, 
+    plots[0] = plotargs(df_jr, 'jr', 'cdf', False, False, 
                     r'$j_r$', r'$CDF$',
                     JCDF_LIMITS, [0,1], title)
-    plots[1] = plotargs(df_jtheta, 'jtheta', 'cdfIndex', False, False, 
+    plots[1] = plotargs(df_jtheta, 'jtheta', 'cdf', False, False, 
                     r'$j_\theta$', r'$CDF$',
                     JCDF_LIMITS, [0,1], title)
-    plots[2] = plotargs(df_jphi, 'jphi', 'cdfIndex', False, False, 
+    plots[2] = plotargs(df_jphi, 'jphi', 'cdf', False, False, 
                     r'$j_\phi$', r'$CDF$',
                     JCDF_LIMITS, [0,1], title)
     
@@ -736,67 +780,72 @@ def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base):
 #############################################################################
 #############################################################################
 
-def process_data(X, Y, Z, base, dirpath=ORIGIN):
+def process_data(X, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
 
     Inputs:
-        X,Y,Z = position where magnetic field will be measured
+        X = cartesian position where magnetic field will be measured
+        
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
+            
         dirpath = path to directory containing base
+        
     Outputs:
         df = dataframe containing data from vtk file plus additional calculated
             parameters
+            
         title = title to use in plots, which is derived from base (file basename)
+        
         batsrus = BATSRUS data read by swmfio 
     """
 
-    df, title = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    df, title = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
-    logging.info('Creating cumulative sum dB dataframe...')
+    # logging.info('Creating cumulative sum dB dataframe...')
 
-    df_r = create_cumulative_sum_dataframe(df)
+    # df_r = create_cumulative_sum_dataframe(df)
 
-    logging.info('Creating dayside/nightside dataframe...')
-    df_day = df[df['x'] >= 0]
-    df_night = df[df['x'] < 0]
+    # logging.info('Creating dayside/nightside dataframe...')
+    # df_day = df[df['x'] >= 0]
+    # df_night = df[df['x'] < 0]
 
-    # Do plots...
+    # # Do plots...
 
-    logging.info('Creating dB (Norm) vs r plots...')
-    plot_db_Norm_r( df, title, base )
+    # logging.info('Creating dB (Norm) vs r plots...')
+    # plot_db_Norm_r( df, title, base )
     
-    logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
-    plot_dBnorm_various_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
+    # plot_dBnorm_various_day_night( df_day, df_night, title, base )
     
-    logging.info('Creating cumulative sum B vs r plots...')
-    plot_sum_dB( df_r, title, base )
+    # logging.info('Creating cumulative sum B vs r plots...')
+    # plot_sum_dB( df_r, title, base )
 
-    logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
-    plot_cumulative_B_para_perp(df_r, title, base)
+    # logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
+    # plot_cumulative_B_para_perp(df_r, title, base)
 
-    logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
-    plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
+    # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base )
 
-    logging.info('Creating day /night jx, jy, jz vs r plots...')
-    plot_jx_jy_jz_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day /night jx, jy, jz vs r plots...')
+    # plot_jx_jy_jz_day_night( df_day, df_night, title, base )
 
-    logging.info('Creating day/night ux, uy, uz vs r plots...')
-    plot_ux_uy_uz_day_night( df_day, df_night, title, base )
+    # logging.info('Creating day/night ux, uy, uz vs r plots...')
+    # plot_ux_uy_uz_day_night( df_day, df_night, title, base )
 
     logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
     plot_jr_jt_jp_vs_x( df, title, base, coord = 'x')
     plot_jr_jt_jp_vs_x( df, title, base, coord = 'y')
     plot_jr_jt_jp_vs_x( df, title, base, coord = 'z')
 
-    logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    plot_jp_jp_vs_x( df, title, base, coord = 'x')
-    plot_jp_jp_vs_x( df, title, base, coord = 'y')
-    plot_jp_jp_vs_x( df, title, base, coord = 'z')
+    # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'x')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'y')
+    # plot_jp_jp_vs_x( df, title, base, coord = 'z')
 
-    logging.info('Creating jrtp CDFs...')
-    df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
-    plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base)
+    # logging.info('Creating jrtp CDFs...')
+    # df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
+    # plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base)
 
     return
 
@@ -814,11 +863,16 @@ def perform_cuts(df1, title1, cut_selected):
 
     Inputs:
         df1 = BATSRUS dataframe on which to make cuts
+        
         title1 = base title for plots, will be modified based on cuts
+        
         cut_selected = which cut to make
+        
     Outputs:
         df2 = dataframe with cuts applied
+        
         title2 = title to be used in plots
+        
         cutname = string signifying cut
     """
 
@@ -900,23 +954,28 @@ def perform_not_cuts(df1, title1, cut_selected):
 
     return df2, title2, cutname
 
-def process_data_with_cuts(X, Y, Z, base, dirpath=ORIGIN, cut_selected=1):
+def process_data_with_cuts(X, base, dirpath=ORIGIN, cut_selected=1):
     """Process data in BATSRUS file to create dataframe with calculated quantities.
 
     Inputs:
-        X,Y,Z = position where magnetic field will be measured
+        X = cartesian position where magnetic field will be measured
+        
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
+            
         dirpath = path to directory containing base
+        
     Outputs:
         df = dataframe containing data from vtk file plus additional calculated
             parameters
+            
         title = title to use in plots, which is derived from base (file basename)
+        
         batsrus = BATSRUS data read by swmfio 
     """
 
     # Read BASTRUS file
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     # Perform cuts on BATSRUS data
     df2, title2, cutname = perform_cuts(df1, title1, cut_selected=cut_selected)
@@ -935,19 +994,22 @@ def process_data_with_cuts(X, Y, Z, base, dirpath=ORIGIN, cut_selected=1):
 
     return
 
-def process_3d_cut_plots(X, Y, Z, base, dirpath=ORIGIN):
+def process_3d_cut_plots(X, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create 3D plots of points in cuts
 
     Inputs:
-        X,Y,Z = position where magnetic field will be measured
+        X = cartesian position where magnetic field will be measured
+        
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
+            
         dirpath = path to directory containing base
+        
     Outputs:
         None - other than the saved plot file
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -990,6 +1052,137 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=ORIGIN):
     
     return
 
+def process_3d_cut_plots2(X, base, dirpath=ORIGIN):
+    """Process data in BATSRUS file to create 3D plots of points in cuts
+
+    Inputs:
+        X = x,y,z position where magnetic field will be measured
+        base = basename of BATSRUS file.  Complete path to file is:
+            dirpath + base + '.out'
+        dirpath = path to directory containing base
+    Outputs:
+        None - other than the saved plot file
+    """
+    import matplotlib.pyplot as plt
+    
+    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+
+    logging.info('Creating dataframes with extracted cuts...')
+
+    #################################
+    #################################
+    # Cut asymmetric jr vs y lobes
+    df2, title2, cutname2 = perform_not_cuts(df1, title1, cut_selected=1)
+    #################################
+    #################################
+    # Cut jphi vs y blob
+    df3, title3, cutname3 = perform_not_cuts(df1, title1, cut_selected=2)
+    #################################
+    #################################
+    # Cut jphi vs z blob
+    df4, title4, cutname4 = perform_not_cuts(df1, title1, cut_selected=3)
+    #################################
+    #################################
+
+    logging.info('Plotting 3D extracted cuts...')
+
+    # Set some plot configs
+    plt.rcParams["figure.figsize"] = [12.8, 7.2]
+    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams['axes.grid'] = True
+    plt.rcParams['font.size'] = 5
+
+    from matplotlib.colors import SymLogNorm
+    norm = SymLogNorm(linthresh=VMIN, vmin=-VMAX, vmax=VMAX)
+    cmap = plt.colormaps['coolwarm']
+
+    fig = plt.figure()
+    ax = fig.add_subplot(2, 4, 1, projection='3d')
+    sc = ax.scatter(df2['x'], df2['y'], df2['z'], s=1,
+                    c=df2['jr'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title2)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{r} $', pad=0.2)
+
+    ax = fig.add_subplot(2, 4, 2, projection='3d')
+    sc = ax.scatter(df3['x'], df3['y'], df3['z'], s=1,
+                    c=df3['jphi'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title3)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
+
+    ax = fig.add_subplot(2, 4, 3, projection='3d')
+    sc = ax.scatter(df4['x'], df4['y'], df4['z'], s=1,
+                    c=df4['jphi'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title4)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
+
+    ax = fig.add_subplot(2, 4, 5, projection='3d')
+    sc = ax.scatter(df2['x'], df2['y'], df2['z'], s=1,
+                    c=df2['jr'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title2)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.view_init(-140, 60)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{r} $', pad=0.2)
+
+    ax = fig.add_subplot(2, 4, 6, projection='3d')
+    sc = ax.scatter(df3['x'], df3['y'], df3['z'], s=1,
+                    c=df3['jphi'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title3)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.view_init(-140, 60)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
+
+    ax = fig.add_subplot(2, 4, 7, projection='3d')
+    sc = ax.scatter(df4['x'], df4['y'], df4['z'], s=1,
+                    c=df4['jphi'], cmap=cmap, norm=norm)
+    ax.set_xlabel(r'$x/R_e$')
+    ax.set_ylabel(r'$y/R_e$')
+    ax.set_zlabel(r'$z/R_e$')
+    ax.set_title(title4)
+    ax.set_xlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_ylim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.set_zlim(PLOT3D_LIMITS[0], PLOT3D_LIMITS[1])
+    ax.view_init(-140, 60)
+    fig.colorbar(sc, shrink=0.4, location='right', label=r'$ j_{\phi} $', pad=0.2)
+
+    plt.tight_layout()
+
+    fig = plt.gcf()
+    create_directory(TARGET, 'png-3d-cuts/')
+    logging.info(f'Saving {base} 3D cut plot')
+    fig.savefig(TARGET + 'png-3d-cuts/' + base + '.out.png-3d-cuts.png')
+    plt.close(fig)
+
+    return
+
 #############################################################################
 #############################################################################
 # The process_sum_db... and the loop_sum_... routines work together to
@@ -998,25 +1191,31 @@ def process_3d_cut_plots(X, Y, Z, base, dirpath=ORIGIN):
 #############################################################################
 #############################################################################
 
-def process_sum_db_with_cuts(X, Y, Z, base, dirpath=ORIGIN):
+def process_sum_db_with_cuts(X, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities,
     but in this case we perform some cuts on the data to isolate high current
     regions.  This cut data is used to determine the fraction of the total B
     field due to each set of currents
 
     Inputs:
-        X,Y,Z = position where magnetic field will be measured
+        X = cartesian position where magnetic field will be measured
+        
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
+            
         dirpath = path to directory containing base
+        
      Outputs:
         df1 = cumulative sum for original (all) data in north-east-zenith
+        
         df1 - df2 = contribution due to points in asym. jr cut in nez
+        
         df2 - df3 = contribution due to points in y jphi cut in nez
+        
         df3 - df4 = contribution due to points in z jphi cut in nez
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -1051,16 +1250,22 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=ORIGIN):
         
         Inputs:
             df = dataframe with magnetic field info
+            
             n_geo = north unit vector
+            
         Outputs:
             dBNSum = Total B north component
+            
             dBparallelNSum = Total B due to currents parallel to B field, 
                 north component
+                
             dBperpendicularNSum = Total B due to currents perpendicular to B 
                 field, north component
+                
             dBperpendicularphiNSum = Total B due to currents perpendicular to B 
                 field, north component, but divided into a piece along phi-hat
                 and the residual
+                
             dBperpendicularphiresNSum =Total B due to currents perpendicular to B 
                 field, north component, but divided into a piece along phi-hat
                 and the residual
@@ -1121,19 +1326,22 @@ def process_sum_db_with_cuts(X, Y, Z, base, dirpath=ORIGIN):
         dBperpendicularphiNSum4, \
         dBperpendicularphiresNSum4
 
-def process_sum_db(X, Y, Z, base, dirpath=ORIGIN):
+def process_sum_db(X, base, dirpath=ORIGIN):
     """Process data in BATSRUS file to create dataframe with calculated quantities
 
     Inputs:
-        X,Y,Z = position where magnetic field will be measured
+        X = cartesian position where magnetic field will be measured
+        
         base = basename of BATSRUS file.  Complete path to file is:
             dirpath + base + '.out'
+            
         dirpath = path to directory containing base
+        
      Outputs:
         df1 = cumulative sum for original (all) data in north-east-zenith
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, Y, Z, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
 
     logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
@@ -1189,14 +1397,17 @@ def process_sum_db(X, Y, Z, base, dirpath=ORIGIN):
         dBperpendicularphiNSum1, \
         dBperpendicularphiresNSum1
 
-def loop_sum_db_with_cuts(X, Y, Z, files):
+def loop_sum_db_with_cuts(X, files):
     """Loop thru data in BATSRUS files to create plots showing the effects of
     various cuts on the data.  See process_data_with_cuts for the specific cuts 
     made
 
     Inputs:
+        X = cartesian position where magnetic field will be measured
+        
         files = list of files to be processed, each entry is the basename of 
             a BATSRUS file
+            
     Outputs:
         None - other than the plots generated
     """
@@ -1258,7 +1469,7 @@ def loop_sum_db_with_cuts(X, Y, Z, files):
             b_z_jphi_perpphi[i], b_z_jphi_perpphires[i], \
             b_residual[i], b_residual_parallel[i], b_residual_perp[i], \
             b_residual_perpphi[i], b_residual_perpphires[i] = \
-            process_sum_db_with_cuts(X, Y, Z, base=files[i])
+            process_sum_db_with_cuts(X, base=files[i])
 
     df = pd.DataFrame( { r'Total': b_original, 
                         r'Parallel': b_original_parallel, 
@@ -1334,13 +1545,16 @@ def loop_sum_db_with_cuts(X, Y, Z, files):
 
     return
 
-def loop_sum_db(X, Y, Z, files):
+def loop_sum_db(X, files):
     """Loop thru data in BATSRUS files to create plots showing the breakdown of
     parallel and perpendicular to B field components
 
     Inputs:
+        X = cartesian position where magnetic field will be assessed
+        
         files = list of files to be processed, each entry is the basename of 
             a BATSRUS file
+            
     Outputs:
         None - other than the plots generated
     """
@@ -1374,7 +1588,7 @@ def loop_sum_db(X, Y, Z, files):
         # (perpphi and perpphires are components of perpendicular)
         b_original[i], b_original_parallel[i], b_original_perp[i], \
             b_original_perpphi[i], b_original_perpphires[i] = \
-            process_sum_db(X, Y, Z, base=files[i])
+            process_sum_db(X, base=files[i])
 
     b_fraction_parallel = [m/n for m, n in zip(b_original_parallel, b_original)]
     b_fraction_perpphi = [m/n for m, n in zip(b_original_perpphi, b_original)]
@@ -1429,6 +1643,175 @@ def loop_sum_db(X, Y, Z, files):
     
     return
 
+#############################
+
+def matvectprod(A, v):
+    ret = np.zeros(A.shape[0])
+    for i in range(A.shape[0]):
+        for j in range(A.shape[0]):
+            ret[i] += A[i,j]*v[j]
+    return ret
+
+def sph_to_xyz(r, theta, phi):
+    Xyz_D = np.empty(3)
+    Xyz_D[0] = r*np.cos(phi)*np.sin(theta)
+    Xyz_D[1] = r*np.sin(phi)*np.sin(theta)
+    Xyz_D[2] = r*np.cos(theta)
+    return Xyz_D
+
+def map_along_dipole_lines(Xyz_D, rMap):
+    # Xyz_D and returned XyzMap_D in SMG (SM) coordinates
+    # Solution of the vector potential equation (proportional to (x^2+y^2)/r^3)
+    # so sqrt(xMap^2+yMap^2)/sqrt(x^2+y^2) = sqrt(rMap^3/r^3)
+    iHemisphere = int(np.sign(Xyz_D[2]))
+    #DT change float32 to float64
+    #XyzMap_D = np.empty(3, dtype=np.float32)
+    XyzMap_D = np.empty(3, dtype=np.float64)
+
+    r = np.linalg.norm(Xyz_D)
+    XyRatio = np.sqrt(rMap/r)**3 # ratio of input and mapped X and Y components
+    XyzMap_D[0:2] = XyRatio*Xyz_D[0:2]
+    XyMap2 = XyzMap_D[0]**2 + XyzMap_D[1]**2
+
+    if rMap**2 < XyMap2:
+       # The point does not map to the given radius
+       iHemisphere = 0
+       # Put mapped point to the magnetic equator
+       XyzMap_D[0:2] = (rMap/np.sqrt(Xyz_D[0]**2 + Xyz_D[1]**2))*Xyz_D[0:2]
+       XyzMap_D[2] = 0
+    else:
+       XyzMap_D[2] = iHemisphere*np.sqrt(rMap**2 - XyMap2)
+
+    return XyzMap_D, iHemisphere
+
+def map_along_dipole_lines_dean(Xyz_D, rMap):
+    iHemisphere = int(np.sign(Xyz_D[2]))
+    x_fac_SM = np.zeros(3)
+
+    # Avoid signularity along z axis
+    if( Xyz_D[0] > 10**-9 or Xyz_D[1] > 10**-9 ):    
+        r1 = np.linalg.norm(Xyz_D)
+        theta0 = iHemisphere * np.arccos( np.sqrt( rMap/r1 ) )
+        phi = np.arccos( Xyz_D[0] / np.sqrt( Xyz_D[0]**2 + Xyz_D[1]**2 ))
+    
+        x_fac_SM[0] = rMap * np.cos(phi) * np.cos(theta0) * iHemisphere
+        x_fac_SM[1] = rMap * np.sin(phi) * np.cos(theta0) * iHemisphere
+        x_fac_SM[2] = rMap * np.sin(theta0)
+    else:
+        x_fac_SM[2] = rMap * iHemisphere
+    
+    return x_fac_SM, iHemisphere
+
+def get_dipole_field(xyz):
+    # Xyz_D and returned b_D in SMG (SM) coordinates
+    b = np.empty(3)
+    r = np.linalg.norm(xyz)
+    DipoleStrength = 3.12e+4 #"dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
+    Term1      = DipoleStrength*xyz[2]*3/r**2
+    b[0:2] = Term1*xyz[0:2]/r**3
+    b[2]    = (Term1*xyz[2]-DipoleStrength)/r**3
+    return b
+
+def get_dipole_field_dean(x_fac_SM):
+    b_fac_SM= np.zeros(3)
+    
+    r = np.linalg.norm( x_fac_SM)
+    
+    B0 = 3.12e+4 # Changed to nT units             
+    b_fac_SM[0] = - 3 * B0 * x_fac_SM[0] * x_fac_SM[2] / r**5
+    b_fac_SM[1] = - 3 * B0 * x_fac_SM[1] * x_fac_SM[2] / r**5
+    b_fac_SM[2] = - B0 * ( 3 * x_fac_SM[2]**2 - r**2 ) / r**5
+
+    return b_fac_SM
+    
+def _jit_fac_integral(ms_slice, GM_2_gap, x0, nTheta, nPhi, nR, rCurrents):
+
+    # x0 and returned dB_fac are in cartesian gap_csys coordinates (default SMG)
+    rIonosphere = 1.01725 # rEarth + iono_height #!!! hard coded
+
+    dB_fac = np.zeros(3)
+
+    dTheta = np.pi    / (nTheta-1)
+    dPhi   = 2.*np.pi / nPhi
+    dR     = (rCurrents - rIonosphere) / nR
+
+    # Dean see below, we need to transform x0 to gap coordinates
+    x0_map = np.empty(3)
+    x0_map[:] = matvectprod(GM_2_gap, x0)
+    
+    for iTheta in range(nTheta):
+        Theta = iTheta * dTheta
+        # the area of the triangle formed by pole and the latitude segment at Theta=dTheta/2
+        # is approximately dTheta/4*dTheta/2, so sin(theta) replaced with dTheta/8.
+        SinTheta = max(np.sin(Theta), dTheta/8.)
+        dSurface = rCurrents**2*SinTheta*dTheta*dPhi
+
+        for iPhi in range(nPhi):
+            Phi = iPhi * dPhi
+
+            xyz_Currents = sph_to_xyz(rCurrents, Theta, Phi)
+
+            #b_Currents = np.empty(3,dtype='f8');
+            b_Currents = np.empty(3);
+            #j_Currents = np.empty(3,dtype='f8')
+            j_Currents = np.empty(3)
+            xyz_inGM = matvectprod(GM_2_gap.transpose(), xyz_Currents)
+            # use GM interpolator, which is in GM_csys coordinates, to get b and j and convert to gap_csys coordinates
+            b_Currents[0] = ms_slice.interpolate(xyz_inGM, 'bx')
+            b_Currents[1] = ms_slice.interpolate(xyz_inGM, 'by')
+            b_Currents[2] = ms_slice.interpolate(xyz_inGM, 'bz')
+            j_Currents[0] = ms_slice.interpolate(xyz_inGM, 'jx')
+            j_Currents[1] = ms_slice.interpolate(xyz_inGM, 'jy')
+            j_Currents[2] = ms_slice.interpolate(xyz_inGM, 'jz')
+            b_Currents[:] = matvectprod(GM_2_gap, b_Currents)#?? doesnt seem to work without [:] for some reason
+            j_Currents[:] = matvectprod(GM_2_gap, j_Currents)
+
+            # Dean I think Gary's code is wrong.  He mixed coordinate systems - SM and GSM
+            # Unit_xyz_Currents = xyz_Currents / rCurrents
+            # Unit_b_Currents = b_Currents / np.linalg.norm(b_Currents)
+            # _Fac_rCurrents = np.dot(Unit_b_Currents,j_Currents)#!!!!!!!!!!!
+            # Fac_term = _Fac_rCurrents * np.dot(Unit_b_Currents, Unit_xyz_Currents)
+            Unit_xyz_inGM = xyz_inGM / rCurrents
+            Unit_b_Currents = b_Currents / np.linalg.norm(b_Currents)
+            _Fac_rCurrents = np.dot(Unit_b_Currents,j_Currents)#!!!!!!!!!!!
+            Fac_term = _Fac_rCurrents * np.dot(Unit_b_Currents, Unit_xyz_inGM)
+
+            for k in range(nR):
+                R = rCurrents - dR*(k+0.5)
+
+                # Dean check Gary's map_along_dipole function
+                xyz_Map, iHemisphere = map_along_dipole_lines_dean(xyz_Currents, R)
+                # xyz_Map, iHemisphere = map_along_dipole_lines(xyz_Currents, R)
+                                
+                b0_Map = get_dipole_field_dean(xyz_Map)
+                # b0_Map = get_dipole_field(xyz_Map)
+
+                Unit_xyz_Map = xyz_Map / R
+                Unit_b0_Map = b0_Map / np.linalg.norm(b0_Map)
+
+                # The volume element is proportional to 1/Br. The sign
+                # should be preserved (not yet!!!),
+                # because the sign is also there in the radial
+                # component of the field aligned current: Br/B*FAC.
+                # In the end j_D = b_D/Br*[(Br/B)*(j.B)]_rcurr  !!!!!!!!!!!! NOT DIMENSIONALLY CONSISTENT
+
+                dVol_FACcoords = dSurface * (dR/np.dot(Unit_xyz_Map, Unit_b0_Map))
+                J_fac = Fac_term * Unit_b0_Map
+
+                # Dean I used 637.1 to get nT in output
+                # Dean x0 is in wrong coordinates.  Use x0_map
+                # dB_fac[:] = dB_fac[:] + dVol_FACcoords* \
+                #   np.cross(J_fac, x0-xyz_Map)/(4*np.pi*(np.linalg.norm(xyz_Map-x0))**3)
+                dB_fac[:] = dB_fac[:] + 637.1 * dVol_FACcoords* \
+                    np.cross(J_fac, x0_map-xyz_Map)/((np.linalg.norm(x0_map-xyz_Map))**3)
+                
+    # Dean - I believe his result needs to be transformed to the GSM coordinates
+    dB_fac = np.dot(GM_2_gap.T, dB_fac)
+
+    return dB_fac
+
+####################################
+
 import sys, getopt
 
 def main(argv):
@@ -1443,13 +1826,12 @@ def main(argv):
       elif opt in ("-i"):
           inputfile = arg
 
-    X = 1
-    Y = 0
-    Z = 0
+    X = [1, 0, 0]
 
-    # process_data(X, Y, Z, inputfile)
-    process_data_with_cuts(X, Y, Z, inputfile, cut_selected = 3)
-    # process_3d_cut_plots(X, Y, Z, inputfile)
+    # process_data(X, inputfile)
+    # process_data_with_cuts(X, inputfile, cut_selected = 3)
+    # process_3d_cut_plots(X, inputfile)
+    process_3d_cut_plots2(X, inputfile)
 
 
 def main2(argv):
@@ -1460,14 +1842,75 @@ def main2(argv):
         
     logging.info('Num. of files: ' + str(len(files)))
 
-    X = 1
-    Y = 0
-    Z = 0
+    X = [1, 0, 0]
 
-    loop_sum_db_with_cuts(X, Y, Z, files)
-    loop_sum_db(X, Y, Z, files)
+    loop_sum_db_with_cuts(X, files)
+    loop_sum_db(X, files)
     
+def main3(argv):
+    nTheta = 30
+    nPhi = 30
+    nTheta0 = 30
+    rCurrents = 2.
+    rIonosphere = 1.01725
 
+    inputfile = ''
+
+    opts, args = getopt.getopt(argv,"hi:")
+    for opt, arg in opts:
+      if opt == '-h':
+          print ('test.py -i <inputfile>')
+          sys.exit()
+      elif opt in ("-i"):
+          inputfile = arg
+
+    X = [1, 0, 0]
+
+    dB, title = calc_gap_dB(X, inputfile, ORIGIN, rCurrents, rIonosphere, nTheta, nPhi, nTheta0)
+    
+    from hxform import hxform as hx
+    import swmfio
+   
+    GM_csys = 'GSM'
+    gap_csys='SM'
+    time = (2011,1,1)
+    nR = 30
+    dirpath = ORIGIN
+    
+    # Verify BATSRUS file exists
+    assert exists(dirpath + inputfile + '.out')
+    assert exists(dirpath + inputfile + '.info')
+    assert exists(dirpath + inputfile + '.tree')
+    
+    # Read BATSRUS file
+    swmfio.logger.setLevel(logging.INFO)
+    ms_slice = swmfio.read_batsrus(dirpath + inputfile)
+    assert(ms_slice != None)
+
+    # y,n,d,h,m,s = date_time(base)
+    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
+    GM_2_gap = hx.get_transform_matrix(time, GM_csys, gap_csys)
+    
+    dB_fac = _jit_fac_integral(ms_slice, GM_2_gap, X, nTheta,nPhi,nR, rCurrents)
+
+    print('=============================   Mine:', dB)
+    print('============================= swmfio:', dB_fac)
+    print('=============================  ratio:', dB/dB_fac)
+
+    print('=============================   Mine:', np.linalg.norm(dB))
+    print('============================= swmfio:', np.linalg.norm(dB_fac))
+    print('=============================  ratio:', np.linalg.norm(dB)/np.linalg.norm(dB_fac))
+
+def main4(argv):
+    x=np.zeros(3)
+    x[0] = 5
+    x[1] = 5
+    x[2] = -3
+    r = 2
+    
+    print( map_along_dipole_lines(x,r) )
+    print( map_along_dipole_lines_dean(x,r) )
+    
 if __name__ == "__main__":
-   main(sys.argv[1:])
+   main3(sys.argv[1:])
 

@@ -29,7 +29,7 @@ Created on Thu Sep 15 09:42:06 2022
 import logging
 from copy import deepcopy
 # import swmfio
-from os import makedirs
+# from os import makedirs
 from os.path import exists
 import pandas as pd
 import numpy as np
@@ -40,6 +40,7 @@ from deltaB.plotting import plotargs, plotargs_multiy, create_directory, \
 from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
     create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes, \
     calc_gap_dB
+from deltaB.util import nez, date_time, date_timeISO, get_files
 
 COLABA = True
 
@@ -132,168 +133,6 @@ logging.basicConfig(
     format='%(filename)s:%(funcName)s(): %(message)s',
     level=logging.INFO,
     datefmt='%S')
-
-##############################################################################
-##############################################################################
-# nez from weigel
-# https://github.com/rweigel/magnetovis/blob/newapi2/magnetovis/Sources/BATSRUS_dB_demo.py#L45
-##############################################################################
-##############################################################################
-
-def nez(time, pos, csys):
-  """Unit vectors in geographic north, east, and zenith dirs"""
-
-  from hxform import hxform as hx
-
-  # Geographic z axis in csys
-  Z = hx.transform(np.array([0, 0, 1]), time, 'GEO', csys, lib='cxform')
-
-  # zenith direction ("up")
-  z_geo = pos/np.linalg.norm(pos)
-
-  e_geo = np.cross(Z, z_geo)
-  e_geo = e_geo/np.linalg.norm(e_geo)
-
-  # n_geo = np.cross(z_geo, e_geo)
-  n_geo = np.cross(z_geo, e_geo)
-  n_geo = n_geo/np.linalg.norm(n_geo)
-
-  # print(f"Unit vectors for Geographic N, E, and Z in {csys}:")
-  # print(f"North: {n_geo}")
-  # print(f"East:  {e_geo}")
-  # print(f"Z:     {z_geo}")
-
-  return n_geo, e_geo, z_geo
-
-def date_time(file):
-    """Pull date and time from file basename
-
-    Inputs:
-        file = basename of file.
-        
-    Outputs:
-        month, day, year, hour, minute, second 
-     """
-    words = file.split('-')
-
-    date = int(words[0].split('e')[1])
-    y = date//10000
-    n = (date % 10000) // 100
-    d = date % 100
-
-    # Convert time to a integers
-    t = int(words[1])
-    h = t//10000
-    m = (t % 10000) // 100
-    s = t % 100
-
-    # logging.info(f'Time: {date} {t} Year: {y} Month: {n} Day: {d} Hours: {h} Minutes: {m} Seconds: {s}')
-
-    return y, n, d, h, m, s
-
-def get_files(orgdir=ORIGIN, base='3d__*'):
-    """Create a list of files that we will process.  Look in the basedir directory,
-    and get list of file basenames.
-
-    Inputs:
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
-            
-        orgdir = path to directory containing input files
-        
-    Outputs:
-        l = list of file basenames.
-    """
-    import os
-    import glob
-
-    # Create a list of files that we will process
-    # Look in the basedir directory.  Get list of file basenames
-
-    # In this version, we find all of the base + '.out' files
-    # and retrieve their basenames
-    os.chdir(orgdir)
-
-    l1 = glob.glob(base + '.out')
-
-    # Strip off extension
-    for i in range(len(l1)):
-        l1[i] = (l1[i].split('.'))[0]
-
-    # Colaba incliudes 697 files, reduce the number by
-    # accepting those only every 15 minutes
-    if COLABA: 
-        l2 = deepcopy(l1) 
-        for i in range(len(l2)):
-            y,n,d,h,m,s = date_time(l2[i])
-            if( m % 15 != 0 ):
-                l1.remove(l2[i])
-
-    l1.sort()
-
-    return l1
-
-def get_files_unconverted(tgtsubdir='png-dBmagNorm-uMag-night',
-                          orgdir=ORIGIN, tgtdir=TARGET, base='3d__*'):
-    """Create a list of files that we will process.  This routine is used when
-    some files have been process and others have not, e.g., the program crashed.
-    Since the output files of other routines use the same basenames as the output
-    files, we compare the files in the input directory (orgdir) to those in the
-    output directory (tgtdir).  From this, we create a list of unprocessed files.
-
-    Inputs:
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
-            
-        orgdir = path to directory containing input files
-        
-        tgtdir = path to directory containing output files
-        
-        tgtsubdir = the tgtdir contains multiple subdirectories containing output
-            files from various routines.  tgtdir + tgtsubdir is the name of the
-            directory with the output files that we will compare
-            
-    Outputs:
-        l = list of file basenames
-    """
-    import os
-    import glob
-
-    # In this routine we compare the list of .out input files and .png files
-    # to determine what has already been processed.  Look at all *.out
-    # files and remove from the list (l1) all of the files that already have
-    # been converted to .png files.  The unremoved files are unconverted files.
-
-    os.chdir(orgdir)
-    l1 = glob.glob(base + '.out')
-
-    # Look at the png files in directory
-    if not exists(tgtdir + tgtsubdir):
-        makedirs(tgtdir + tgtsubdir)
-    os.chdir(tgtdir + tgtsubdir)
-    l2 = glob.glob(base + '.png')
-
-    for i in range(len(l1)):
-        l1[i] = (l1[i].split('.'))[0]
-
-    for i in range(len(l2)):
-        l2[i] = (l2[i].split('.'))[0]
-
-    for i in l2:
-        l1.remove(i)
-
-    # Colaba incliudes 697 files, reduce the number by
-    # accepting those only every 15 minutes
-    if COLABA: 
-        l3 = deepcopy(l1) 
-        for i in range(len(l3)):
-            y,n,d,h,m,s = date_time(l3[i])
-            if( m % 15 != 0 ):
-                l1.remove(l3[i])
-
-    l1.sort()
-
-    return l1
 
 #############################################################################
 #############################################################################
@@ -1241,9 +1080,10 @@ def process_sum_db_with_cuts(X, base, dirpath=ORIGIN):
     df3 = create_cumulative_sum_dataframe(df3)
     df4 = create_cumulative_sum_dataframe(df4)
     
-    y,n,d,h,m,s = date_time(base)
-    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
-    n_geo = (0,0,1)
+    timeiso = date_timeISO(base)
+    n_geo, e_geo, z_geo = nez(timeiso, X, 'GSM')
+    # y,m,d,hh,mm,ss = date_time(base)
+    # n_geo = (0,0,1)
     
     def north_comp( df, n_geo ):
         """ Local function used to get north component of field defined in df.
@@ -1347,9 +1187,11 @@ def process_sum_db(X, base, dirpath=ORIGIN):
 
     df1 = create_cumulative_sum_dataframe(df1)
     
-    y,n,d,h,m,s = date_time(base)
-    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
-    n_geo = (0,0,1)
+    timeiso = date_timeISO(base)
+    n_geo, e_geo, z_geo = nez(timeiso, X, 'GSM')
+    # y,m,d,hh,mm,ss = date_time(base)
+    # n_geo, e_geo, z_geo = nez((y,m,d,hh,mm,ss), (X,Y,Z), 'GSM')
+    # n_geo = (0,0,1)
     
     def north_comp( df, n_geo ):
         """ Local function used to get north component of field defined in df.
@@ -1828,15 +1670,15 @@ def main(argv):
 
     X = [1, 0, 0]
 
-    # process_data(X, inputfile)
+    process_data(X, inputfile)
     # process_data_with_cuts(X, inputfile, cut_selected = 3)
     # process_3d_cut_plots(X, inputfile)
-    process_3d_cut_plots2(X, inputfile)
+    # process_3d_cut_plots2(X, inputfile)
 
 
 def main2(argv):
     if COLABA:
-        files = get_files(base='3d__var_2_e*')
+        files = get_files(reduce=COLABA, base='3d__var_2_e*')
     else:
         files = get_files(base='3d__*')
         
@@ -1887,8 +1729,8 @@ def main3(argv):
     ms_slice = swmfio.read_batsrus(dirpath + inputfile)
     assert(ms_slice != None)
 
-    # y,n,d,h,m,s = date_time(base)
-    # n_geo, e_geo, z_geo = nez((y,n,d,h,m,s), (X,Y,Z), 'GSM')
+    # y,m,d,hh,mm,ss = date_time(base)
+    # n_geo, e_geo, z_geo = nez((y,m,d,hh,mm,ss), (X,Y,Z), 'GSM')
     GM_2_gap = hx.get_transform_matrix(time, GM_csys, gap_csys)
     
     dB_fac = _jit_fac_integral(ms_slice, GM_2_gap, X, nTheta,nPhi,nR, rCurrents)
@@ -1910,7 +1752,7 @@ def main4(argv):
     
     print( map_along_dipole_lines(x,r) )
     print( map_along_dipole_lines_dean(x,r) )
-    
+        
 if __name__ == "__main__":
-   main3(sys.argv[1:])
+   main(sys.argv[1:])
 

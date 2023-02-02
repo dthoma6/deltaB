@@ -3,19 +3,29 @@
 """
 Created on Thu Nov 10 15:39:37 2022
 
-@author: dean
+@author: Dean Thomas
 """
+
+##############################################################################
+##############################################################################
+# This code compares my Biot-Savart code for calculating delta B to Weigel's
+# Paraview code that does the same thing.  Differences should be small, 10^-5 or
+# 10^-6 based on rounding of the data from Paraview to six significant digits.
+#
+# See plots created by process_data_compare to do comparison.  Differences
+# from diff_over_avg should be small (10^-5 to 10^-6)
+##############################################################################
+##############################################################################
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from os.path import exists
-import swmfio
 import logging
 
 # origin and target define where input data and output plots are stored
 origin = '/Volumes/Physics HD v2/divB_simple1/GM/'
-target = '/Volumes/Physics HD v2/divB_simple1/plots/'
+target = '/Volumes/Physics HD v2/divB_simple1/data_comparison/'
 
 # names of BATSRUS and Paraview file
 base = '3d__mhd_4_e20100320-000000-000'
@@ -71,131 +81,7 @@ def diff_over_avg( l1, l2 ):
     
     return 2*(l1 - l2)/(l1 + l2)
 
-def convert_BATSRUS_to_dataframe(base, dirpath = origin):
-    """Process data in BATSRUS file to create dataframe with calculated quantities.
-        
-    Inputs:
-        base = basename of BATSRUS file.  Complete path to file is:
-            dirpath + base + '.out'
-        dirpath = path to directory containing base
-    Outputs:
-        df = dataframe containing data from BATSRUS file plus additional calculated
-            parameters
-        title = title to use in plots, which is derived from base (file basename)
-    """
-           
-    logging.info('Parsing BATSRUS file...')
-    
-    # Verify BATSRUS file exists
-    assert exists(dirpath + base + '.out')
-    assert exists(dirpath + base + '.info')
-    assert exists(dirpath + base + '.tree')
-    
-    # Read BATSRUS file
-    swmfio.logger.setLevel(logging.INFO)
-    batsrus = swmfio.read_batsrus(dirpath + base)
-    assert( batsrus != None )
-       
-    # Extract data from BATSRUS
-    var_dict = dict(batsrus.varidx)
-    
-    df = pd.DataFrame()
-    
-    df['x'] = batsrus.data_arr[:,var_dict['x']][:]
-    df['y'] = batsrus.data_arr[:,var_dict['y']][:]
-    df['z'] = batsrus.data_arr[:,var_dict['z']][:]
-        
-    df['bx'] = batsrus.data_arr[:,var_dict['bx']][:]
-    df['by'] = batsrus.data_arr[:,var_dict['by']][:]
-    df['bz'] = batsrus.data_arr[:,var_dict['bz']][:]
-        
-    df['jx'] = batsrus.data_arr[:,var_dict['jx']][:]
-    df['jy'] = batsrus.data_arr[:,var_dict['jy']][:]
-    df['jz'] = batsrus.data_arr[:,var_dict['jz']][:]
-        
-    df['ux'] = batsrus.data_arr[:,var_dict['ux']][:]
-    df['uy'] = batsrus.data_arr[:,var_dict['uy']][:]
-    df['uz'] = batsrus.data_arr[:,var_dict['uz']][:]
-        
-    df['p'] = batsrus.data_arr[:,var_dict['p']][:]
-    df['rho'] = batsrus.data_arr[:,var_dict['rho']][:]
-    df['measure'] = batsrus.data_arr[:,var_dict['measure']][:]
-    
-    # Get the smallest cell (by volume), we will use it to normalize the
-    # cells.  Cells far from earth are much larger than cells close to
-    # earth.  That distorts some variables.  So we normalize the magnetic field
-    # to the smallest cell.
-    minMeasure = df['measure'].min()
-    
-    logging.info('Calculating delta B...')
-    
-    # Calculate useful quantities
-    df['r'] = ((X-df['x'])**2+(Y-df['y'])**2+(Z-df['z'])**2)**(1/2)
-       
-    # We ignore everything inside of rCurrents
-    # df = df[df['r'] > rCurrents]
-    df.drop(df[df['r'] < rCurrents].index)
- 
-    ##########################################################
-    # Below we calculate the delta B in each cell from the
-    # Biot-Savart Law.  We want the final result to be in nT.
-    # dB = mu0/(4pi) (j x r)/r^3 dV
-    #    = (4pi 10^(-7) [H/m])/(4pi) (10^(-6) [A/m^2]) [Re] [Re^3] / [Re^3]
-    # where the fact that J is in microamps/m^2 and distances are in Re
-    # is in the BATSRUS documentation.   We take Re = 6372 km = 6.371 10^6 m
-    # dB = 6.371 10^(-7) [H/m][A/m^2][m]
-    #    = 6.371 10^(-7) [H] [A/m^2]
-    #    = 6.371 10^(-7) [kg m^2/(s^2 A^2)] [A/m^2]
-    #    = 6.371 10^(-7) [kg / s^2 / A]
-    #    = 6.371 10^(-7) [T]
-    #    = 6.371 10^2 [nT]
-    #    = 637.1 [nT] with distances in Re, j in microamps/m^2
-    ##########################################################
- 
-    # Determine delta B in each cell
-    df['factor'] = 637.1*df['measure']/df['r']**3
-    df['dBx'] = df['factor']*( df['jy']*(Z-df['z']) - df['jz']*(Y-df['y']) )
-    df['dBy'] = df['factor']*( df['jz']*(X-df['x']) - df['jx']*(Z-df['z']) )
-    df['dBz'] = df['factor']*( df['jx']*(Y-df['y']) - df['jy']*(X-df['x']) )
-
-    # Determine magnitude of various vectors
-    df['dBmag'] = np.sqrt(df['dBx']**2 + df['dBy']**2 + df['dBz']**2)    
-    df['jMag'] = np.sqrt( df['jx']**2 + df['jy']**2 + df['jz']**2 )
-    df['uMag'] = np.sqrt( df['ux']**2 + df['uy']**2 + df['uz']**2 )
-
-    # Normalize magnetic field, as mentioned above
-    df['dBmagNorm'] = df['dBmag'] * minMeasure/df['measure']
-    df['dBxNorm'] = np.abs(df['dBx'] * minMeasure/df['measure'])
-    df['dByNorm'] = np.abs(df['dBy'] * minMeasure/df['measure'])
-    df['dBzNorm'] = np.abs(df['dBz'] * minMeasure/df['measure'])
-
-    logging.info('Transforming j to spherical coordinates...')
-    
-    # Transform the currents, j, into spherical coordinates
-
-    # Determine theta and phi of the radius vector from the origin to the 
-    # center of the cell
-    df['theta'] = np.arccos( df['z']/df['r'] )
-    df['phi'] = np.arctan2( df['y'], df['x'] )
-    
-    # Use dot products with r-hat, theta-hat, and phi-hat of the radius vector
-    # to determine the spherical components of the current j.
-    df['jr'] = df['jx'] * np.sin(df['theta']) * np.cos(df['phi']) + \
-        df['jy'] * np.sin(df['theta']) * np.sin(df['phi']) + \
-        df['jz'] * np.cos(df['theta'])
-        
-    df['jtheta'] = df['jx'] * np.cos(df['theta']) * np.cos(df['phi']) + \
-        df['jy'] * np.cos(df['theta']) * np.sin(df['phi']) - \
-        df['jz'] * np.sin(df['theta'])
-        
-    df['jphi-sc'] = - df['jx'] * np.sin(df['phi']) + df['jy'] * np.cos(df['phi'])
-    df['jphi-xy'] = (- df['jx'] * df['y'] + df['jy'] * df['x'])/np.sqrt( df['y']**2 + df['x']**2 )
-    
-    # Create the title that we'll use in the graphics
-    words = base.split('-')
-    title = 'Time: ' + words[1] + ' (hhmmss)'
-
-    return df, title
+from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe
 
 def rounded_cumsum_Bz():
     """Compute cumulative sum of dBx, dBy, and dBz to determine |B|.  
@@ -210,7 +96,8 @@ def rounded_cumsum_Bz():
      """
     
     # Read BATSRUS file
-    df1, title = convert_BATSRUS_to_dataframe(base, origin)
+    # df1, title = convert_BATSRUS_to_dataframe(base, origin)
+    df1, title = convert_BATSRUS_to_dataframe([X,Y,Z], base, origin, rCurrents)
     
     # Unfortunately, we can't use the dataframe cumsum because we have to 
     # round all of the entries.  So we do it the old fashion way, a loop
@@ -247,8 +134,9 @@ def process_data_compare( reltol = 0.0001  ):
     Outputs:
         None - other than plots
     """
-    df1, title = convert_BATSRUS_to_dataframe(base, origin)
-    
+    # df1, title = convert_BATSRUS_to_dataframe(base, origin)
+    df1, title = convert_BATSRUS_to_dataframe([X,Y,Z], base, origin, rCurrents)
+
     logging.info('Parsing Paraview file...')
 
     # Verify Paraview file exists
@@ -272,8 +160,8 @@ def process_data_compare( reltol = 0.0001  ):
     jy1 = np.zeros(n, dtype=np.float32)
     jz1 = np.zeros(n, dtype=np.float32)
     
-    jphi1sc = np.zeros(n, dtype=np.float32)
-    jphi1xy = np.zeros(n, dtype=np.float32)
+    # jphi1sc = np.zeros(n, dtype=np.float32)
+    # jphi1xy = np.zeros(n, dtype=np.float32)
     
     ux1 = np.zeros(n, dtype=np.float32)
     uy1 = np.zeros(n, dtype=np.float32)
@@ -282,10 +170,6 @@ def process_data_compare( reltol = 0.0001  ):
     dbx1 = np.zeros(n, dtype=np.float32)
     dby1 = np.zeros(n, dtype=np.float32)
     dbz1 = np.zeros(n, dtype=np.float32)
-
-    dbx1p = np.zeros(n, dtype=np.float32)
-    dby1p = np.zeros(n, dtype=np.float32)
-    dbz1p = np.zeros(n, dtype=np.float32)
 
     x2 = np.zeros(n, dtype=np.float32)
     y2 = np.zeros(n, dtype=np.float32)
@@ -361,8 +245,10 @@ def process_data_compare( reltol = 0.0001  ):
         bx2[i] = df2_sample['b_0']#.iloc[-1]
         by2[i] = df2_sample['b_1']#.iloc[-1]
         bz2[i] = df2_sample['b_2']#.iloc[-1]
-
-        # Paraview has incorrect constant, 673.1, and should be 637.1
+        
+        ##################################################################
+        #!!!! Paraview has incorrect constant, 673.1, and should be 637.1
+        ##################################################################
         dbx2[i] = round_to_6(637.1/673.1*df2_sample['dB_0'])#.iloc[-1]
         dby2[i] = round_to_6(637.1/673.1*df2_sample['dB_1'])#.iloc[-1]
         dbz2[i] = round_to_6(637.1/673.1*df2_sample['dB_2'])#.iloc[-1]
@@ -373,8 +259,8 @@ def process_data_compare( reltol = 0.0001  ):
         jy1[i] = round_to_6(df1c['jy'].iloc[-1])
         jz1[i] = round_to_6(df1c['jz'].iloc[-1])
                 
-        jphi1sc[i] = round_to_6(df1c['jphi-sc'].iloc[-1])
-        jphi1xy[i] = round_to_6(df1c['jphi-xy'].iloc[-1])
+        # jphi1sc[i] = round_to_6(df1c['jphi-sc'].iloc[-1])
+        # jphi1xy[i] = round_to_6(df1c['jphi-xy'].iloc[-1])
                
         ux1[i] = round_to_6(df1c['ux'].iloc[-1])
         uy1[i] = round_to_6(df1c['uy'].iloc[-1])
@@ -388,14 +274,6 @@ def process_data_compare( reltol = 0.0001  ):
         y1[i] = round_to_6(df1c['y'].iloc[-1])
         z1[i] = round_to_6(df1c['z'].iloc[-1])
 
-        # Similarly, redo calculation of dBs using rounded quantities.
-        # r = round_to_6(np.sqrt(x1[i]**2 + y1[i]**2 + z1[i]**2))
-        # measure = round_to_6(df1c['measure'].iloc[-1])
-        # factor = round_to_6(637.1*measure/r**3)
-        # dbx1[i] = round_to_6(factor*( jy1[i]*(Z-z1[i]) - jz1[i]*(Y-y1[i]) ))
-        # dby1[i] = round_to_6(factor*( jz1[i]*(X-x1[i]) - jx1[i]*(Z-z1[i]) ))
-        # dbz1[i] = round_to_6(factor*( jx1[i]*(Y-y1[i]) - jy1[i]*(X-x1[i]) ))
-              
         dbx1[i] = round_to_6(df1c['dBx'].iloc[-1])
         dby1[i] = round_to_6(df1c['dBy'].iloc[-1])
         dbz1[i] = round_to_6(df1c['dBz'].iloc[-1])
@@ -456,41 +334,6 @@ def process_data_compare( reltol = 0.0001  ):
     plt.subplot(1,3,3).scatter(x=jz1, y=diff_over_avg(jz2,jz1), s=5)
     plt.xlabel(r'$j_z$ (BATSRUS)')
     plt.ylabel(r'$2\frac{j_z(P)-j_z(B)}{j_z(P)+j_z(B)}$')
-
-    plt.figure()     
- 
-    plt.subplot(1,3,1).scatter(x=jphi1sc, y=jphi2, s=5)
-    plt.xlabel(r'$j_\phi$ (sin-cos) (BATSRUS)')
-    plt.ylabel(r'$j_\phi$ (Paraview)')
-    plt.title('Using sin and cos')
-    
-    plt.figure()     
- 
-    plt.subplot(1,3,1).scatter(x=jphi1sc, y=diff_over_avg(jphi2,jphi1sc), s=5)
-    plt.xlabel(r'$j_\phi$ (sin-cos) (BATSRUS)')
-    plt.ylabel(r'$2 \frac{j_\phi (P) - j_\phi (B)}{j_\phi (P) + j_\phi (B)}$')
-    plt.title('Using sin and cos')
-
-    plt.figure()     
- 
-    plt.subplot(1,3,1).scatter(x=jphi1xy, y=jphi2, s=5)
-    plt.xlabel(r'$j_\phi$ (x-y) (BATSRUS)')
-    plt.ylabel(r'$j_\phi$ (Paraview)')
-    plt.title('Using x and y')
-    
-    plt.figure()     
- 
-    plt.subplot(1,3,1).scatter(x=jphi1xy, y=diff_over_avg(jphi2, jphi1xy), s=5)
-    plt.xlabel(r'$j_\phi$ (x-y) (BATSRUS)')
-    plt.ylabel(r'$2 \frac{j_\phi (P) - j_\phi (B)}{j_\phi (P) + j_\phi (B)}$')
-    plt.title('Using x and y')
-     
-    plt.figure()     
- 
-    plt.subplot(1,3,1).scatter(x=jphi1xy, y=diff_over_avg(jphi1sc, jphi1xy), s=5)
-    plt.xlabel(r'$j_\phi$ (x-y) (B)')
-    plt.ylabel(r'$2 \frac{j_\phi (sin-cos)(B) - j_\phi (x-y)(B)}{j_\phi (sin-cos)(B) + j_\phi (x-y)(B)}$')
-    plt.title('sin-cos vs x-y')
      
     plt.figure()
 

@@ -438,22 +438,32 @@ def calc_gap_dB(XGSM, base, dirpath, rCurrents, rIonosphere, nTheta, nPhi, nThet
             # Below we find the Field Aligned Current (FAC).  We can safely
             # ignore the current perpendicular to the magnetic field.  Lotko
             # shows j_perp = 0 and j_parallel/B_0 = constant in the ionosphere
+            # and low-altitude magnetosphere
             #
-            # See Lotko, 2004, J. Atmo. Solar-Terrestrial Phys., 66, 1443–145
+            # See Lotko, 2004, J. Atmo. Solar-Terrestrial Phys., 66, 1443–1456
             ################################################################
             
-            # We want the Field Aligned Current (FAC) penetrating into the 
-            # sphere at radius rCurrents.  We use a dot product to find the
-            # portion of j parallel to r-hat.  Then use a second dot product 
-            # to find the portion parallel to B field (b-hat).  We use the GSM
-            # coordinates of the BATSRUS data            
-            r_hatGSM = xGSM / rCurrents
+            # We want the Field Aligned Current (FAC). Because the B field can
+            # be perpendicular to the sphere at rCurrents (at north-south poles)
+            # or tangent to it at the equator, we take the current density
+            # at rCurrents and use the dot product to find the portion parallel 
+            # to B field (b-hat).  We use the GSM coordinates of the BATSRUS data.
+            # An analysis of the fraction of the current density parallel
+            # to the B field is 75 to 95% averaged over the rCurrents sphere.
+            # This analysis looked at some of the colaba SWMF runs.  See
+            # code in compare_jFAC_initialization.py
             b_hatGSM = bGSM / np.linalg.norm(bGSM)
+            
+            #!!!!!!!!!
+            r_hatGSM = xGSM / np.linalg.norm(xGSM)
             
             # Note, j_fac_mag, the magnitude of the FAC current density,
             # is independent of coordinate system, its a scalar
-            j_fac_mag = np.dot(jGSM, r_hatGSM) * np.dot(b_hatGSM, r_hatGSM)
-
+            j_fac_mag = np.dot(jGSM, b_hatGSM)
+            
+            #!!!!!!!!!!!
+            # j_fac_mag = j_fac_mag * np.dot(b_hatGSM, r_hatGSM)
+            
             ##########################################################
             # To do the numerical integration, we walk down each field line 
             # that starts at rCurrents, thetaSM, and phiSM.  We will need 
@@ -534,8 +544,8 @@ def calc_gap_dB(XGSM, base, dirpath, rCurrents, rIonosphere, nTheta, nPhi, nThet
                 r_fac_magSM = np.linalg.norm( r_facSM )
 
                 ##########################################################
-                # Below we calculate the delta B for each field line segment
-                # Biot-Savart Law.  We want the final result to be in nT.
+                # Below we calculate the delta B for each field line segment using
+                # the Biot-Savart Law.  We want the final result to be in nT.
                 # dB = mu0/(4pi) (j x r)/r^3 dV
                 #    = (4pi 10^(-7) [H/m])/(4pi) (10^(-6) [A/m^2]) [Re] [Re^3] / [Re^3]
                 # where the fact that J is in microamps/m^2 and distances are in Re
@@ -575,6 +585,7 @@ def calc_gap_dB(XGSM, base, dirpath, rCurrents, rIonosphere, nTheta, nPhi, nThet
                 
                 dBSM[:] = dBSM[:] + 637.1 * j_fac_mag * np.cross( b_fac_hatSM, r_facSM ) \
                     * dSurfaceSM * dsSM / r_fac_magSM**3
+
                 
     # dB calculation above is in SM coordinates, we want GSM for use with BATSRUS data
     dBGSM = np.dot( sm2gsm.T, dBSM )
@@ -584,3 +595,4 @@ def calc_gap_dB(XGSM, base, dirpath, rCurrents, rIonosphere, nTheta, nPhi, nThet
     title = 'Time: ' + words[1] + ' (hhmmss)'
 
     return dBGSM, title    
+

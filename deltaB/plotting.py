@@ -60,33 +60,12 @@ from vtkmodules.vtkRenderingCore import (
 from vtk.util import numpy_support as ns
 from vtk import vtkRenderLargeImage, vtkPNGWriter
 import logging
-from os import makedirs
-from os.path import exists
 import pandas as pd
+from .util import create_directory
 
 ####################################################
 # plotting routines
 ####################################################
-
-def create_directory( target, folder ):
-    """ If directory for output files does not exist, create it
-    
-    Inputs:
-        target = main folder that will contain the "folder" subdirectory
-        
-        folder = basename of folder.  Complete path to folder is:
-            target + folder
-            
-    Outputs:
-        None 
-     """
-    
-    logging.info('Looking for directory: ' + target + folder)
-    if not exists(target + folder):
-        logging.info('Creating directory: ' + target + folder)
-        makedirs(target + folder)
-    return
-
 
 def plot_NxM(target, base, suffix, plots, cols=4, rows=2, size = 600, plottype='scatter' ):
     """Plot N columns of M rows of plots (NxM plots total).  
@@ -232,7 +211,7 @@ def plot_NxM(target, base, suffix, plots, cols=4, rows=2, size = 600, plottype='
     
     return
 
-def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plottype='scatter' ):
+def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plottype='scatter', fontsize=18 ):
     """Plot N columns of M rows of plots (NxM plots total).  In this version,
     multuple y variables can be plotted in a single plot
 
@@ -256,6 +235,8 @@ def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plott
         size = x,y dimensions of each plot
         
         plottype = scatter or line
+        
+        fontsize = size of font for titles and labels
     Outputs:
         None - other than the plots that are saved to file
      """
@@ -309,15 +290,21 @@ def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plott
             x_axes = charts.GetAxis( vtkAxis.BOTTOM )
             x_axes.GetGridPen().SetColor( colors.GetColor4ub( "LightGrey" ) )
             x_axes.SetTitle( plots[i].xlabel )
+            x_axes.GetTitleProperties().SetFontSize( fontsize )
+            x_axes.GetLabelProperties().SetFontSize( fontsize )
             x_axes.SetBehavior(vtkAxis.FIXED)
              
             y_axes = charts.GetAxis(vtkAxis.LEFT)
             y_axes.GetGridPen().SetColor( colors.GetColor4ub( "LightGrey" ) )
             y_axes.SetTitle( plots[i].ylabel )
+            y_axes.GetTitleProperties().SetFontSize( fontsize )
+            y_axes.GetLabelProperties().SetFontSize( fontsize )
             y_axes.SetBehavior(vtkAxis.FIXED)
             
             # Set title and legend for chart
             charts.SetTitle( plots[i].title )
+            charts.GetTitleProperties().SetFontSize( fontsize )
+            charts.GetLegend().GetLabelProperties().SetFontSize( fontsize )
             charts.SetShowLegend( True )
     
             # Store the data to be plotted in a vtkTable, the data is taken 

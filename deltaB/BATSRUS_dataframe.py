@@ -11,41 +11,30 @@ import swmfio
 from os.path import exists
 import pandas as pd
 import numpy as np
-from hxform import hxform as hx
+import deltaB.coordinates as coord
+import deltaB.util as util
 
-def convert_BATSRUS_to_dataframe(X, base, dirpath, rCurrents):
+def convert_BATSRUS_to_dataframe(file, rCurrents):
     """Process data in BATSRUS file to create dataframe.  Biot-Savart Law used
     to calculate delta B in each BATSRUS cell.  In addition, current j and 
     magnetic field dB is determined in various coordinate systems (i.e., spherical 
     coordinates and parallel/perpendicular to B field).
     
     Inputs:
-        X = cartesian position where magnetic field will be measured
-        
-        base = basename of BATSRUS file.  Complete path to file is:
-            dirpath + base + '.out'
-            
-        dirpath = path to directory containing base
+        file = path to BATSRUS file
         
         rCurrents = range from earth center below which results are not valid
-            measured in Re units
+            measured in Re units.  We drop the data inside radius rCurrents
     Outputs:
         df = dataframe containing data from BATSRUS file plus additional calculated
             parameters
-            
-        title = title to use in plots, which is derived from base (file basename)
     """
 
-    logging.info(f'Parsing BATSRUS file...{base}')
-
-    # Verify BATSRUS file exists
-    assert exists(dirpath + base + '.out')
-    assert exists(dirpath + base + '.info')
-    assert exists(dirpath + base + '.tree')
+    logging.info('Parsing BATSRUS file...')
 
     # Read BATSRUS file
     swmfio.logger.setLevel(logging.INFO)
-    batsrus = swmfio.read_batsrus(dirpath + base)
+    batsrus = swmfio.read_batsrus(file)
     assert(batsrus != None)
 
     # Extract data from BATSRUS
@@ -73,53 +62,15 @@ def convert_BATSRUS_to_dataframe(X, base, dirpath, rCurrents):
     df['rho'] = batsrus.data_arr[:, var_dict['rho']][:]
     df['measure'] = batsrus.data_arr[:, var_dict['measure']][:]
 
-    # Get the smallest cell (by volume), we will use it to normalize the
-    # cells.  Cells far from earth are much larger than cells close to
-    # earth.  That distorts some variables.  So we normalize the magnetic field
-    # to the smallest cell.
-    minMeasure = df['measure'].min()
-
-    logging.info('Calculating delta B...')
-
-    # Calculate useful quantities
-    df['r'] = ((X[0]-df['x'])**2+(X[1]-df['y'])**2+(X[2]-df['z'])**2)**(1/2)
-
-    # We ignore everything inside of rCurrents
-    # df = df[df['r'] > rCurrents]
-    df.drop(df[df['r'] < rCurrents].index)
-
-    ##########################################################
-    # Below we calculate the delta B in each cell from the
-    # Biot-Savart Law.  We want the final result to be in nT.
-    # dB = mu0/(4pi) (j x r)/r^3 dV
-    #    = (4pi 10^(-7) [H/m])/(4pi) (10^(-6) [A/m^2]) [Re] [Re^3] / [Re^3]
-    # where the fact that J is in microamps/m^2 and distances are in Re
-    # is in the BATSRUS documentation.   We take Re = 6372 km = 6.371 10^6 m
-    # dB = 6.371 10^(-7) [H/m][A/m^2][m]
-    #    = 6.371 10^(-7) [H] [A/m^2]
-    #    = 6.371 10^(-7) [kg m^2/(s^2 A^2)] [A/m^2]
-    #    = 6.371 10^(-7) [kg / s^2 / A]
-    #    = 6.371 10^(-7) [T]
-    #    = 6.371 10^2 [nT]
-    #    = 637.1 [nT] with distances in Re, j in microamps/m^2
-    ##########################################################
-
-    # Determine delta B in each cell
-    df['factor'] = 637.1*df['measure']/df['r']**3
-    df['dBx'] = df['factor']*(df['jy']*(X[2]-df['z']) - df['jz']*(X[1]-df['y']))
-    df['dBy'] = df['factor']*(df['jz']*(X[0]-df['x']) - df['jx']*(X[2]-df['z']))
-    df['dBz'] = df['factor']*(df['jx']*(X[1]-df['y']) - df['jy']*(X[0]-df['x']))
-
     # Determine magnitude of various vectors
-    df['dBmag'] = np.sqrt(df['dBx']**2 + df['dBy']**2 + df['dBz']**2)
     df['jMag'] = np.sqrt(df['jx']**2 + df['jy']**2 + df['jz']**2)
     df['uMag'] = np.sqrt(df['ux']**2 + df['uy']**2 + df['uz']**2)
 
-    # Normalize magnetic field, as mentioned above
-    df['dBmagNorm'] = df['dBmag'] * minMeasure/df['measure']
-    df['dBxNorm'] = np.abs(df['dBx'] * minMeasure/df['measure'])
-    df['dByNorm'] = np.abs(df['dBy'] * minMeasure/df['measure'])
-    df['dBzNorm'] = np.abs(df['dBz'] * minMeasure/df['measure'])
+    # Calculate useful quantities
+    df['r0'] = ((df['x'])**2+(df['y'])**2+(df['z'])**2)**(1/2)
+
+    # We ignore everything inside of rCurrents
+    df.drop(df[df['r0'] < rCurrents].index)
 
     logging.info('Transforming j to spherical coordinates...')
 
@@ -127,7 +78,7 @@ def convert_BATSRUS_to_dataframe(X, base, dirpath, rCurrents):
 
     # Determine theta and phi of the radius vector from the origin to the
     # center of the cell
-    df['theta'] = np.arccos(df['z']/df['r'])
+    df['theta'] = np.arccos(df['z']/df['r0'])
     df['phi'] = np.arctan2(df['y'], df['x'])
 
     # Use dot products with r-hat, theta-hat, and phi-hat of the radius vector
@@ -141,18 +92,6 @@ def convert_BATSRUS_to_dataframe(X, base, dirpath, rCurrents):
         df['jz'] * np.sin(df['theta'])
 
     df['jphi'] = - df['jx'] * np.sin(df['phi']) + df['jy'] * np.cos(df['phi'])
-
-    # Similarly, use dot-products to determine dBr, dBtheta, and dBphi
-    df['dBr'] = df['dBx'] * np.sin(df['theta']) * np.cos(df['phi']) + \
-        df['dBy'] * np.sin(df['theta']) * np.sin(df['phi']) + \
-        df['dBz'] * np.cos(df['theta'])
-
-    df['dBtheta'] = df['dBx'] * np.cos(df['theta']) * np.cos(df['phi']) + \
-        df['dBy'] * np.cos(df['theta']) * np.sin(df['phi']) - \
-        df['dBz'] * np.sin(df['theta'])
-
-    df['dBphi'] = - df['dBx'] * \
-        np.sin(df['phi']) + df['dBy'] * np.cos(df['phi'])
 
     logging.info('Determining j parallel and perpendicular to B...')
 
@@ -194,41 +133,110 @@ def convert_BATSRUS_to_dataframe(X, base, dirpath, rCurrents):
     df['jperpendicularphiresy'] = df['jperpendiculary'] - df['jperpendicularphiy']
     # df['jperpendicularphiresz'] = df['jperpendicularz']
     
-    # Determine delta B using the parallel and perpendicular currents. They
-    # should sum to the delta B calculated above for the full current, jx, jy, jz
-    df['dBparallelx'] = df['factor'] * \
-        (df['jparallely']*(X[2]-df['z']) - df['jparallelz']*(X[1]-df['y']))
-    df['dBparallely'] = df['factor'] * \
-        (df['jparallelz']*(X[0]-df['x']) - df['jparallelx']*(X[2]-df['z']))
-    df['dBparallelz'] = df['factor'] * \
-        (df['jparallelx']*(X[1]-df['y']) - df['jparallely']*(X[0]-df['x']))
+    return df
 
-    df['dBperpendicularx'] = df['factor'] * \
-        (df['jperpendiculary']*(X[2]-df['z']) - df['jperpendicularz']*(X[1]-df['y']))
-    df['dBperpendiculary'] = df['factor'] * \
-        (df['jperpendicularz']*(X[0]-df['x']) - df['jperpendicularx']*(X[2]-df['z']))
-    df['dBperpendicularz'] = df['factor'] * \
-        (df['jperpendicularx']*(X[1]-df['y']) - df['jperpendiculary']*(X[0]-df['x']))
+def create_deltaB_rCurrents_dataframe(df, X):
+    """Convert the dataframe with BATSRUS data to a dataframe that uses 
+    Biot-Savart Law to calculate delta B in each BATSRUS cell outside of 
+    rCurrents
+    
+    Inputs:
+        df = dataframe with BATSRUS and other calculated quantities from
+            convert_BATSRUS_to_dataframe
+            
+        X = cartesian position where magnetic field will be measured in GSM
+            coordinates
+            
+    Outputs:
+        df_b = dataframe with all the df data plus the delta B quantities
+    """
+
+    logging.info('Creating deltaB >rCurrents dataframe...')
+    
+    df_b = deepcopy(df)
+    
+    ##########################################################
+    # Below we calculate the delta B in each cell from the
+    # Biot-Savart Law.  We want the final result to be in nT.
+    # dB = mu0/(4pi) (j x r)/r^3 dV
+    #    = (4pi 10^(-7) [H/m])/(4pi) (10^(-6) [A/m^2]) [Re] [Re^3] / [Re^3]
+    # where the fact that J is in microamps/m^2 and distances are in Re
+    # is in the BATSRUS documentation.   We take Re = 6372 km = 6.371 10^6 m
+    # dB = 6.371 10^(-7) [H/m][A/m^2][m]
+    #    = 6.371 10^(-7) [H] [A/m^2]
+    #    = 6.371 10^(-7) [kg m^2/(s^2 A^2)] [A/m^2]
+    #    = 6.371 10^(-7) [kg / s^2 / A]
+    #    = 6.371 10^(-7) [T]
+    #    = 6.371 10^2 [nT]
+    #    = 637.1 [nT] with distances in Re, j in microamps/m^2
+    ##########################################################
+
+    # Determine delta B in each cell
+    df_b['r'] = ((X[0]-df_b['x'])**2+(X[1]-df_b['y'])**2+(X[2]-df_b['z'])**2)**(1/2)
+    df_b['factor'] = 637.1*df_b['measure']/df_b['r']**3
+    
+    df_b['dBx'] = df_b['factor']*(df_b['jy']*(X[2]-df_b['z']) - df_b['jz']*(X[1]-df_b['y']))
+    df_b['dBy'] = df_b['factor']*(df_b['jz']*(X[0]-df_b['x']) - df_b['jx']*(X[2]-df_b['z']))
+    df_b['dBz'] = df_b['factor']*(df_b['jx']*(X[1]-df_b['y']) - df_b['jy']*(X[0]-df_b['x']))
+
+    # Determine magnitude of dB
+    df_b['dBmag'] = np.sqrt(df_b['dBx']**2 + df_b['dBy']**2 + df_b['dBz']**2)
+
+    # Get the smallest cell (by volume), we will use it to normalize the
+    # cells.  Cells far from earth are much larger than cells close to
+    # earth.  That distorts some variables.  So we normalize the magnetic field
+    # to the smallest cell.
+    minMeasure = df_b['measure'].min()
+
+    # Normalize magnetic field, as mentioned above
+    df_b['dBmagNorm'] = df_b['dBmag'] * minMeasure/df_b['measure']
+    df_b['dBxNorm'] = np.abs(df_b['dBx'] * minMeasure/df_b['measure'])
+    df_b['dByNorm'] = np.abs(df_b['dBy'] * minMeasure/df_b['measure'])
+    df_b['dBzNorm'] = np.abs(df_b['dBz'] * minMeasure/df_b['measure'])
+
+    # Similarly, use dot-products to determine dBr, dBtheta, and dBphi
+    df_b['dBr'] = df_b['dBx'] * np.sin(df_b['theta']) * np.cos(df_b['phi']) + \
+        df_b['dBy'] * np.sin(df_b['theta']) * np.sin(df_b['phi']) + \
+        df_b['dBz'] * np.cos(df_b['theta'])
+
+    df_b['dBtheta'] = df_b['dBx'] * np.cos(df_b['theta']) * np.cos(df_b['phi']) + \
+        df_b['dBy'] * np.cos(df_b['theta']) * np.sin(df_b['phi']) - \
+        df_b['dBz'] * np.sin(df_b['theta'])
+
+    df_b['dBphi'] = - df_b['dBx'] * \
+        np.sin(df_b['phi']) + df_b['dBy'] * np.cos(df_b['phi'])
+
+    # Determine delta B using the currents parallel and perpendicular to B. They
+    # should sum to the delta B calculated above for the full current, jx, jy, jz
+    df_b['dBparallelx'] = df_b['factor'] * \
+        (df_b['jparallely']*(X[2]-df_b['z']) - df_b['jparallelz']*(X[1]-df_b['y']))
+    df_b['dBparallely'] = df_b['factor'] * \
+        (df_b['jparallelz']*(X[0]-df_b['x']) - df_b['jparallelx']*(X[2]-df_b['z']))
+    df_b['dBparallelz'] = df_b['factor'] * \
+        (df_b['jparallelx']*(X[1]-df_b['y']) - df_b['jparallely']*(X[0]-df_b['x']))
+
+    df_b['dBperpendicularx'] = df_b['factor'] * \
+        (df_b['jperpendiculary']*(X[2]-df_b['z']) - df_b['jperpendicularz']*(X[1]-df_b['y']))
+    df_b['dBperpendiculary'] = df_b['factor'] * \
+        (df_b['jperpendicularz']*(X[0]-df_b['x']) - df_b['jperpendicularx']*(X[2]-df_b['z']))
+    df_b['dBperpendicularz'] = df_b['factor'] * \
+        (df_b['jperpendicularx']*(X[1]-df_b['y']) - df_b['jperpendiculary']*(X[0]-df_b['x']))
 
     # Divide delta B from perpendicular currents into two - those along phi and 
     # everything else (residual)
-    df['dBperpendicularphix'] =   df['factor']*df['jperpendicularphiy']*(X[2]-df['z'])
-    df['dBperpendicularphiy'] = - df['factor']*df['jperpendicularphix']*(X[2]-df['z'])
-    df['dBperpendicularphiz'] = df['factor']*(df['jperpendicularphix']*(X[1]-df['y']) - \
-                                              df['jperpendicularphiy']*(X[0]-df['x']))
+    df_b['dBperpendicularphix'] =   df_b['factor']*df_b['jperpendicularphiy']*(X[2]-df_b['z'])
+    df_b['dBperpendicularphiy'] = - df_b['factor']*df_b['jperpendicularphix']*(X[2]-df_b['z'])
+    df_b['dBperpendicularphiz'] = df_b['factor']*(df_b['jperpendicularphix']*(X[1]-df_b['y']) - \
+                                              df_b['jperpendicularphiy']*(X[0]-df_b['x']))
         
-    df['dBperpendicularphiresx'] = df['factor']*(df['jperpendicularphiresy']*(X[2]-df['z']) - \
-                                                  df['jperpendicularz']*(X[1]-df['y']))
-    df['dBperpendicularphiresy'] = df['factor']*(df['jperpendicularz']*(X[0]-df['x']) - \
-                                                  df['jperpendicularphiresx']*(X[2]-df['z']))
-    df['dBperpendicularphiresz'] = df['factor']*(df['jperpendicularphiresx']*(X[1]-df['y']) - \
-                                                  df['jperpendicularphiresy']*(X[0]-df['x']))
+    df_b['dBperpendicularphiresx'] = df_b['factor']*(df_b['jperpendicularphiresy']*(X[2]-df_b['z']) - \
+                                                  df_b['jperpendicularz']*(X[1]-df_b['y']))
+    df_b['dBperpendicularphiresy'] = df_b['factor']*(df_b['jperpendicularz']*(X[0]-df_b['x']) - \
+                                                  df_b['jperpendicularphiresx']*(X[2]-df_b['z']))
+    df_b['dBperpendicularphiresz'] = df_b['factor']*(df_b['jperpendicularphiresx']*(X[1]-df_b['y']) - \
+                                                  df_b['jperpendicularphiresy']*(X[0]-df_b['x']))
 
-    # Create the title that we'll use in the graphics
-    words = base.split('-')
-    title = 'Time: ' + words[1] + ' (hhmmss)'
-
-    return df, title
+    return df_b
 
 def create_cumulative_sum_dataframe(df):
     """Convert the dataframe with BATSRUS data to a dataframe that provides a 
@@ -254,7 +262,7 @@ def create_cumulative_sum_dataframe(df):
     # calculation of dBxyz above.
 
     df_r = deepcopy(df)
-    df_r = df_r.sort_values(by='r', ascending=True)
+    df_r = df_r.sort_values(by='r0', ascending=True)
     df_r['dBxSum'] = df_r['dBx'].cumsum()
     df_r['dBySum'] = df_r['dBy'].cumsum()
     df_r['dBzSum'] = df_r['dBz'].cumsum()
@@ -377,14 +385,8 @@ def calc_gap_dB(XGSM, base, dirpath, rCurrents, rIonosphere, nTheta, nPhi, nThet
     ############################################################
 
     # Get a matrix to transform from SM to GSM, the transpose is the inverse operation.
-    
-    ############################################################
-    ############################################################
-    #!!! Hack - time is fixed, it should be dependent on the file
-    ############################################################
-    ############################################################
-    time = (2011,1,1)
-    sm2gsm = hx.get_transform_matrix(time, 'SM', 'GSM')
+    y, m, d, hh, mm, ss = util.date_time(base)
+    sm2gsm = coord.get_transform_matrix([y,m,d,hh,mm,ss], 'SM', 'GSM')
     
     # Transform the point where the field is measured to SM coordinates, we
     # will need it below.  Its done here to get it out of the integration loop.

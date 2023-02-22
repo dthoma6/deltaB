@@ -29,7 +29,7 @@ target = '/Volumes/Physics HD v2/divB_simple1/data_comparison/'
 
 # names of BATSRUS and Paraview file
 base = '3d__mhd_4_e20100320-000000-000'
-paraview = 'data4.csv'
+paraview = 'weigel_data.csv'
 
 # Setup logging
 logging.basicConfig(
@@ -46,7 +46,7 @@ plt.rcParams['axes.grid'] = True
 
 # rCurrents define range from earth center below which results are not valid
 # measured in Re units
-rCurrents = 1.8
+rCurrents = 3.
 
 # Initialize useful variables
 (X,Y,Z) = (1.0, 0.0, 0.0) 
@@ -81,7 +81,7 @@ def diff_over_avg( l1, l2 ):
     
     return 2*(l1 - l2)/(l1 + l2)
 
-from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe
+from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, create_deltaB_rCurrents_dataframe
 
 def rounded_cumsum_Bz():
     """Compute cumulative sum of dBx, dBy, and dBz to determine |B|.  
@@ -96,8 +96,9 @@ def rounded_cumsum_Bz():
      """
     
     # Read BATSRUS file
-    # df1, title = convert_BATSRUS_to_dataframe(base, origin)
-    df1, title = convert_BATSRUS_to_dataframe([X,Y,Z], base, origin, rCurrents)
+    filename = origin + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents)
+    df1 = create_deltaB_rCurrents_dataframe(df1, [X,Y,Z])
     
     # Unfortunately, we can't use the dataframe cumsum because we have to 
     # round all of the entries.  So we do it the old fashion way, a loop
@@ -134,8 +135,9 @@ def process_data_compare( reltol = 0.0001  ):
     Outputs:
         None - other than plots
     """
-    # df1, title = convert_BATSRUS_to_dataframe(base, origin)
-    df1, title = convert_BATSRUS_to_dataframe([X,Y,Z], base, origin, rCurrents)
+    filename = origin + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents)
+    df1 = create_deltaB_rCurrents_dataframe(df1, [X,Y,Z])
 
     logging.info('Parsing Paraview file...')
 

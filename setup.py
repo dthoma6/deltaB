@@ -19,8 +19,8 @@ setup(
     name='deltaB',
     version='0.5.0',
     author='Dean Thomas',
-    author_email='dthoma6@gmu.edu',
+    author_email='dean.thomas@physics123.net',
     packages=find_packages(),
-    description='Examine delta B contributions in BATSRUS results',
+    description='Examine delta B contributions from BATSRUS results',
     install_requires=install_requires
 )

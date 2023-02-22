@@ -9,7 +9,9 @@ Created on Mon Jan 30 17:21:09 2023
 import numpy as np
 from os.path import exists
 from os import makedirs
+import os.path
 from copy import deepcopy
+import logging
 
 ##############################################################################
 ##############################################################################
@@ -117,7 +119,7 @@ def date_timeISO(file):
 
     return timeiso
 
-def get_files(orgdir, reduce=False, base='3d__*'):
+def get_files(orgdir, reduce=False, base='3d__*', file_type='out'):
     """Create a list of files that we will process.  Look in the basedir directory,
     and get list of file basenames.
 
@@ -127,7 +129,9 @@ def get_files(orgdir, reduce=False, base='3d__*'):
         reduce = boolean, reduce the number of files examined.
 
         base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
+            dirpath + base + '.out' or dirpath + base + '.cdf'
+            
+        file_type = look for either 'out' or 'cdf' file extensions
                     
     Outputs:
         l = list of file basenames.
@@ -142,14 +146,21 @@ def get_files(orgdir, reduce=False, base='3d__*'):
     # and retrieve their basenames
     os.chdir(orgdir)
 
-    l1 = glob.glob(base + '.out')
+    assert( file_type == 'out' or file_type == 'cdf' )
+    
+    # Look for .out files or .cdf files as appropriate  
+    if file_type == 'out':
+        l1 = glob.glob(base + '.out')
+    else: 
+        l1 = glob.glob(base + '.cdf')
+
 
     # Strip off extension
     for i in range(len(l1)):
         l1[i] = (l1[i].split('.'))[0]
 
-    # Colaba incliudes 697 files, reduce the number by
-    # accepting those only every 15 minutes
+    # If we have a large number of input files, e.g., one a minute, reduce 
+    # the number by accepting those only every 15 minutes
     if reduce: 
         l2 = deepcopy(l1) 
         for i in range(len(l2)):
@@ -161,69 +172,22 @@ def get_files(orgdir, reduce=False, base='3d__*'):
 
     return l1
 
-def get_files_unconverted(tgtsubdir, orgdir, tgtdir, reduce=False, base='3d__*'):
-    """Create a list of files that we will process.  This routine is used when
-    some files have been process and others have not, e.g., the program crashed.
-    Since the output files of other routines use the same basenames as the output
-    files, we compare the files in the input directory (orgdir) to those in the
-    output directory (tgtdir).  From this, we create a list of unprocessed files.
-
+def create_directory( target, folder ):
+    """ If directory for output files does not exist, create it
+    
     Inputs:
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-            dirpath + base + '.out'
-            
-        orgdir = path to directory containing input files
+        target = main folder that will contain the "folder" subdirectory
         
-        tgtdir = path to directory containing output files
-        
-        tgtsubdir = the tgtdir contains multiple subdirectories containing output
-            files from various routines.  tgtdir + tgtsubdir is the name of the
-            directory with the output files that we will compare
+        folder = basename of folder.  Complete path to folder is:
+            target + folder
             
-        reduce = boolean, reduce the number of files examined.
-
-        base = start of BATSRUS files including wildcards.  Complete path to file is:
-           dirpath + base + '.out'
-                   
     Outputs:
-        l = list of file basenames
-    """
-    import os
-    import glob
-
-    # In this routine we compare the list of .out input files and .png files
-    # to determine what has already been processed.  Look at all *.out
-    # files and remove from the list (l1) all of the files that already have
-    # been converted to .png files.  The unremoved files are unconverted files.
-
-    os.chdir(orgdir)
-    l1 = glob.glob(base + '.out')
-
-    # Look at the png files in directory
-    if not exists(tgtdir + tgtsubdir):
-        makedirs(tgtdir + tgtsubdir)
-    os.chdir(tgtdir + tgtsubdir)
-    l2 = glob.glob(base + '.png')
-
-    for i in range(len(l1)):
-        l1[i] = (l1[i].split('.'))[0]
-
-    for i in range(len(l2)):
-        l2[i] = (l2[i].split('.'))[0]
-
-    for i in l2:
-        l1.remove(i)
-
-    # Colaba incliudes 697 files, reduce the number by
-    # accepting those only every 15 minutes
-    if reduce: 
-        l3 = deepcopy(l1) 
-        for i in range(len(l3)):
-            y,m,d,hh,mm,ss = date_time(l3[i])
-            if( mm % 15 != 0 ):
-                l1.remove(l3[i])
-
-    l1.sort()
-
-    return l1
-
+        None 
+     """
+    path = os.path.join( target, folder )
+    
+    logging.info('Looking for directory: ' + path)
+    if not exists(target + folder):
+        logging.info('Creating directory: ' + path)
+        makedirs(path)
+    return

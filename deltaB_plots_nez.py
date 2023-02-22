@@ -35,12 +35,15 @@ import pandas as pd
 import numpy as np
 # from collections import namedtuple
 
-from deltaB.plotting import plotargs, plotargs_multiy, create_directory, \
+from deltaB.plotting import plotargs, plotargs_multiy, \
     plot_NxM, plot_NxM_multiy, pointcloud
 from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
-    create_cumulative_sum_dataframe, create_jrtp_cdf_dataframes, \
+    create_deltaB_rCurrents_dataframe, \
+    create_cumulative_sum_dataframe, \
+    create_jrtp_cdf_dataframes, \
     calc_gap_dB
-from deltaB.util import nez, date_time, date_timeISO, get_files
+from deltaB.util import ned, date_time, date_timeISO, get_files
+from deltaB.util import create_directory
 
 COLABA = True
 
@@ -638,8 +641,13 @@ def process_data(X, base, dirpath=ORIGIN):
         
         batsrus = BATSRUS data read by swmfio 
     """
+    # Create the title that we'll use in the graphics
+    words = base.split('-')
+    title = 'Time: ' + words[1] + ' (hhmmss)'
 
-    df, title = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    filename = dirpath + base
+    df = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df = create_deltaB_rCurrents_dataframe(df, X)
 
     # logging.info('Creating cumulative sum dB dataframe...')
 
@@ -812,10 +820,15 @@ def process_data_with_cuts(X, base, dirpath=ORIGIN, cut_selected=1):
         
         batsrus = BATSRUS data read by swmfio 
     """
+    # Create the title that we'll use in the graphics
+    words = base.split('-')
+    title1 = 'Time: ' + words[1] + ' (hhmmss)'
 
-    # Read BASTRUS file
-    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
-
+    # Read BASTRUS file and do delta B calculations
+    filename = dirpath + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_rCurrents_dataframe(df1, X)
+    
     # Perform cuts on BATSRUS data
     df2, title2, cutname = perform_cuts(df1, title1, cut_selected=cut_selected)
 
@@ -847,8 +860,13 @@ def process_3d_cut_plots(X, base, dirpath=ORIGIN):
     Outputs:
         None - other than the saved plot file
     """
+    # Create the title that we'll use in the graphics
+    words = base.split('-')
+    title1 = 'Time: ' + words[1] + ' (hhmmss)'
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    filename = dirpath + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_rCurrents_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -904,7 +922,9 @@ def process_3d_cut_plots2(X, base, dirpath=ORIGIN):
     """
     import matplotlib.pyplot as plt
     
-    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    filename = dirpath + base
+    df1, title1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_rCurrents_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -1047,14 +1067,19 @@ def process_sum_db_with_cuts(X, base, dirpath=ORIGIN):
      Outputs:
         df1 = cumulative sum for original (all) data in north-east-zenith
         
-        df1 - df2 = contribution due to points in asym. jr cut in nez
+        df1 - df2 = contribution due to points in asym. jr cut in ned
         
-        df2 - df3 = contribution due to points in y jphi cut in nez
+        df2 - df3 = contribution due to points in y jphi cut in ned
         
-        df3 - df4 = contribution due to points in z jphi cut in nez
+        df3 - df4 = contribution due to points in z jphi cut in ned
     """
+    # Create the title that we'll use in the graphics
+    words = base.split('-')
+    title1 = 'Time: ' + words[1] + ' (hhmmss)'
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    filename = dirpath + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_rCurrents_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -1081,9 +1106,7 @@ def process_sum_db_with_cuts(X, base, dirpath=ORIGIN):
     df4 = create_cumulative_sum_dataframe(df4)
     
     timeiso = date_timeISO(base)
-    n_geo, e_geo, z_geo = nez(timeiso, X, 'GSM')
-    # y,m,d,hh,mm,ss = date_time(base)
-    # n_geo = (0,0,1)
+    n_geo, e_geo, d_geo = ned(timeiso, X, 'GSM')
     
     def north_comp( df, n_geo ):
         """ Local function used to get north component of field defined in df.
@@ -1181,17 +1204,16 @@ def process_sum_db(X, base, dirpath=ORIGIN):
         df1 = cumulative sum for original (all) data in north-east-zenith
     """
 
-    df1, title1 = convert_BATSRUS_to_dataframe(X, base, dirpath=ORIGIN, rCurrents=RCURRENTS)
+    filename = dirpath + base
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_rCurrents_dataframe(df1, X)
 
     logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
     df1 = create_cumulative_sum_dataframe(df1)
     
     timeiso = date_timeISO(base)
-    n_geo, e_geo, z_geo = nez(timeiso, X, 'GSM')
-    # y,m,d,hh,mm,ss = date_time(base)
-    # n_geo, e_geo, z_geo = nez((y,m,d,hh,mm,ss), (X,Y,Z), 'GSM')
-    # n_geo = (0,0,1)
+    n_geo, e_geo, d_geo = ned(timeiso, X, 'GSM')
     
     def north_comp( df, n_geo ):
         """ Local function used to get north component of field defined in df.
@@ -1346,7 +1368,7 @@ def loop_sum_db_with_cuts(X, files):
                         ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
+                        r'Total $B_N$ at (1,0,0)',
                         ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
                         TIME_LIMITS, DB_SUM_LIMITS2, r'Uncut')   
         
@@ -1354,7 +1376,7 @@ def loop_sum_db_with_cuts(X, files):
                         ['$j_r$ Total', r'$j_r$ Parallel', r'$j_r$ Perpendicular $\phi$', r'$j_r$ Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
+                        r'Total $B_N$ at (1,0,0)',
                         ['$j_r$ Total', r'$j_r$ Parallel', r'$j_r$ Perpendicular $\phi$', r'$j_r$ Perpendicular Residual'], 
                         TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 1: $j_r$')   
         
@@ -1362,7 +1384,7 @@ def loop_sum_db_with_cuts(X, files):
                         ['$y j_\phi$ Total', r'$y j_\phi$ Parallel', r'$y j_\phi$ Perpendicular $\phi$', r'$y j_\phi$ Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
+                        r'Total $B_N$ at (1,0,0)',
                         ['$y j_\phi$ Total', r'$y j_\phi$ Parallel', r'$y j_\phi$ Perpendicular $\phi$', r'y $j_\phi$ Perpendicular Residual'], 
                         TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 2: y $j_\phi$')   
         
@@ -1370,7 +1392,7 @@ def loop_sum_db_with_cuts(X, files):
                         ['$z j_\phi$ Total', r'$z j_\phi$ Parallel', r'$z j_\phi$ Perpendicular $\phi$', r'$z j_\phi$ Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
+                        r'Total $B_N$ at (1,0,0)',
                         ['$z j_\phi$ Total', r'$z j_\phi$ Parallel', r'$z j_\phi$ Perpendicular $\phi$', r'z $j_\phi$ Perpendicular Residual'], 
                         TIME_LIMITS, DB_SUM_LIMITS2, r'Cut 3: z$j_\phi$')   
         
@@ -1378,7 +1400,7 @@ def loop_sum_db_with_cuts(X, files):
                         ['Residual Total', r'Residual Parallel', r'Residual Perpendicular $\phi$', r'Residual Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
+                        r'Total $B_N$ at (1,0,0)',
                         ['Residual Total', r'Residual Parallel', r'Residual Perpendicular $\phi$', r'Residual Perpendicular Residual'], 
                         TIME_LIMITS, DB_SUM_LIMITS2, r'Residual')   
         
@@ -1452,207 +1474,39 @@ def loop_sum_db(X, files):
                         ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Total $B_z$ at (1,0,0)',
-                        ['Total', r'Parallel', r'Perpendicular $\phi$', r'Perpendicular Residual'], 
-                        TIME_LIMITS, DB_SUM_LIMITS2, r'Total')   
+                        r'$B_N$ at (1,0,0)',
+                        ['$B_N(\mathbf{j})$', r'$B_N(\mathbf{j}_\parallel)$', r'$B_N(\mathbf{j}_\perp \cdot \hat \phi)$', r'$B_N(\mathbf{j}_\perp - \mathbf{j}_\perp \cdot \hat \phi)$'], 
+                        TIME_LIMITS, DB_SUM_LIMITS2, r'$B_N$ and components')   
             
     plots[1] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Parallel'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Fraction of Total $B_z$ at (1,0,0)',
-                        [r'Parallel'], 
-                        TIME_LIMITS, FRAC_LIMITS, r'Parallel')
+                        r'$\frac{B_N(\mathbf{j}_\parallel)}{B_N(\mathbf{j})}$ at (1,0,0)',
+                        [r'$B_N(\mathbf{j}_\parallel)$'],
+                        TIME_LIMITS, FRAC_LIMITS, r'Fraction of $B_N$')
     
     plots[2] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Perpendicular $\phi$'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Fraction of Total $B_z$ at (1,0,0)',
-                        [r'Perpendicular $\phi$'], 
-                        TIME_LIMITS, FRAC_LIMITS, r'Perpendicular $\phi$')
+                        r'$\frac{B_N(\mathbf{j}_\perp \cdot \hat \phi)}{B_N(\mathbf{j})}$ at (1,0,0)',
+                        [r'$B_N(\mathbf{j}_\perp \cdot \hat \phi)$'], 
+                        TIME_LIMITS, FRAC_LIMITS, r'Fraction of $B_N$')
     
     plots[3] = plotargs_multiy(df, r'Time (hr)', 
                         [r'Fraction Perpendicular Residual'], 
                         False, False, 
                         r'Time (hr)',
-                        r'Fraction of Total $B_z$ at (1,0,0)',
-                        [r'Perpendicular Residual'], 
-                        TIME_LIMITS, FRAC_LIMITS, r'Perpendicular Residual')
+                        r'$\frac{B_N(\mathbf{j}_\perp - \mathbf{j}_\perp \cdot \hat \phi)}{B_N(\mathbf{j})}$ at (1,0,0)',
+                        [r'$B_N(\mathbf{j}_\perp - \mathbf{j}_\perp \cdot \hat \phi)$'], 
+                        TIME_LIMITS, FRAC_LIMITS, r'Fraction of $B_N$')
     
     plot_NxM_multiy(TARGET, 'para-perp', 'parallel-perpendicular-composition', 
                     plots, cols=4, rows=1, plottype = 'line')
     
     return
 
-#############################
-
-def matvectprod(A, v):
-    ret = np.zeros(A.shape[0])
-    for i in range(A.shape[0]):
-        for j in range(A.shape[0]):
-            ret[i] += A[i,j]*v[j]
-    return ret
-
-def sph_to_xyz(r, theta, phi):
-    Xyz_D = np.empty(3)
-    Xyz_D[0] = r*np.cos(phi)*np.sin(theta)
-    Xyz_D[1] = r*np.sin(phi)*np.sin(theta)
-    Xyz_D[2] = r*np.cos(theta)
-    return Xyz_D
-
-def map_along_dipole_lines(Xyz_D, rMap):
-    # Xyz_D and returned XyzMap_D in SMG (SM) coordinates
-    # Solution of the vector potential equation (proportional to (x^2+y^2)/r^3)
-    # so sqrt(xMap^2+yMap^2)/sqrt(x^2+y^2) = sqrt(rMap^3/r^3)
-    iHemisphere = int(np.sign(Xyz_D[2]))
-    #DT change float32 to float64
-    #XyzMap_D = np.empty(3, dtype=np.float32)
-    XyzMap_D = np.empty(3, dtype=np.float64)
-
-    r = np.linalg.norm(Xyz_D)
-    XyRatio = np.sqrt(rMap/r)**3 # ratio of input and mapped X and Y components
-    XyzMap_D[0:2] = XyRatio*Xyz_D[0:2]
-    XyMap2 = XyzMap_D[0]**2 + XyzMap_D[1]**2
-
-    if rMap**2 < XyMap2:
-       # The point does not map to the given radius
-       iHemisphere = 0
-       # Put mapped point to the magnetic equator
-       XyzMap_D[0:2] = (rMap/np.sqrt(Xyz_D[0]**2 + Xyz_D[1]**2))*Xyz_D[0:2]
-       XyzMap_D[2] = 0
-    else:
-       XyzMap_D[2] = iHemisphere*np.sqrt(rMap**2 - XyMap2)
-
-    return XyzMap_D, iHemisphere
-
-def map_along_dipole_lines_dean(Xyz_D, rMap):
-    iHemisphere = int(np.sign(Xyz_D[2]))
-    x_fac_SM = np.zeros(3)
-
-    # Avoid signularity along z axis
-    if( Xyz_D[0] > 10**-9 or Xyz_D[1] > 10**-9 ):    
-        r1 = np.linalg.norm(Xyz_D)
-        theta0 = iHemisphere * np.arccos( np.sqrt( rMap/r1 ) )
-        phi = np.arccos( Xyz_D[0] / np.sqrt( Xyz_D[0]**2 + Xyz_D[1]**2 ))
-    
-        x_fac_SM[0] = rMap * np.cos(phi) * np.cos(theta0) * iHemisphere
-        x_fac_SM[1] = rMap * np.sin(phi) * np.cos(theta0) * iHemisphere
-        x_fac_SM[2] = rMap * np.sin(theta0)
-    else:
-        x_fac_SM[2] = rMap * iHemisphere
-    
-    return x_fac_SM, iHemisphere
-
-def get_dipole_field(xyz):
-    # Xyz_D and returned b_D in SMG (SM) coordinates
-    b = np.empty(3)
-    r = np.linalg.norm(xyz)
-    DipoleStrength = 3.12e+4 #"dipole moment"(not really) in  nT * R_e**3  # https://en.wikipedia.org/wiki/Dipole_model_of_the_Earth%27s_magnetic_field
-    Term1      = DipoleStrength*xyz[2]*3/r**2
-    b[0:2] = Term1*xyz[0:2]/r**3
-    b[2]    = (Term1*xyz[2]-DipoleStrength)/r**3
-    return b
-
-def get_dipole_field_dean(x_fac_SM):
-    b_fac_SM= np.zeros(3)
-    
-    r = np.linalg.norm( x_fac_SM)
-    
-    B0 = 3.12e+4 # Changed to nT units             
-    b_fac_SM[0] = - 3 * B0 * x_fac_SM[0] * x_fac_SM[2] / r**5
-    b_fac_SM[1] = - 3 * B0 * x_fac_SM[1] * x_fac_SM[2] / r**5
-    b_fac_SM[2] = - B0 * ( 3 * x_fac_SM[2]**2 - r**2 ) / r**5
-
-    return b_fac_SM
-    
-def _jit_fac_integral(ms_slice, GM_2_gap, x0, nTheta, nPhi, nR, rCurrents):
-
-    # x0 and returned dB_fac are in cartesian gap_csys coordinates (default SMG)
-    rIonosphere = 1.01725 # rEarth + iono_height #!!! hard coded
-
-    dB_fac = np.zeros(3)
-
-    dTheta = np.pi    / (nTheta-1)
-    dPhi   = 2.*np.pi / nPhi
-    dR     = (rCurrents - rIonosphere) / nR
-
-    # Dean see below, we need to transform x0 to gap coordinates
-    x0_map = np.empty(3)
-    x0_map[:] = matvectprod(GM_2_gap, x0)
-    
-    for iTheta in range(nTheta):
-        Theta = iTheta * dTheta
-        # the area of the triangle formed by pole and the latitude segment at Theta=dTheta/2
-        # is approximately dTheta/4*dTheta/2, so sin(theta) replaced with dTheta/8.
-        SinTheta = max(np.sin(Theta), dTheta/8.)
-        dSurface = rCurrents**2*SinTheta*dTheta*dPhi
-
-        for iPhi in range(nPhi):
-            Phi = iPhi * dPhi
-
-            xyz_Currents = sph_to_xyz(rCurrents, Theta, Phi)
-
-            #b_Currents = np.empty(3,dtype='f8');
-            b_Currents = np.empty(3);
-            #j_Currents = np.empty(3,dtype='f8')
-            j_Currents = np.empty(3)
-            xyz_inGM = matvectprod(GM_2_gap.transpose(), xyz_Currents)
-            # use GM interpolator, which is in GM_csys coordinates, to get b and j and convert to gap_csys coordinates
-            b_Currents[0] = ms_slice.interpolate(xyz_inGM, 'bx')
-            b_Currents[1] = ms_slice.interpolate(xyz_inGM, 'by')
-            b_Currents[2] = ms_slice.interpolate(xyz_inGM, 'bz')
-            j_Currents[0] = ms_slice.interpolate(xyz_inGM, 'jx')
-            j_Currents[1] = ms_slice.interpolate(xyz_inGM, 'jy')
-            j_Currents[2] = ms_slice.interpolate(xyz_inGM, 'jz')
-            b_Currents[:] = matvectprod(GM_2_gap, b_Currents)#?? doesnt seem to work without [:] for some reason
-            j_Currents[:] = matvectprod(GM_2_gap, j_Currents)
-
-            # Dean I think Gary's code is wrong.  He mixed coordinate systems - SM and GSM
-            # Unit_xyz_Currents = xyz_Currents / rCurrents
-            # Unit_b_Currents = b_Currents / np.linalg.norm(b_Currents)
-            # _Fac_rCurrents = np.dot(Unit_b_Currents,j_Currents)#!!!!!!!!!!!
-            # Fac_term = _Fac_rCurrents * np.dot(Unit_b_Currents, Unit_xyz_Currents)
-            Unit_xyz_inGM = xyz_inGM / rCurrents
-            Unit_b_Currents = b_Currents / np.linalg.norm(b_Currents)
-            _Fac_rCurrents = np.dot(Unit_b_Currents,j_Currents)#!!!!!!!!!!!
-            Fac_term = _Fac_rCurrents * np.dot(Unit_b_Currents, Unit_xyz_inGM)
-
-            for k in range(nR):
-                R = rCurrents - dR*(k+0.5)
-
-                # Dean check Gary's map_along_dipole function
-                xyz_Map, iHemisphere = map_along_dipole_lines_dean(xyz_Currents, R)
-                # xyz_Map, iHemisphere = map_along_dipole_lines(xyz_Currents, R)
-                                
-                b0_Map = get_dipole_field_dean(xyz_Map)
-                # b0_Map = get_dipole_field(xyz_Map)
-
-                Unit_xyz_Map = xyz_Map / R
-                Unit_b0_Map = b0_Map / np.linalg.norm(b0_Map)
-
-                # The volume element is proportional to 1/Br. The sign
-                # should be preserved (not yet!!!),
-                # because the sign is also there in the radial
-                # component of the field aligned current: Br/B*FAC.
-                # In the end j_D = b_D/Br*[(Br/B)*(j.B)]_rcurr  !!!!!!!!!!!! NOT DIMENSIONALLY CONSISTENT
-
-                dVol_FACcoords = dSurface * (dR/np.dot(Unit_xyz_Map, Unit_b0_Map))
-                J_fac = Fac_term * Unit_b0_Map
-
-                # Dean I used 637.1 to get nT in output
-                # Dean x0 is in wrong coordinates.  Use x0_map
-                # dB_fac[:] = dB_fac[:] + dVol_FACcoords* \
-                #   np.cross(J_fac, x0-xyz_Map)/(4*np.pi*(np.linalg.norm(xyz_Map-x0))**3)
-                dB_fac[:] = dB_fac[:] + 637.1 * dVol_FACcoords* \
-                    np.cross(J_fac, x0_map-xyz_Map)/((np.linalg.norm(x0_map-xyz_Map))**3)
-                
-    # Dean - I believe his result needs to be transformed to the GSM coordinates
-    dB_fac = np.dot(GM_2_gap.T, dB_fac)
-
-    return dB_fac
-
-####################################
 
 import sys, getopt
 
@@ -1678,81 +1532,17 @@ def main(argv):
 
 def main2(argv):
     if COLABA:
-        files = get_files(reduce=COLABA, base='3d__var_2_e*')
+        files = get_files(ORIGIN, reduce=True, base='3d__var_2_e*')
     else:
-        files = get_files(base='3d__*')
+        files = get_files(ORIGIN, base='3d__*')
         
     logging.info('Num. of files: ' + str(len(files)))
 
     X = [1, 0, 0]
 
-    loop_sum_db_with_cuts(X, files)
+    # loop_sum_db_with_cuts(X, files)
     loop_sum_db(X, files)
     
-def main3(argv):
-    nTheta = 30
-    nPhi = 30
-    nTheta0 = 30
-    rCurrents = 2.
-    rIonosphere = 1.01725
-
-    inputfile = ''
-
-    opts, args = getopt.getopt(argv,"hi:")
-    for opt, arg in opts:
-      if opt == '-h':
-          print ('test.py -i <inputfile>')
-          sys.exit()
-      elif opt in ("-i"):
-          inputfile = arg
-
-    X = [1, 0, 0]
-
-    dB, title = calc_gap_dB(X, inputfile, ORIGIN, rCurrents, rIonosphere, nTheta, nPhi, nTheta0)
-    
-    from hxform import hxform as hx
-    import swmfio
-   
-    GM_csys = 'GSM'
-    gap_csys='SM'
-    time = (2011,1,1)
-    nR = 30
-    dirpath = ORIGIN
-    
-    # Verify BATSRUS file exists
-    assert exists(dirpath + inputfile + '.out')
-    assert exists(dirpath + inputfile + '.info')
-    assert exists(dirpath + inputfile + '.tree')
-    
-    # Read BATSRUS file
-    swmfio.logger.setLevel(logging.INFO)
-    ms_slice = swmfio.read_batsrus(dirpath + inputfile)
-    assert(ms_slice != None)
-
-    # y,m,d,hh,mm,ss = date_time(base)
-    # n_geo, e_geo, z_geo = nez((y,m,d,hh,mm,ss), (X,Y,Z), 'GSM')
-    GM_2_gap = hx.get_transform_matrix(time, GM_csys, gap_csys)
-    
-    dB_fac = _jit_fac_integral(ms_slice, GM_2_gap, X, nTheta,nPhi,nR, rCurrents)
-
-    print('=============================   Mine:', dB)
-    print('============================= swmfio:', dB_fac)
-    print('=============================  ratio:', dB/dB_fac)
-
-    print('=============================   Mine:', np.linalg.norm(dB))
-    print('============================= swmfio:', np.linalg.norm(dB_fac))
-    print('=============================  ratio:', np.linalg.norm(dB)/np.linalg.norm(dB_fac))
-
-def main4(argv):
-    x=np.zeros(3)
-    x[0] = 5
-    x[1] = 5
-    x[2] = -3
-    r = 2
-    
-    print( map_along_dipole_lines(x,r) )
-    print( map_along_dipole_lines_dean(x,r) )
-        
 if __name__ == "__main__":
-   main(sys.argv[1:])
+   main2(sys.argv[1:])
 

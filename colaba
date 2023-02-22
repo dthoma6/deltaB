@@ -11,24 +11,29 @@ dir="/Volumes/Physics HD v2/runs/DIPTSUR2/GM/IO2"
 
 files=`ls "$dir" | grep out | grep 3d__var_2 | cut -d "." -f 1`
 
+#script='deltaB_plots_nez.py'
+script='compare_to_DeltaBCalc.py'
+
 for file in $files
 do 
+	#echo $file
+
 	hms=`echo $file | cut -d "-" -f 2`
 	m=${hms:2:2}
 	if [ $m -eq "00" ]
 	then
-		python deltaB_plots_nez.py -i $file
+		python $script -i $file
 	fi
 	if [ $m -eq "15" ]
 	then
-		python deltaB_plots_nez.py -i $file
+		python $script -i $file
 	fi
 	if [ $m -eq "30" ]
 	then
-		python deltaB_plots_nez.py -i $file
+		python $script -i $file
 	fi
 	if [ $m -eq "45" ]
 	then
-		python deltaB_plots_nez.py -i $file
+		python $script -i $file
 	fi
 done

@@ -7,7 +7,6 @@ Created on Fri Feb 17 16:08:07 2023
 """
 
 import os
-import magnetopost as mp
 import deltaB as db
 
 # Prior to running this script, execute the following from the directory of
@@ -23,6 +22,7 @@ info = {
         "model": "SWMF",
         "run_name": "SWPC_SWMF_052811_2",
         "rCurrents": 4.0,
+        "rIonosphere": 1.01725,
         "file_type": "cdf",
         "dir_run": os.path.join(data_dir, "SWPC_SWMF_052811_2"),
         "dir_plots": os.path.join(data_dir, "SWPC_SWMF_052811_2.plots"),
@@ -39,4 +39,6 @@ points  = ["YKC"]
 reduce = False
 
 for i in range(len(points)): 
-    db.loop_ms_b(info, points[i], reduce)
+    # db.loop_ms_b(info, points[i], reduce)    
+    db.loop_gap_b(info, points[i], reduce, 30, 30, 30)
+    # db.loop_iono_b(info, points[i], reduce, 30, 30, 30)

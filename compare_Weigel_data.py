@@ -81,7 +81,7 @@ def diff_over_avg( l1, l2 ):
     
     return 2*(l1 - l2)/(l1 + l2)
 
-from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, create_deltaB_rCurrents_dataframe
+from deltaB import convert_BATSRUS_to_dataframe, create_deltaB_rCurrents_dataframe
 
 def rounded_cumsum_Bz():
     """Compute cumulative sum of dBx, dBy, and dBz to determine |B|.  
@@ -95,7 +95,7 @@ def rounded_cumsum_Bz():
         None - logs |B| to output
      """
     
-    # Read BATSRUS file
+    # Read BATSRUS fileDocuments
     filename = origin + base
     df1 = convert_BATSRUS_to_dataframe(filename, rCurrents)
     df1 = create_deltaB_rCurrents_dataframe(df1, [X,Y,Z])

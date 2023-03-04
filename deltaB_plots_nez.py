@@ -28,21 +28,17 @@ Created on Thu Sep 15 09:42:06 2022
 
 import logging
 from copy import deepcopy
-# import swmfio
-# from os import makedirs
-from os.path import exists
 import pandas as pd
 import numpy as np
-# from collections import namedtuple
 
 from deltaB.plotting import plotargs, plotargs_multiy, \
     plot_NxM, plot_NxM_multiy, pointcloud
 from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
+    create_deltaB_spherical_dataframe, \
+    create_deltaB_rCurrents_spherical_dataframe, \
     create_deltaB_rCurrents_dataframe, \
-    create_cumulative_sum_dataframe, \
-    create_jrtp_cdf_dataframes, \
-    calc_gap_dB
-from deltaB.util import ned, date_time, date_timeISO, get_files
+    create_cumulative_sum_dataframe
+from deltaB.util import ned, date_timeISO, get_files
 from deltaB.util import create_directory
 
 COLABA = True
@@ -647,7 +643,9 @@ def process_data(X, base, dirpath=ORIGIN):
 
     filename = dirpath + base
     df = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df = create_deltaB_spherical_dataframe(df)
     df = create_deltaB_rCurrents_dataframe(df, X)
+    df = create_deltaB_rCurrents_spherical_dataframe(df, X)
 
     # logging.info('Creating cumulative sum dB dataframe...')
 
@@ -827,8 +825,10 @@ def process_data_with_cuts(X, base, dirpath=ORIGIN, cut_selected=1):
     # Read BASTRUS file and do delta B calculations
     filename = dirpath + base
     df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_rCurrents_dataframe(df1, X)
-    
+    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, X)
+   
     # Perform cuts on BATSRUS data
     df2, title2, cutname = perform_cuts(df1, title1, cut_selected=cut_selected)
 
@@ -866,7 +866,9 @@ def process_3d_cut_plots(X, base, dirpath=ORIGIN):
 
     filename = dirpath + base
     df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_rCurrents_dataframe(df1, X)
+    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -923,10 +925,16 @@ def process_3d_cut_plots2(X, base, dirpath=ORIGIN):
     import matplotlib.pyplot as plt
     
     filename = dirpath + base
-    df1, title1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_rCurrents_dataframe(df1, X)
+    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
+
+    # Create the title that we'll use in the graphics
+    words = base.split('-')
+    title1 = 'Time: ' + words[1] + ' (hhmmss)'
 
     #################################
     #################################
@@ -1079,7 +1087,9 @@ def process_sum_db_with_cuts(X, base, dirpath=ORIGIN):
 
     filename = dirpath + base
     df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_rCurrents_dataframe(df1, X)
+    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, X)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -1206,7 +1216,9 @@ def process_sum_db(X, base, dirpath=ORIGIN):
 
     filename = dirpath + base
     df1 = convert_BATSRUS_to_dataframe(filename, rCurrents=RCURRENTS)
+    df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_rCurrents_dataframe(df1, X)
+    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, X)
 
     logging.info('Calculate cumulative sums for dataframes for extracted cuts...')
 
@@ -1307,10 +1319,8 @@ def loop_sum_db_with_cuts(X, files):
     b_index = [None] * n
 
     for i in range(n):        
-        # Create the title that we'll use in the graphics
+        # get time and convert to a number
         words = files[i].split('-')
-
-        # Convert time to a float
         t = int(words[1])
         h = t//10000
         m = (t % 10000) // 100

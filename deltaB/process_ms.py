@@ -9,11 +9,12 @@ import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import os.path
 
 from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
     create_deltaB_rCurrents_dataframe, \
     create_cumulative_sum_dataframe
-from deltaB.util import ned, date_time, date_timeISO, get_files
+from deltaB.util import ned
 from deltaB.util import create_directory
 
 # Setup logging
@@ -45,7 +46,8 @@ def calc_ms_b(X, filepath, timeISO, rCurrents):
         Bx, By, Bz = cumulative sum of dB data in x-y-z GSM coordinates
     """
 
-    logging.info('Use Biot-Savart to determine magnetosphere current density...')
+    logging.info(f'Calculate magnetosphere dB... {os.path.basename(filepath)}')
+    
     df = convert_BATSRUS_to_dataframe(filepath, rCurrents)    
     df = create_deltaB_rCurrents_dataframe(df, X)
     df = create_cumulative_sum_dataframe(df)
@@ -102,7 +104,6 @@ def loop_ms_b(info, point, reduce):
 
     # Get a list of BATSRUS files, if reduce is True we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
-    # files = get_files(info['dir_run'], reduce=reduce, file_type=info['file_type'])
     from magnetopost import util as util
     util.setup(info)
     
@@ -118,12 +119,6 @@ def loop_ms_b(info, point, reduce):
     Bx = np.zeros(n)
     By = np.zeros(n)
     Bz = np.zeros(n)
-    y = np.zeros(n)
-    m = np.zeros(n)
-    d = np.zeros(n)
-    hh = np.zeros(n)
-    mm = np.zeros(n)
-    ss = np.zeros(n)
     
     # Get the magnetometer location using list in magnetopost
     from magnetopost.config import defined_magnetometers
@@ -147,26 +142,18 @@ def loop_ms_b(info, point, reduce):
         # BATSRUS data
         XGEO.ticks = Ticktock([timeISO], 'ISO')
         XGSM = XGEO.convert( 'GSM', 'car' )
-        X = [XGSM.x[0], XGSM.y[0], XGSM.z[0]]
-          
+        # X = [XGSM.x[0], XGSM.y[0], XGSM.z[0]]
+        X = XGSM.data[0]
             
         # Use Biot-Savart to calculate magnetic field, B, at magnetometer position
         # XGSM.  Store the results and the time
         Bn[i], Be[i], Bd[i], Bx[i], By[i], Bz[i] = calc_ms_b(X, filepath, timeISO, info['rCurrents'])
-        y[i] = times[i][0]
-        m[i] = times[i][1]
-        d[i] = times[i][2]
-        hh[i] = times[i][3]
-        mm[i] = times[i][4]
-        ss[i] = times[i][5]
     
     dtimes = [datetime(*time) for time in times]
 
     # Create a dataframe from the results and save it in a pickle file
-    df = pd.DataFrame( data={'Year': y, 'Month': m, 'Day': d, 
-                        'Hour': hh, 'Minute': mm, 'Second': ss, 
-                        'Bn': Bn, 'Be': Be, 'Bd': Bd,
+    df = pd.DataFrame( data={'Bn': Bn, 'Be': Be, 'Bd': Bd,
                         'Bx': Bx, 'By': By, 'Bz': Bz}, index=dtimes)
-    # create_directory(info['dir_derived'], 'timeseries')
+    create_directory(info['dir_derived'], 'timeseries')
     pklname = 'dB_bs_msph-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )

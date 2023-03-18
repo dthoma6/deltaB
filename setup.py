@@ -17,10 +17,10 @@ install_requires = [
 
 setup(
     name='deltaB',
-    version='0.5.0',
+    version='0.9.0',
     author='Dean Thomas',
     author_email='dean.thomas@physics123.net',
     packages=find_packages(),
-    description='Examine delta B contributions from BATSRUS results',
+    description='Examine delta B contributions from SWMF results',
     install_requires=install_requires
 )

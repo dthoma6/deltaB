@@ -11,13 +11,10 @@ import numpy as np
 import swmfio
 import pandas as pd
 from datetime import datetime
-from scipy.interpolate import NearestNDInterpolator
 import os.path
 
-# from deltaB.coordinates import get_transform_matrix
-from deltaB.util import  create_directory
-from deltaB.coordinates import get_NED_vector_components
-from deltaB.util import get_NED_components
+# from deltaB.coordinates import get_NED_vector_components
+from deltaB.util import create_directory, get_NED_components, date_timeISO
 
 # Setup logging
 logging.basicConfig(
@@ -25,11 +22,11 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%S')
 
-def calc_iono_b(XSM, filepath, rCurrents, rIonosphere, nTheta, nPhi, nR):
-    """Process data in RIM file to calculate the delta B at point XGSM as
-    determined by the field-aligned currents between the radius rCurrents
-    and the rIonosphere.  Biot-Savart Law is used for calculation.  We will integrate
-    across all currents flowing through the sphere at range rCurrents from earth
+def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR):
+    """Process data in RIM file to calculate the delta B at point XSM as
+    determined by the Pedersen and Hall currents in the ionosphere.  
+    Biot-Savart Law is used for calculation.  We will integrate across all 
+    Pedersen and Hall currents in the ionosphere at range rIonosphere from earth
     origin.
     
     Inputs:
@@ -37,6 +34,8 @@ def calc_iono_b(XSM, filepath, rCurrents, rIonosphere, nTheta, nPhi, nR):
         Dipole data is in SM coordinates
         
         filepath = path to RIM file
+        
+        timeISO = ISO time for data in RIM file
               
         rCurrents = range from earth center below which results are not valid
             measured in Re units
@@ -50,12 +49,12 @@ def calc_iono_b(XSM, filepath, rCurrents, rIonosphere, nTheta, nPhi, nR):
             
     Outputs:
         Bnp, Bep, Bdp = cumulative sum of Pedersen dB data in north-east-down 
-            coordinates, provides total BPedersen at point X
+            coordinates, provides total BPedersen at point X (in SM coordinates)
 
         bSMp = total B due to Pedersen currents (in SM coordinates)
         
         Bnh, Beh, Bdh = cumulative sum of Hall dB data in north-east-down coordinates,
-            provides total BHall at point X
+            provides total BHall at point X (in SM coordinates)
 
         bSMh = total B due to Hall currents (in SM coordinates)
         
@@ -147,9 +146,19 @@ def calc_iono_b(XSM, filepath, rCurrents, rIonosphere, nTheta, nPhi, nR):
     bSMp = [df['dBxpSum'].iloc[-1], df['dBypSum'].iloc[-1], df['dBzpSum'].iloc[-1]]
     Bnp, Bep, Bdp = get_NED_components( bSMp, XSM )
     
+    # n_geo, e_geo, d_geo = ned(timeISO, XSM, 'SM')
+    
+    # Bnp = np.dot( bSMp, n_geo )
+    # Bep = np.dot( bSMp, e_geo )
+    # Bdp = np.dot( bSMp, d_geo )
+    
     bSMh = [df['dBxhSum'].iloc[-1], df['dByhSum'].iloc[-1], df['dBzhSum'].iloc[-1]]
     Bnh, Beh, Bdh = get_NED_components( bSMh, XSM )
-    
+
+    # Bnh = np.dot( bSMh, n_geo )
+    # Beh = np.dot( bSMh, e_geo )
+    # Bdh = np.dot( bSMh, d_geo )
+        
     return Bnp, Bep, Bdp, bSMp[0], bSMp[1], bSMp[2], Bnh, Beh, Bdh, bSMh[0], bSMh[1], bSMh[2]   
 
 # Example info.  Info is used below in call to loop_ms_b
@@ -168,7 +177,7 @@ def calc_iono_b(XSM, filepath, rCurrents, rIonosphere, nTheta, nPhi, nR):
 # }
 
 def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
-    """Use Biot-Savart in calc_ms_b to determine the magnetic field (in 
+    """Use Biot-Savart in calc_iono_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Biot-Savart caclculation 
     uses ionosphere current density as defined in RIM files
 
@@ -178,7 +187,8 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
         point = string identifying magnetometer location.  The actual location
             is pulled from a list in magnetopost.config
             
-        reduce = Boolean, do we skip files to save time
+        reduce = Do we skip files to save time.  If None, do all files.  If not
+            None, then its a integer that determine how many files are skipped
         
     Outputs:
         time, Bn, Be, Bd = saved in pickle file
@@ -193,8 +203,9 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
     util.setup(info)
     
     times = list(info['files']['ionosphere'].keys())
-    if reduce:
-        times = times[0:len(times):60]
+    if reduce != None:
+        assert isinstance( reduce, int )
+        times = times[0:len(times):reduce]
     n = len(times)
 
     # Prepare storage of variables
@@ -227,8 +238,7 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
         filepath = info['files']['ionosphere'][times[i]]
         
         # We need the ISO time to update the magnetometer position
-        timeISO = str(times[i][0]) + '-' + str(times[i][1]).zfill(2) + '-' + str(times[i][2]).zfill(2) + 'T' + \
-            str(times[i][3]).zfill(2) +':' + str(times[i][4]).zfill(2) + ':' + str(times[i][5]).zfill(2)
+        timeISO = date_timeISO( times[i] )
         
         # Get the magnetometer position, X, in SM coordinates for compatibility with
         # RIM data
@@ -237,10 +247,10 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
         X = XSM.data[0]
             
         # Use Biot-Savart to calculate magnetic field, B, at magnetometer position
-        # XSM.  Store the results and the time
+        # XSM.  Store the results, which are in SM coordinates, and the time
         Bnp[i], Bep[i], Bdp[i], Bxp[i], Byp[i], Bzp[i], \
                 Bnh[i], Beh[i], Bdh[i], Bxh[i], Byh[i], Bzh[i],= calc_iono_b(X, filepath, \
-                info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
+                timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
     
     dtimes = [datetime(*time) for time in times]
 

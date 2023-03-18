@@ -10,6 +10,7 @@ from copy import deepcopy
 import swmfio
 import pandas as pd
 import numpy as np
+import os.path
 
 def convert_BATSRUS_to_dataframe(file, rCurrents):
     """Process data in BATSRUS file to create dataframe.  
@@ -24,10 +25,10 @@ def convert_BATSRUS_to_dataframe(file, rCurrents):
             parameters
     """
 
-    logging.info('Parsing BATSRUS file...')
+    logging.info(f'Parsing BATSRUS file... {os.path.basename(file)}')
 
     # Read BATSRUS file
-    swmfio.logger.setLevel(logging.INFO)
+    # swmfio.logger.setLevel(logging.INFO)
     batsrus = swmfio.read_batsrus(file)
     assert(batsrus != None)
 

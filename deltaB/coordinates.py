@@ -250,3 +250,14 @@ def get_transform_matrix(time, csys_in, csys_out, lib='spacepy'):
     b2 = transform(np.array([0.,1.,0.]), time, csys_in, csys_out, ctype_in='car', ctype_out='car', lib=lib)
     b3 = transform(np.array([0.,0.,1.]), time, csys_in, csys_out, ctype_in='car', ctype_out='car', lib=lib)
     return np.column_stack([b1,b2,b3])
+
+# Changed from lib='geopack_08_dp' to lib='spacepy'
+def GSMtoSM(v, time, ctype_in='car', ctype_out='car', lib='spacepy'):
+    """Equivalent to transform(v, time, 'GSM', 'SM', ...)"""
+    return transform(v, time, 'GSM', 'SM', ctype_in=ctype_in, ctype_out=ctype_out, lib=lib)
+
+# Changed from lib='geopack_08_dp' to lib='spacepy'
+def SMtoGSM(v, time, ctype_in='car', ctype_out='car', lib='spacepy'):
+    """Equivalent to transform(v, time, 'SM', 'GSM', ...)"""
+    return transform(v, time, 'SM', 'GSM', ctype_in=ctype_in, ctype_out=ctype_out, lib=lib)
+

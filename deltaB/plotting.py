@@ -62,6 +62,7 @@ from vtk import vtkRenderLargeImage, vtkPNGWriter
 import logging
 import pandas as pd
 from .util import create_directory
+import os.path
 
 ####################################################
 # plotting routines
@@ -199,7 +200,9 @@ def plot_NxM(target, base, suffix, plots, cols=4, rows=2, size = 600, plottype='
     # Store the charts in a file.
     create_directory(target, suffix +'/')
     logging.info(f'Saving {base} {suffix} plot')
-    filename = target + suffix + '/' + base + '.out.' + suffix + '.png'
+    # filename = target + suffix + '/' + base + '.out.' + suffix + '.png'
+    name = base + '.' + suffix + '.png'
+    filename = os.path.join( target, suffix, name )
     
     renLgeIm = vtkRenderLargeImage()
     imgWriter = vtkPNGWriter()
@@ -375,12 +378,14 @@ def plot_NxM_multiy(target, base, suffix, plots, cols=4, rows=2, size=600, plott
                 points.SetInputData(tables, 0, 1+k)
                 
     # Now that the charts are set up, render them
-    renwin.Render()
+    # renwin.Render()
 
     # Store the charts in a file.
     create_directory(target, suffix +'/')
     logging.info(f'Saving {base} {suffix} plot')
-    filename = target + suffix + '/' + base + '.out.' + suffix + '.png'
+    # filename = target + suffix + '/' + base + '.out.' + suffix + '.png'
+    name = base + '.' + suffix + '.png'
+    filename = os.path.join( target, suffix, name )
     
     renLgeIm = vtkRenderLargeImage()
     imgWriter = vtkPNGWriter()
@@ -506,7 +511,9 @@ class pointcloud():
 
         # Store the charts in a file.
         create_directory(target, suffix +'/')
-        filename = target + suffix + '/' + base + '.out.' + suffix + '.vtk'
+        # filename = target + suffix + '/' + base + '.out.' + suffix + '.vtk'
+        name = base + '.' + suffix + '.vtk'
+        filename = os.path.join( target, suffix, name )
 
         if( self.vtk_polydata == None ):
             logging.info('Before saving data, use create_to_vtk to create VTK data')

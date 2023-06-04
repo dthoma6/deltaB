@@ -217,7 +217,7 @@ def loop_2D_gap_iono(XSM, info, reduce):
         # results are in SM coordinates.  This call looks at Pedersen and Hall
         # currents in the ionosphere.
         B_pedersen[i], Bep, Bdp, Bxp, Byp, Bzp, B_hall[i], Beh, Bdh, Bxh, Byh, Bzh = \
-            calc_iono_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'], 30, 30, 30)
+            calc_iono_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'])
 
     # Create dataframe from results and save to disk
     dtimes = [datetime(*time) for time in times]

@@ -12,6 +12,21 @@ from deltaB import loop_2D_BATSRUS, \
     loop_2D_BATSRUS_3d_cut_vtk, \
     loop_2D_BATSRUS_3d_cut_plots
 
+#################################################################
+#
+# Example script for generating 2D BATS-R-US plots.  These plots
+# show how various quantaties vary.  For example, how current 
+# density, j, varies over the x, y, and z grid dimensions.
+#
+# Its also allows cuts to be made to the BATS-R-US data to focus
+# on specific changes.  For example, select the points where the
+# radial component of the current density is larger than some
+# minimum value.  
+#
+#################################################################
+
+# info tells the script where the data files are stored and where
+# to save plots and calculated data
 
 data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
 
@@ -25,6 +40,8 @@ info = {
         "dir_plots": os.path.join(data_dir, "DIPTSUR2.plots"),
         "dir_derived": os.path.join(data_dir, "DIPTSUR2.derived"),
 }
+
+# limits specifies the limits used in the various plots
 
 limits = { 
     "RLOG_LIMITS": [1, 1000],
@@ -52,6 +69,11 @@ limits = {
     'VMAX': 0.5
 }
 
+# cuts specifies the three allowed cuts.  Cut1 sets a minimum value for the radial
+# component of current density (jr).  Cut2 sets a minimum value for the phi
+# component of current density (jphi) along with a maximum radius from earth 
+# (useful to select ring currents).  Cut2 sets a minimum value on jphi.
+ 
 cuts = {
     'CUT1_JRMIN': 0.02,
     'CUT2_JPHIMIN': 0.02,
@@ -66,8 +88,9 @@ if __name__ == "__main__":
     XGSM=[1,0,0]
    
     # Do we skip files to save time.  If None, do all files.  If not
-    # None, then its a integer that determines how many files are skipped
-    reduce = 200
+    # None, then reduce is an integer that determines how many files are skipped
+    # e.g., do every 10th file
+    reduce = 10
     
     # If we make a cut on the data, which cut to make
     cut_selected = 3
@@ -79,7 +102,7 @@ if __name__ == "__main__":
     
     # Generate  various plots of BATSRUS data
     loop_2D_BATSRUS(XGSM, info, limits, reduce)
-    # loop_2D_BATSRUS_with_cuts(XGSM, info, limits, cuts, cut_selected, reduce)
-    # loop_2D_BATSRUS_3d_cut_vtk(XGSM, info, limits, cuts, reduce)
-    # loop_2D_BATSRUS_3d_cut_plots(XGSM, info, limits, cuts, reduce)
+    loop_2D_BATSRUS_with_cuts(XGSM, info, limits, cuts, cut_selected, reduce)
+    loop_2D_BATSRUS_3d_cut_vtk(XGSM, info, limits, cuts, reduce)
+    loop_2D_BATSRUS_3d_cut_plots(XGSM, info, limits, cuts, reduce)
 

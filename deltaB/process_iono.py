@@ -11,6 +11,7 @@ import numpy as np
 import swmfio
 import pandas as pd
 from datetime import datetime
+from spacepy.pybats.rim import Iono
 import os.path
 
 # from deltaB.coordinates import get_NED_vector_components
@@ -22,7 +23,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%S')
 
-def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR):
+def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
     """Process data in RIM file to calculate the delta B at point XSM as
     determined by the Pedersen and Hall currents in the ionosphere.  
     Biot-Savart Law is used for calculation.  We will integrate across all 
@@ -62,29 +63,82 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR
 
     logging.info(f'Calculate ionosphere dB... {os.path.basename(filepath)}')
 
-    # Read RIM file
-    # swmfio.logger.setLevel(logging.INFO)
-    data_arr, var_dict, units = swmfio.read_rim(filepath)
-    assert(data_arr.shape[0] != 0)
+    base_ext = os.path.splitext( filepath )
+    if base_ext[1] == '.idl':
+        # If its an idl file, use spacepy Iono to read
+        ionodata = Iono( filepath )
 
-    df = pd.DataFrame()
+        # Make sure arrays have same dimensions
+        assert ionodata['n_theta'].shape == ionodata['n_psi'].shape
+        assert ionodata['n_theta'].shape == ionodata['n_ex'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_psi'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_ex'].shape
 
-    df['x'] = data_arr[var_dict['X']][:]
-    df['y'] = data_arr[var_dict['Y']][:]
-    df['z'] = data_arr[var_dict['Z']][:]
+        # Get north and south hemisphere data  
+        n_x = ionodata['n_x'].reshape( -1 ) 
+        n_y = ionodata['n_y'].reshape( -1 ) 
+        n_z = ionodata['n_z'].reshape( -1 ) 
+        s_x = ionodata['s_x'].reshape( -1 ) 
+        s_y = ionodata['s_y'].reshape( -1 ) 
+        s_z = ionodata['s_z'].reshape( -1 ) 
+        
+        n_ex = ionodata['n_ex'].reshape( -1 ) 
+        n_ey = ionodata['n_ey'].reshape( -1 ) 
+        n_ez = ionodata['n_ez'].reshape( -1 ) 
+        s_ex = ionodata['s_ex'].reshape( -1 ) 
+        s_ey = ionodata['s_ey'].reshape( -1 ) 
+        s_ez = ionodata['s_ez'].reshape( -1 ) 
+        
+        n_sigmah = ionodata['n_sigmah'].reshape( -1 ) 
+        s_sigmah = ionodata['s_sigmah'].reshape( -1 )         
+        n_sigmap = ionodata['n_sigmap'].reshape( -1 ) 
+        s_sigmap = ionodata['s_sigmap'].reshape( -1 )  
+        
+        n_theta = ionodata['n_theta'].reshape( -1 ) 
+        s_theta = ionodata['s_theta'].reshape( -1 )
+        
+        # Combine north and south hemisphere data and store in dataframe
+        df = pd.DataFrame()
     
-    df['jx'] = data_arr[var_dict['Jx']][:]
-    df['jy'] = data_arr[var_dict['Jy']][:]
-    df['jz'] = data_arr[var_dict['Jz']][:]
+        df['x'] = np.concatenate( [n_x, s_x], axis = 0 )
+        df['y'] = np.concatenate( [n_y, s_y], axis = 0 )
+        df['z'] = np.concatenate( [n_z, s_z], axis = 0 )
 
-    df['Ex'] = data_arr[var_dict['Ex']][:]
-    df['Ey'] = data_arr[var_dict['Ey']][:]
-    df['Ez'] = data_arr[var_dict['Ez']][:]
+        df['Ex'] = np.concatenate( [n_ex, s_ex], axis = 0 )
+        df['Ey'] = np.concatenate( [n_ey, s_ey], axis = 0 )
+        df['Ez'] = np.concatenate( [n_ez, s_ez], axis = 0 )
 
-    df['sigmaH'] = data_arr[var_dict['SigmaH']][:]
-    df['sigmaP'] = data_arr[var_dict['SigmaP']][:]
-
-    df['measure'] = data_arr[var_dict['measure']][:]
+        df['sigmaH'] = np.concatenate( [n_sigmah, s_sigmah], axis = 0 )
+        df['sigmaP'] = np.concatenate( [n_sigmap, s_sigmap], axis = 0 )
+    
+        df['theta'] = np.concatenate( [n_theta, s_theta], axis = 0 ) * np.pi/180
+        
+        # Get size of measure 
+        shp = ionodata['n_theta'].shape
+        dtheta = np.pi / ( shp[0] - 1 )
+        dphi = 2 * np.pi / ( shp[1] - 1 )
+        df['measure'] = rIonosphere**2 * dtheta * dphi * np.sin( df['theta'] )
+        
+    else:
+        # Read RIM file
+        # swmfio.logger.setLevel(logging.INFO)
+        data_arr, var_dict, units = swmfio.read_rim(filepath)
+        assert(data_arr.shape[0] != 0)
+    
+        df = pd.DataFrame()
+    
+        df['x'] = data_arr[var_dict['X']][:]
+        df['y'] = data_arr[var_dict['Y']][:]
+        df['z'] = data_arr[var_dict['Z']][:]
+        
+        df['Ex'] = data_arr[var_dict['Ex']][:]
+        df['Ey'] = data_arr[var_dict['Ey']][:]
+        df['Ez'] = data_arr[var_dict['Ez']][:]
+    
+        df['sigmaH'] = data_arr[var_dict['SigmaH']][:]
+        df['sigmaP'] = data_arr[var_dict['SigmaP']][:]
+    
+        df['measure'] = data_arr[var_dict['measure']][:]
     
     # Get radius center of earth to each x,y,z point
     df['r0'] = np.sqrt( df['x']**2 + df['y']**2 + df['z']**2 )
@@ -176,7 +230,7 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR
 #         }
 # }
 
-def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
+def loop_iono_b(info, point, reduce):
     """Use Biot-Savart in calc_iono_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Biot-Savart caclculation 
     uses ionosphere current density as defined in RIM files
@@ -199,8 +253,8 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
 
     # Get a list of RIM files, if reduce is True we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
-    from magnetopost import util as util
-    util.setup(info)
+    # from magnetopost import util as util
+    # util.setup(info)
     
     times = list(info['files']['ionosphere'].keys())
     if reduce != None:
@@ -250,7 +304,7 @@ def loop_iono_b(info, point, reduce, nTheta, nPhi, nR):
         # XSM.  Store the results, which are in SM coordinates, and the time
         Bnp[i], Bep[i], Bdp[i], Bxp[i], Byp[i], Bzp[i], \
                 Bnh[i], Beh[i], Bdh[i], Bxh[i], Byh[i], Bzh[i],= calc_iono_b(X, filepath, \
-                timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
+                timeISO, info['rCurrents'], info['rIonosphere'])
     
     dtimes = [datetime(*time) for time in times]
 

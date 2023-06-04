@@ -11,6 +11,17 @@ from deltaB import loop_heatmap_ms, plot_heatmap_ms, \
     loop_heatmap_iono, plot_heatmap_iono, \
     loop_heatmap_gap, plot_heatmap_gap
 
+#################################################################
+#
+# Example script for generating Bn (B north) heatmaps that show how
+# Bn varies over the surface of the earth.  Results are provided 
+# for the magnetosphere based on BATS-R-US data and for the gap region 
+# and the ionosphere based on RIM data.
+#
+#################################################################
+
+# info tells the script where the data files are stored and where
+# to save plots and calculated data
 
 data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
 
@@ -36,12 +47,10 @@ if __name__ == "__main__":
     NLAT = 9
     NLONG = 12
 
-    # The times for the files that we will process
+    # The times for the files that we will process to create heatmaps
     TIMES = ((2019, 9, 2, 4, 15, 0), 
              (2019, 9, 2, 6, 30, 0),
              (2019, 9, 2, 10, 30, 0))
-
-    reduce = None
 
     # Get a list of BATSRUS and RIM files, info parameters define location 
     # (dir_run) and file types.  See definition of info = {...} above.

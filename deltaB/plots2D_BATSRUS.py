@@ -17,7 +17,8 @@ from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
     create_deltaB_rCurrents_dataframe, \
     create_cumulative_sum_dataframe, \
     create_cumulative_sum_spherical_dataframe, \
-    create_jrtp_cdf_dataframes
+    create_jrtp_cdf_dataframes, \
+    create_jpp_cdf_dataframes
 from deltaB.util import create_directory
 
 # info = {...} example is below
@@ -457,7 +458,7 @@ def plot_ux_uy_uz_day_night(df_day, df_night, title, base, info, limits):
 
     return
 
-def plot_jr_jt_jp_vs_x(df, title, base, info, limits, coord='x', cut='', ):
+def plot_jr_jt_jp_vs_x(df, title, base, info, limits, coord='x', cut='' ):
     """Plot jr, jtheta, jphi  in each cell versus x.  
     Inputs:
         df = dataframe containing jr, jtheta, jphi and x
@@ -555,7 +556,7 @@ def plot_jp_jp_vs_x(df, title, base, info, limits, coord='x', cut=''):
 
     return
 
-def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits):
+def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits, cut=''):
     """Plot jr, jtheta, jphi CDFs  
     Inputs:
         df_jr, df_jtheta, df_jphi = dataframe CDF data
@@ -568,6 +569,8 @@ def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits):
         
         limits = axis limits on plots, see limits = {...} example above
         
+        cut = which cut was made, used in plot filenames
+       
     Outputs:
         None 
      """
@@ -584,7 +587,39 @@ def plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits):
                     r'$j_\phi$', r'$CDF$',
                     limits['JCDF_LIMITS'], [0,1], title)
     
-    plot_NxM(info['dir_plots'], base, 'jrtp-cdf', plots, cols=3, rows=1 )
+    plot_NxM(info['dir_plots'], base, 'jrtp-cdf'+cut, plots, cols=3, rows=1 )
+
+    return
+
+def plot_jpp_cdfs(df_jparallel, df_jperpendicular, title, base, info, limits, cut=''):
+    """Plot jr, jtheta, jphi CDFs  
+    Inputs:
+        df_jparallel, df_jperpendicular = dataframe CDF data
+        
+        title = title for plots
+        
+        base = basename of file where plot will be stored
+        
+        info = info on files to be processed, see info = {...} example above
+        
+        limits = axis limits on plots, see limits = {...} example above
+        
+        cut = which cut was made, used in plot filenames
+       
+    Outputs:
+        None 
+     """
+
+    plots = [None] * 2
+     
+    plots[0] = plotargs(df_jparallel, 'jparallel', 'cdf', False, False, 
+                    r'$j_\parallel$', r'$CDF$',
+                    limits['JCDF_LIMITS'], [0,1], title)
+    plots[1] = plotargs(df_jperpendicular, 'jperpendicular', 'cdf', False, False, 
+                    r'$j_\perp$', r'$CDF$',
+                    limits['JCDF_LIMITS'], [0,1], title)
+    
+    plot_NxM(info['dir_plots'], base, 'jpp-cdf'+cut, plots, cols=2, rows=1 )
 
     return
 
@@ -626,51 +661,55 @@ def process_BATSRUS(XGSM, filepath, time, info, limits):
     df = create_deltaB_rCurrents_spherical_dataframe(df, XGSM)
     
 
-    logging.info('Creating cumulative sum dB dataframe...')
+    # logging.info('Creating cumulative sum dB dataframe...')
 
-    df_r = create_cumulative_sum_dataframe(df)
-    df_sph = create_cumulative_sum_spherical_dataframe(df)
+    # df_r = create_cumulative_sum_dataframe(df)
+    # df_sph = create_cumulative_sum_spherical_dataframe(df)
 
-    logging.info('Creating dayside/nightside dataframe...')
-    df_day = df[df['x'] >= 0]
-    df_night = df[df['x'] < 0]
+    # logging.info('Creating dayside/nightside dataframe...')
+    # df_day = df[df['x'] >= 0]
+    # df_night = df[df['x'] < 0]
 
-    # Do plots...
+    # # Do plots...
 
-    logging.info('Creating dB (Norm) vs r plots...')
-    plot_db_Norm_r( df, title, base, info, limits )
+    # logging.info('Creating dB (Norm) vs r plots...')
+    # plot_db_Norm_r( df, title, base, info, limits )
     
-    logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
-    plot_dBnorm_various_day_night( df_day, df_night, title, base, info, limits )
+    # logging.info('Creating day/night dB (Norm) vs rho, p, etc. plots...')
+    # plot_dBnorm_various_day_night( df_day, df_night, title, base, info, limits )
     
-    logging.info('Creating cumulative sum B vs r plots...')
-    plot_sum_dB( df_r, title, base, info, limits )
+    # logging.info('Creating cumulative sum B vs r plots...')
+    # plot_sum_dB( df_r, title, base, info, limits )
 
-    # logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
-    # plot_cumulative_B_para_perp(df_sph, title, base, info, limits)
+    # # logging.info('Creating cumulative sum B parallel/perpendicular vs r plots...')
+    # # plot_cumulative_B_para_perp(df_sph, title, base, info, limits)
 
-    logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
-    plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base, info, limits )
+    # logging.info('Creating day/night rho, p, jMag, uMag vs r plots...')
+    # plot_rho_p_jMag_uMag_day_night( df_day, df_night, title, base, info, limits )
 
-    logging.info('Creating day /night jx, jy, jz vs r plots...')
-    plot_jx_jy_jz_day_night( df_day, df_night, title, base, info, limits )
+    # logging.info('Creating day /night jx, jy, jz vs r plots...')
+    # plot_jx_jy_jz_day_night( df_day, df_night, title, base, info, limits )
 
-    logging.info('Creating day/night ux, uy, uz vs r plots...')
-    plot_ux_uy_uz_day_night( df_day, df_night, title, base, info, limits )
+    # logging.info('Creating day/night ux, uy, uz vs r plots...')
+    # plot_ux_uy_uz_day_night( df_day, df_night, title, base, info, limits )
 
-    logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
-    plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'x')
-    plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'y')
-    plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'z')
+    # logging.info('Creating jr, jtheta, jphi vs x,y,z plots...')
+    # plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'x')
+    # plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'y')
+    # plot_jr_jt_jp_vs_x( df_sph, title, base, info, limits, coord = 'z')
 
-    logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
-    plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'x')
-    plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'y')
-    plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'z')
+    # logging.info('Creating jparallel and jperpendicular vs x,y,z plots...')
+    # plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'x')
+    # plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'y')
+    # plot_jp_jp_vs_x( df, title, base, info, limits, coord = 'z')
 
-    logging.info('Creating jrtp CDFs...')
-    df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
-    plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits)
+    # logging.info('Creating jrtp CDFs...')
+    # df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df)
+    # plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title, base, info, limits)
+
+    logging.info('Creating jpp CDFs...')
+    df_jparallel, df_jperpendicular = create_jpp_cdf_dataframes(df)
+    plot_jpp_cdfs(df_jparallel, df_jperpendicular, title, base, info, limits)
 
     return
 
@@ -843,6 +882,10 @@ def process_BATSRUS_with_cuts(XGSM, filepath, time, info, limits, cuts, cut_sele
     # plot_jp_jp_vs_x( df2, title2, base, info, limits, coord = 'x', cut=cutname)
     # plot_jp_jp_vs_x( df2, title2, base, info, limits, coord = 'y', cut=cutname)
     # plot_jp_jp_vs_x( df2, title2, base, info, limits, coord = 'z', cut=cutname)
+
+    logging.info('Creating jrtp CDFs...')
+    df_jr, df_jtheta, df_jphi = create_jrtp_cdf_dataframes(df2)
+    plot_jrtp_cdfs(df_jr, df_jtheta, df_jphi, title2, base, info, limits, cut=cutname)
 
     return
 

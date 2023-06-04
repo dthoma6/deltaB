@@ -11,6 +11,20 @@ from deltaB import loop_2D_ms, plot_2D_ms, \
     loop_2D_gap_iono, plot_2D_gap_iono, \
     plot_2D_ms_gap_iono
 
+#################################################################
+#
+# Example script for generating 2D Bn (B north) versus time plots.
+# Results are provided for the magnetosphere based on BATS-R-US data
+# and for the gap region and the ionosphere based on RIM data. For
+# the magnetosphere, Bn contributions due to currents parallel and
+# perpendicular to the local magnetic field are shown.  Total
+# Bn is the sum of all contributions from the magnetosphere, gap
+# region, and the ionosphere. 
+#
+#################################################################
+
+# info tells the script where the data files are stored and where
+# to save plots and calculated data
 
 data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
 
@@ -36,6 +50,7 @@ if __name__ == "__main__":
 
     # Do we skip files to save time.  If None, do all files.  If not
     # None, then reduce is an integer that determine how many files are skipped
+    # e.g., do every 10th file
     reduce = None
 
     # Get a list of BATSRUS and RIM files, info parameters define location 

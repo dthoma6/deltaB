@@ -11,6 +11,7 @@ import numpy as np
 import swmfio
 import pandas as pd
 from datetime import datetime
+from spacepy.pybats.rim import Iono
 from scipy.interpolate import NearestNDInterpolator
 import os.path
 
@@ -74,17 +75,47 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
     dPhi   = 2.*np.pi / nPhi
     dR     = (rCurrents - rIonosphere) / nR
     
-    # Read RIM file
-    # swmfio.logger.setLevel(logging.INFO)
-    data_arr, var_dict, units = swmfio.read_rim(filepath)
-    assert(data_arr.shape[0] != 0)
+    base_ext = os.path.splitext( filepath )
+    if base_ext[1] == '.idl':
+        # If its an idl file, use spacepy Iono to read
+        ionodata = Iono( filepath )
 
-    # Setup interpolator for finding jr at point theta, phi on 2D surface from 
-    # RIM file.  NOTE, must transform input data from degrees to radians
-    theta_array = data_arr[var_dict['Theta']][:] * np.pi/180
-    phi_array = data_arr[var_dict['Psi']][:] * np.pi/180
-    jr_array = data_arr[var_dict['JR']][:]
-    jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
+        # Make sure arrays have same dimensions
+        assert ionodata['n_theta'].shape == ionodata['n_psi'].shape
+        assert ionodata['n_theta'].shape == ionodata['n_jr'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_psi'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_jr'].shape
+
+        # Get north and south hemisphere data  
+        # Note, psi is the angle phi
+        n_theta = ionodata['n_theta'].reshape( -1 ) 
+        n_psi   = ionodata['n_psi'].reshape( -1 ) 
+        n_jr    = ionodata['n_jr'].reshape( -1 ) 
+        s_theta = ionodata['s_theta'].reshape( -1 )
+        s_psi   = ionodata['s_psi'].reshape( -1 )
+        s_jr    = ionodata['s_jr'].reshape( -1 )
+
+        # Combine north and south hemisphere data and setup interpolator for 
+        # finding jr at point theta, phi on 2D surface from IDL file.  NOTE, 
+        # must transform input data from degrees to radians.
+        # Note: theta is 0 -> pi
+        theta_array = np.concatenate( [n_theta, s_theta], axis = 0 ) * np.pi/180
+        phi_array = np.concatenate( [n_psi, s_psi], axis = 0 ) * np.pi/180
+        jr_array = np.concatenate( [n_jr, s_jr], axis = 0 )
+        jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
+       
+    else:
+        # Read RIM file
+        # swmfio.logger.setLevel(logging.INFO)
+        data_arr, var_dict, units = swmfio.read_rim(filepath)
+        assert(data_arr.shape[0] != 0)
+    
+        # Setup interpolator for finding jr at point theta, phi on 2D surface from 
+        # RIM file.  NOTE, must transform input data from degrees to radians
+        theta_array = data_arr[var_dict['Theta']][:] * np.pi/180
+        phi_array = data_arr[var_dict['Psi']][:] * np.pi/180
+        jr_array = data_arr[var_dict['JR']][:]
+        jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
 
     # Start the loops for the Biot-Savart numerical integration. We use three 
     # loops - theta, phi and r.  theta and phi cover the inner boundary
@@ -313,8 +344,8 @@ def loop_gap_b(info, point, reduce, nTheta, nPhi, nR):
 
     # Get a list of RIM files, if reduce is True we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
-    from magnetopost import util as util
-    util.setup(info)
+    # from magnetopost import util as util
+    # util.setup(info)
     
     times = list(info['files']['ionosphere'].keys())
     if reduce != None:

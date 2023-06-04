@@ -448,7 +448,7 @@ class pointcloud():
 
         logging.info('Converting point cloud data to VTK') 
  
-        # Make sure that we have field lines to convert
+        # Make sure that we have data to convert
         if( not isinstance( self.df, pd.DataFrame ) ):
             logging.info('Point cloud dataframe must be specified')
             return -1

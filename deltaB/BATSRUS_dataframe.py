@@ -406,4 +406,36 @@ def create_jrtp_cdf_dataframes(df):
 
     return df_jr, df_jtheta, df_jphi
 
+def create_jpp_cdf_dataframes(df):
+    """Use the dataframe with BATSRUS dataframe to develop jparallel and
+    jperpendicular cummulative distribution functions (CDFs).
+
+    Inputs:
+        df = dataframe with BATSRUS and other calculated quantities
+        
+    Outputs:
+        cdf_jparallel, cdf_jperpendicular = jparallel, jperpendicular CDFs.
+    """
+
+    logging.info('Creating CDF dataframe...')
+    
+    # Verify that we have something that looks like a BATSRUS dataframe
+    # with needed data
+    assert 'jr' in df.columns 
+
+    # Sort the j components (jr, jtheta, jphi) in order of value.  If each entry 
+    # in the dataframe is equally likely, the arange is the CDF.
+
+    df_jparallel = deepcopy(df)
+    df_jperpendicular = deepcopy(df)
+    
+    df_jparallel = df_jparallel.sort_values(by='jparallelMag', ascending=True)
+    df_jparallel['cdf'] = np.arange(1, len(df_jparallel)+1)/float(len(df_jparallel))
+
+    df_jperpendicular = df_jperpendicular.sort_values(by='jperpendicularMag', ascending=True)
+    df_jperpendicular['cdf'] = np.arange(1, len(df_jperpendicular)+1)/float(len(df_jperpendicular))
+
+    return df_jparallel, df_jperpendicular
+
+
 

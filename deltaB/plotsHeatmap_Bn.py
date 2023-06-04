@@ -204,6 +204,9 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         noonsm.ticks = Ticktock([timeISO], 'ISO')
         noongeo = noonsm.convert('GEO', 'sph')
         noonlatlong = noongeo.data[0]
+        
+        # Determine where Colaba is
+        colabalatlong = [18.907, 72.815]
 
         # Create the heatmaps
     
@@ -222,11 +225,16 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         # the column and row numbers of the heatmap.  So prorate the lat long
         # accordingly. x axis is 0 to nlong, y axis is 0 to nlat
 
+        noonxy = [6, nlat - (noonlatlong[1] + 90)*nlat/180]
+        colabaxy = [(6 + (colabalatlong[1]-noonlatlong[2])*nlong/360)%nlong, \
+                    nlat - (colabalatlong[0] + 90)*nlat/180]
+
         fig = plt.gcf()
         df1 = df.pivot(index='Latitude', columns='Time', values='Total' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -243,7 +251,8 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         df1 = df.pivot('Latitude', 'Time', 'Parallel' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -259,7 +268,8 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         df1 = df.pivot('Latitude', 'Time', r'Perpendicular' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -275,7 +285,8 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         df1 = df.pivot('Latitude', 'Time', r'Perpendicular $\phi$' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -291,7 +302,8 @@ def plot_heatmap_ms( info, times, vmin, vmax, nlat, nlong ):
         df1 = df.pivot('Latitude', 'Time', r'Perpendicular Residual' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -398,7 +410,7 @@ def loop_heatmap_iono(info, times, nlat, nlong):
                 # Get the B field at the point X and timeiso using the RIM data
                 # results are in SM coordinates
                 Bnp[k], Bep[k], Bdp[k], Bxp[k], Byp[k], Bzp[k], Bnh[k], Beh[k], Bdh[k], Bxh[k], Byh[k], Bzh[k] = \
-                    calc_iono_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'], 30, 30, 30)
+                    calc_iono_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'])
     
         # Determine the fraction of the B field due to various currents - those
         # parallell to the B field, perpendicular to B field and in the phi-hat
@@ -470,6 +482,9 @@ def plot_heatmap_iono( info, times, vmin, vmax, nlat, nlong ):
         noongeo = noonsm.convert('GEO', 'sph')
         noonlatlong = noongeo.data[0]
 
+        # Determine where Colaba is
+        colabalatlong = [18.907, 72.815]
+
         # Create the heatmaps
     
         # Earth rotates CCW viewed from above North Pole.  Dawn happens on west 
@@ -479,11 +494,16 @@ def plot_heatmap_iono( info, times, vmin, vmax, nlat, nlong ):
         # set_xticks has a trick.  The ticks are numbered by the columns in the
         # pivot table, not by the values of the xaxis.
         
+        noonxy = [6, nlat - (noonlatlong[1] + 90)*nlat/180]
+        colabaxy = [(6 + (colabalatlong[1]-noonlatlong[2])*nlong/360)%nlong, \
+                    nlat - (colabalatlong[0] + 90)*nlat/180]
+
         fig = plt.gcf()
         df1 = df.pivot(index='Latitude', columns='Time', values='Total Pedersen' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -500,7 +520,8 @@ def plot_heatmap_iono( info, times, vmin, vmax, nlat, nlong ):
         df1 = df.pivot(index='Latitude', columns='Time', values='Total Hall' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')
@@ -670,6 +691,9 @@ def plot_heatmap_gap( info, times, vmin, vmax, nlat, nlong ):
         noongeo = noonsm.convert('GEO', 'sph')
         noonlatlong = noongeo.data[0]
 
+        # Determine where Colaba is
+        colabalatlong = [18.907, 72.815]
+
         # Create the heatmaps
     
         # Earth rotates CCW viewed from above North Pole.  Dawn happens on west 
@@ -683,11 +707,16 @@ def plot_heatmap_gap( info, times, vmin, vmax, nlat, nlong ):
         # the column and row numbers of the heatmap.  So prorate the lat long
         # accordingly. x axis is 0 to nlong, y axis is 0 to nlat
 
+        noonxy = [6, nlat - (noonlatlong[1] + 90)*nlat/180]
+        colabaxy = [(6 + (colabalatlong[1]-noonlatlong[2])*nlong/360)%nlong, \
+                    nlat - (colabalatlong[0] + 90)*nlat/180]
+
         fig = plt.gcf()
         df1 = df.pivot(index='Latitude', columns='Time', values='Total' )
         df1 = df1.sort_values('Latitude',ascending=False)
         ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( 6, (noonlatlong[1] + 90)*nlat/180, marker='o', color='black' )
+        plt.scatter( noonxy[0], noonxy[1], marker='o', color='black' )
+        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         ax.set_xticks([0,3,6,9,12])
         ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Local Time')

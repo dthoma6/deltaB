@@ -182,8 +182,8 @@ def loop_ms_b(info, point, reduce):
 
     # Get a list of BATSRUS files, if reduce is True we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
-    from magnetopost import util as util
-    util.setup(info)
+    # from magnetopost import util as util
+    # util.setup(info)
     
     times = list(info['files']['magnetosphere'].keys())
     if reduce != None:

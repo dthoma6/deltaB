@@ -367,7 +367,7 @@ def loop_gap_b(info, point, reduce, nTheta, nPhi, nR):
     from spacepy.time import Ticktock
 
     pointX = defined_magnetometers[point]
-    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype)
+    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
     
     # Loop through each BATSRUS file, storing the results along the way
     for i in range(n):

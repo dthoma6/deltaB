@@ -12,24 +12,33 @@ import pandas as pd
 import numpy as np
 import os.path
 
-def convert_BATSRUS_to_dataframe(file, rCurrents):
+def convert_BATSRUS_to_dataframe(file, rCurrents, region=None):
     """Process data in BATSRUS file to create dataframe.  
     
     Inputs:
-        file = path to BATSRUS file
+        file = path to BATSRUS file or BATSRUS data from swmfio
         
         rCurrents = range from earth center below which results are not valid
             measured in Re units.  We drop the data inside radius rCurrents
+            
+        region = if specified, region in which each BATSRUS grid point lies, 
+            see deltaB_by_region for region definitions. region is a numpy array
+            of length df['x'].  i.e., has same number of points as the BATSRUS 
+            grid.  Otherwise, region must be None
+            
     Outputs:
         df = dataframe containing data from BATSRUS file plus additional calculated
             parameters
     """
 
-    logging.info(f'Parsing BATSRUS file... {os.path.basename(file)}')
-
     # Read BATSRUS file
-    # swmfio.logger.setLevel(logging.INFO)
-    batsrus = swmfio.read_batsrus(file)
+    if isinstance(file, str):
+        batsrus = swmfio.read_batsrus(file)
+        logging.info(f'Parsing BATSRUS file... {os.path.basename(file)}')
+    else:
+        batsrus = file
+        logging.info(f'Parsing BATSRUS file... {os.path.basename(file.file)}')
+
     assert(batsrus != None)
 
     # Extract data from BATSRUS
@@ -62,8 +71,14 @@ def convert_BATSRUS_to_dataframe(file, rCurrents):
     df['uMag'] = np.sqrt(df['ux']**2 + df['uy']**2 + df['uz']**2)
     df['r0'] = np.sqrt((df['x'])**2+(df['y'])**2+(df['z'])**2)
 
+    if isinstance(region, np.ndarray):
+        assert( len(df['x']) == len(region))
+        df['region'] = region
+    else:
+        assert region is None
+        
     # We ignore everything inside of rCurrents
-    df.drop(df[df['r0'] < rCurrents].index)
+    df = df.drop(df[df['r0'] < rCurrents].index)
     
     return df
 

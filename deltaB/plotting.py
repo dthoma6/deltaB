@@ -459,7 +459,7 @@ class pointcloud():
         # Convert xyz points to VTK format
         vtk_points = vtkPoints()
         vtk_cellarray = vtkCellArray()
-         
+        
         vtk_points.SetNumberOfPoints(n)
         for i in range(n):
             vtk_points.SetPoint(i, (self.df[self.xyz[0]]).iloc[i], 
@@ -553,6 +553,269 @@ class pointcloud():
         from vtkmodules.vtkCommonColor import vtkNamedColors
        
         logging.info('Displaying point cloud VTK data') 
+
+        if( self.vtk_polydata == None ):
+            logging.info('Before displaying data, use create_to_vtk to create VTK data')
+            return -1
+        
+        # See example code at:
+        # https://kitware.github.io/vtk-examples/site/Python/GeometricObjects/CylinderExample/
+        
+        # The mapper is responsible for pushing the geometry into the graphics
+        # library. It may also do color mapping, if scalars or other
+        # attributes are defined.
+        polydataMapper = vtkPolyDataMapper()
+        polydataMapper.SetInputData(self.vtk_polydata)
+
+        # The actor is a grouping mechanism: besides the geometry (mapper), it
+        # also has a property, transformation matrix, and/or texture map.
+        # Here we set its color and rotate it.
+        polydataActor = vtkActor()
+        polydataActor.SetMapper(polydataMapper)
+        colors = vtkNamedColors()
+        polydataActor.GetProperty().SetColor(colors.GetColor3d("Tomato"))
+        polydataActor.RotateX(-90.0)
+        # polydataActor.RotateY(-45.0)
+
+        # Create the graphics structure. The renderer renders into the render
+        # window. The render window interactor captures mouse events and will
+        # perform appropriate camera or actor manipulation depending on the
+        # nature of the events.
+        ren = vtkRenderer()
+        renWin = vtkRenderWindow()
+        renWin.AddRenderer(ren)
+        iren = vtkRenderWindowInteractor()
+        iren.SetRenderWindow(renWin)
+
+        # Add the actors to the renderer, set the background and size
+        ren.AddActor(polydataActor)
+        ren.SetBackground(colors.GetColor3d("BkgColor"))
+        renWin.SetSize(1000, 1000)
+        renWin.SetWindowName('VTK Field Lines')
+
+        if( earth ):
+            # Add earth to image
+            # Start with earth source
+            earthSource = vtkEarthSource()
+            earthSource.OutlineOn()
+            earthSource.Update()
+            earthSource.SetRadius(1.0)
+            
+            # Create a sphere to map the earth onto
+            sphere = vtkSphereSource()
+            sphere.SetThetaResolution(100)
+            sphere.SetPhiResolution(100)
+            sphere.SetRadius(earthSource.GetRadius())
+            
+            # Create mappers and actors
+            earthMapper = vtkPolyDataMapper()
+            earthMapper.SetInputConnection(earthSource.GetOutputPort())
+            
+            earthActor = vtkActor()
+            earthActor.SetMapper(earthMapper)
+            earthActor.GetProperty().SetColor(colors.GetColor3d('Black'))
+            earthActor.RotateX(-90.0)
+            # earthActor.RotateY(45.0)
+            earthActor.RotateZ(240.0)
+            
+            sphereMapper = vtkPolyDataMapper()
+            sphereMapper.SetInputConnection(sphere.GetOutputPort())
+            
+            sphereActor = vtkActor()
+            sphereActor.SetMapper(sphereMapper)
+            sphereActor.GetProperty().SetColor(colors.GetColor3d('DeepSkyBlue'))
+            
+            # Add the actors to the scene
+            ren.AddActor(earthActor)
+            ren.AddActor(sphereActor)
+
+        # This allows the interactor to initalize itself. It has to be
+        # called before an event loop.
+        iren.Initialize()
+
+        # We'll zoom out a little by accessing the camera and invoking a "Zoom"
+        # method on it.
+        ren.ResetCamera()
+        ren.GetActiveCamera().Zoom(0.9)
+        renWin.Render()
+
+        # Start the event loop.
+        iren.Start()
+
+        return 0
+
+class sqwireframe():
+    """Class to convert mesh grid to VTK format and to provide options to save
+    and display VTK mesh grid
+    """
+    def __init__(self, df, xyz, colorvars, dim):
+        
+
+        """Initialize sqwireframe class
+            
+        Inputs:
+            df = dataframe containing data to be converted
+            
+            xyz = list of strings specifiying the dataframe column headings for the
+                x,y,z point coordinates
+                
+            colorvars = list of strings specifying the dataframe column headings
+                for variables that can be used to color the point cloud
+            
+            dim = dimension of grid, grid has dim x dim elements.  
+                
+        Outputs:
+            None
+        """
+        logging.info('Initializing sqwireframe class') 
+
+        # Check inputs
+        assert( isinstance( df, pd.DataFrame ) )
+        assert( isinstance( xyz, list ) )
+        assert( isinstance( colorvars, list) )
+        
+        # Store instance data
+        self.df = df
+        self.xyz = xyz
+        self.colorvars = colorvars
+                        
+        # Initialize storage for grid in VTK polydata
+        self.vtk_polydata = None
+        
+        # Make sure mesh is square
+        self.dim = dim
+        assert len(df) == dim*dim
+        return
+    
+    def convert_to_vtk(self):
+        """Convert mesh to VTK format.
+         
+        Inputs:
+            None
+             
+        Outputs:
+            Returns -1 on err, 0 on success
+        """
+        from vtk import vtkPoints, vtkCellArray, vtkPolyData, vtkQuad, vtkPolyLine
+
+        logging.info('Converting mesh data to VTK') 
+ 
+        # Make sure that we have data to convert
+        if( not isinstance( self.df, pd.DataFrame ) ):
+            logging.info('Mesh grid dataframe must be specified')
+            return -1
+       
+        # We need to loop through all n points
+        n = len(self.df)
+        
+        # Convert xyz points to VTK format
+        vtk_points = vtkPoints()
+        vtk_cellarray = vtkCellArray()
+        vtk_quads = [None] * (self.dim)**2
+          
+        vtk_points.SetNumberOfPoints(n)
+        for i in range(n):
+            vtk_points.SetPoint(i, (self.df[self.xyz[0]]).iloc[i], 
+                                (self.df[self.xyz[1]]).iloc[i], 
+                                (self.df[self.xyz[2]]).iloc[i] )
+            vtk_cellarray.InsertNextCell(1)
+            vtk_cellarray.InsertCellPoint(i)
+
+        # Add grid structure in VTK format
+        for m in range(self.dim-1):
+            for l in range(self.dim-1):
+                vtk_quads[m*self.dim+l] = vtkQuad()     
+                vtk_quads[m*self.dim+l].GetPointIds().SetId(0, m*self.dim+l)     
+                vtk_quads[m*self.dim+l].GetPointIds().SetId(1, (m+1)*self.dim+l)     
+                vtk_quads[m*self.dim+l].GetPointIds().SetId(2, (m+1)*self.dim+l+1)     
+                vtk_quads[m*self.dim+l].GetPointIds().SetId(3, m*self.dim+l+1)
+                vtk_cellarray.InsertNextCell(vtk_quads[m*self.dim+l])
+            
+        # Put points and grid into polydata
+        if( self.vtk_polydata != None ): 
+            del self.vtk_polydata
+        self.vtk_polydata = vtkPolyData()
+        self.vtk_polydata.SetPoints(vtk_points)
+        self.vtk_polydata.SetPolys(vtk_cellarray)
+ 
+        # Add color variables to polydata        
+        for j in self.colorvars :
+            color_array = ns.numpy_to_vtk( self.df[ j ].to_numpy() )
+            color_array.SetName( j )
+            self.vtk_polydata.GetPointData().AddArray( color_array )
+
+        self.vtk_polydata.Modified()
+
+        return 0
+    
+
+    def write_vtk_to_file(self, target, base, suffix):
+        """Write field line data to VTK file.
+         
+        Inputs:
+            target = main folder that will contain subdirectory with plots
+            
+            base = basename of file used to create file name for plot.  
+                base is derived from name of file with BATSRUS data.
+            
+            suffix = suffix is used to generate file names and subdirectory.
+                Plots are saved in target + suffix directory, target is the 
+                overarching directory for all plots.  It contains subdirectories
+                (suffix) where different types of plots are saved
+             
+        Outputs:
+            Returns -1 on err, 0 on success
+        """
+        from vtk import vtkPolyDataWriter
+        import os
+       
+        logging.info('Writing wireframe VTK data to file') 
+        logging.info(f'Saving {base} {suffix} VTK data')
+
+        # Store the charts in a file.
+        create_directory(target, suffix +'/')
+        # filename = target + suffix + '/' + base + '.out.' + suffix + '.vtk'
+        name = base + '.' + suffix + '.vtk'
+        filename = os.path.join( target, suffix, name )
+
+        if( self.vtk_polydata == None ):
+            logging.info('Before saving data, use create_to_vtk to create VTK data')
+            return -1
+        
+        if( filename == None ):
+            logging.info('Valid filename to store vtk_polydata must be provided')
+            return -1
+        
+        if( not filename.endswith('.vtk') ):
+           logging.info('Filename ending in .vtk expected')
+           return -1
+        
+        path = os.path.dirname(filename)
+        if( not os.path.isdir(path) ):  
+            logging.info('Filename must contain a path to a valid directory')
+            return -1
+        
+        # Everything looks OK, so write data to file
+        writer = vtkPolyDataWriter()
+        writer.SetInputData(self.vtk_polydata)
+        writer.SetFileName(filename)
+        writer.Write()
+        return 0
+
+    def display_vtk(self, earth = True):
+        """Display VTK field lines.
+         
+        Inputs:
+            None
+             
+        Outputs:
+            Returns -1 on err, 0 on success
+        """
+        from vtk import vtkPolyDataMapper, vtkActor, vtkRenderer, vtkRenderWindow, \
+            vtkRenderWindowInteractor, vtkEarthSource, vtkSphereSource
+        from vtkmodules.vtkCommonColor import vtkNamedColors
+       
+        logging.info('Displaying wireframe VTK data') 
 
         if( self.vtk_polydata == None ):
             logging.info('Before displaying data, use create_to_vtk to create VTK data')

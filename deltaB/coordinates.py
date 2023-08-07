@@ -197,7 +197,7 @@ def transform(v, time, csys_in, csys_out, ctype_in='car', ctype_out='car', lib='
         if v.shape[0] == 1 and time.shape[0] > 1:
             v = numpy.matlib.repmat(v, time.shape[0], 1)
 
-        cvals = sc.Coords(v, csys_in, ctype_in)
+        cvals = sc.Coords(v, csys_in, ctype_in, use_irbem=False)
 
         if len(time.shape) == 1:
             # SpacePy requires time values to be strings with second precision

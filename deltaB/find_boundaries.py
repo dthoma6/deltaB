@@ -13,7 +13,7 @@ velocity.  The magnetopause is when magnetic pressure (B^2//2/mu0) equals the
 dynamic pressure (rho u^2).  (Note, this dynamic pressure is also known as 
 momentum flux or the ram pressure, and is different from the dynamic 
 pressure = 1/2 rho u^2).  The neutral sheet is at the center of the plasmasheet 
-in the tail of the magnetosphere.
+in the tail of the magnetosphere, where the magnetic field (Bx) switches directions.
 """ 
 
 import os.path
@@ -24,8 +24,9 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from scipy.interpolate import LinearNDInterpolator
 
-from deltaB import create_directory, pointcloud
+from deltaB import create_directory, sqwireframe, pointcloud
 
 # Physical constant mu0
 MU0 = 1.25663706212*10**-6
@@ -37,6 +38,9 @@ GAMMA = 5/3
 # In dynamic (ram) pressure equation, represents efficiency coefficient
 # KAPPA = 1 is specular reflection.
 KAPPA = 1
+
+# Fit Shue eqn to smooth normals or use numeric gradient of fit to find normals
+USE_SHUE = True
 
 logging.basicConfig(
     format='%(filename)s:%(funcName)s(): %(message)s',
@@ -60,13 +64,76 @@ logging.basicConfig(
 #         "dir_magnetosphere": os.path.join(data_dir, "Bob_Weigel_031023_1/GM_CDF")
 # }    
 
-def create_2Dplots(info, df, yGSM, zGSM, xmin, xmax, mpline, bsline, dtime, normalmp, normalbs):
+def create_2Dplots_ms(info, df, yGSM, zGSM, xmin, xmax, mpline, dtime, normal):
     """2D plots of parameters that change at boundaries, including solar wind
     velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
-    are used to confirm that bow shock and magnetopause were located. The bow
-    shock (bsline) and magnetopause (mpline) are plotted on the graphs.  The bow 
-    shock should occur when the solar wind speed perpendicular (u_perp)to the bow shock
-    boundary goes below the magnetosonic speed (Cmbs
+    are used to confirm that the magnetopause is properly located. The magnetopause 
+    (mpline) are plotted on the graphs.  
+    
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+        
+       df = dataframe with data to be plotted
+       
+       yGSM, zGSM = x and y offset for line on which magnetopause locations are 
+           found.  That is, we walk along (x, yGSM, zGSM), changing x to find 
+           the magnetopause. (GSM)
+       
+       xmin, xmax = limits of x-axis (GSM)
+       
+       mpline = x axis coordinate of boundary (magnetosphere) (GSM)
+       
+       dtime = datetime of associated BATSRUS file
+       
+       normal = normal to magnetopause at the point that the line ( x[i], y, z ) 
+           hits the magnetopause.  np.array of three numbers (GSM)
+    
+     Outputs:
+        None = other than plots generated
+    """
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
+    
+    # Get angles from x axis to normals to include in titles
+    ang = np.rad2deg( np.arccos( np.dot( normal, np.array([1,0,0]) )))
+    
+    # Create subplots to support multiple graphs on a page
+    fig, axs = plt.subplots(6, sharex=True, figsize=(8,10))
+    
+    # Create plots for magnetopause
+    df.plot(y=[r'$p_{tot}$', r'$p_{mag}$'], use_index=True, \
+                ylabel = 'Pressure $(nPa)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax],
+                title = 'Magnetopause ' + info['run_name'] + ' ' + str(dtime) + ' [x,' + str(yGSM) +',' 
+                    + str(zGSM) + '] ' + "{:.2f}".format(mpline) + r' $R_e$ ' + "{:.2f}".format(ang) 
+                    + r'$^{\circ}$', ax=axs[0])
+    df.plot(y=[r'$u_x$', r'$u_y$', r'$u_z$'], use_index=True, \
+                ylabel = 'Velocity $(km/s)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[1])
+    df.plot(y=[r'$|B|$'], use_index=True, \
+                ylabel = 'B Field $(nT)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[2])
+    df.plot(y=[r'$B_x$', r'$B_y$', r'$B_z$'], use_index=True, \
+                ylabel = 'B Field $(nT)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[3])
+    df.plot(y=[r'$p$'], use_index=True, \
+                ylabel = 'Pressure $(nPa)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[4])
+    df.plot(y=[r'$\rho$'], use_index=True, \
+                ylabel = 'Density $(amu/cc)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[5])
+    axs[0].axvline(x = mpline, c='black', ls=':')
+    axs[1].axvline(x = mpline, c='black', ls=':')
+    axs[2].axvline(x = mpline, c='black', ls=':')
+    axs[3].axvline(x = mpline, c='black', ls=':')
+    axs[4].axvline(x = mpline, c='black', ls=':')
+    axs[5].axvline(x = mpline, c='black', ls=':')
+    pltname = 'ms-pp-' + str(dtime) + '-[x,' + str(yGSM) +',' + str(zGSM) + ']' + str([xmin, xmax]) + '.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
+    
+    plt.close('all')
+    return
+
+def create_2Dplots_bs(info, df, yGSM, zGSM, xmin, xmax, bsline, dtime, normal, iteration):
+    """2D plots of parameters that change at boundaries, including solar wind
+    velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
+    are used to confirm that the bow shock is located. The bow shock (bsline) 
+    is plotted on the graphs.  The bow shock should occur when the solar wind 
+    speed perpendicular (u_perp) to the bow shock boundary goes below the 
+    magnetosonic speed (Cms)
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -79,25 +146,23 @@ def create_2Dplots(info, df, yGSM, zGSM, xmin, xmax, mpline, bsline, dtime, norm
        
        xmin, xmax = limits of x-axis (GSM)
        
-       mpline, bsline = x axis coordinate of boundary (bow shock or magnetosphere, 
-           as appropriate) (GSM)
+       bsline = x axis coordinate of boundary (bow shock) (GSM)
        
        dtime = datetime of associated BATSRUS file
        
        normalmp = normal to magnetopause at the point that the line ( x[i], y, z ) 
            hits the magnetopause.  np.array of three numbers (GSM)
         
-       normalbs = normal to bow shock at the point that the line ( x[i], y, z ) 
+       normal = normal to bow shock at the point that the line ( x[i], y, z ) 
             hits the bow shock.  np.array of three numbers (GSM)
 
     Outputs:
         None = other than plots generated
     """
-    create_directory(info['dir_plots'], 'mp_bs/')
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
     
     # Get angles from x axis to normals to include in titles
-    angmp = np.rad2deg( np.arccos( np.dot( normalmp, np.array([1,0,0]) )))
-    angbs = np.rad2deg( np.arccos( np.dot( normalbs, np.array([1,0,0]) )))
+    ang = np.rad2deg( np.arccos( np.dot( normal, np.array([1,0,0]) )))
     
     # Create subplots to support multiple graphs on a page
     fig, axs = plt.subplots(6, sharex=True, figsize=(8,10))
@@ -106,134 +171,235 @@ def create_2Dplots(info, df, yGSM, zGSM, xmin, xmax, mpline, bsline, dtime, norm
     df.plot(y=[r'$u_{bs\perp}$', r'$c_{MS}$'], use_index=True, \
                 ylabel = 'Speed $(km/s)$', xlabel = r'$x_{GSM}$ $(R_E)$', xlim = [xmin, xmax],
                 title = 'Bow Shock ' + info['run_name'] + ' ' + str(dtime) + ' [x,' + str(yGSM) +',' + str(zGSM) + '] ' 
-                    + "{:.2f}".format(bsline) + r' $R_e$ ' + "{:.2f}".format(angbs) + r'$^{\circ}$', ax=axs[0])
+                    + "{:.2f}".format(bsline) + r' $R_e$ ' + "{:.2f}".format(ang) + r'$^{\circ}$' + 'Iter: ' + str(iteration),\
+                    ax=axs[0])
     df.plot(y=[r'$u_x$', r'$u_y$', r'$u_z$'], use_index=True, \
-                ylabel = 'Velocity $(km/s)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[1])
+                ylabel = 'Velocity $(km/s)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[1])
     df.plot(y=[r'$|B|$'], use_index=True, \
-                ylabel = 'B Field $(nT)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[2])
+                ylabel = 'B Field $(nT)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[2])
     df.plot(y=[r'$B_x$', r'$B_y$', r'$B_z$'], use_index=True, \
-                ylabel = 'B Field $(nT)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[3])
+                ylabel = 'B Field $(nT)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[3])
     df.plot(y=[r'$p$'], use_index=True, \
-                ylabel = 'Pressure $(nPa)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[4])
+                ylabel = 'Pressure $(nPa)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[4])
     df.plot(y=[r'$\rho$'], use_index=True, \
-                ylabel = 'Density $(amu/cc)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[5])
+                ylabel = 'Density $(amu/cc)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax], ax=axs[5])
     axs[0].axvline(x = bsline, c='black', ls=':')
     axs[1].axvline(x = bsline, c='black', ls=':')
     axs[2].axvline(x = bsline, c='black', ls=':')
     axs[3].axvline(x = bsline, c='black', ls=':')
     axs[4].axvline(x = bsline, c='black', ls=':')
     axs[5].axvline(x = bsline, c='black', ls=':')
-    pltname = 'ms-u-' + str(dtime) + '-[x,' + str(yGSM) + ','  + str(zGSM) + ']'+ str([xmin, xmax]) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
-        
-    fig, axs = plt.subplots(6, sharex=True, figsize=(8,10))
-
-    # Create plots for magnetopause
-    df.plot(y=[r'$p_{tot}$', r'$p_{mag}$'], use_index=True, \
-                ylabel = 'Pressure $(nPa)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax],
-                title = 'Magnetopause ' + info['run_name'] + ' ' + str(dtime) + ' [x,' + str(yGSM) +',' + str(zGSM) + '] '\
-                    + "{:.2f}".format(mpline) + r' $R_e$ ' + "{:.2f}".format(angmp) + r'$^{\circ}$', ax=axs[0])
-    df.plot(y=[r'$u_x$', r'$u_y$', r'$u_z$'], use_index=True, \
-                ylabel = 'Velocity $(km/s)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[1])
-    df.plot(y=[r'$|B|$'], use_index=True, \
-                ylabel = 'B Field $(nT)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[2])
-    df.plot(y=[r'$B_x$', r'$B_y$', r'$B_z$'], use_index=True, \
-                ylabel = 'B Field $(nT)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[3])
-    df.plot(y=[r'$p$'], use_index=True, \
-                ylabel = 'Pressure $(nPa)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[4])
-    df.plot(y=[r'$\rho$'], use_index=True, \
-                ylabel = 'Density $(amu/cc)$', xlabel = 'x_{GSM} (Re)', xlim = [xmin, xmax], ax=axs[5])
-    axs[0].axvline(x = mpline, c='black', ls=':')
-    axs[1].axvline(x = mpline, c='black', ls=':')
-    axs[2].axvline(x = mpline, c='black', ls=':')
-    axs[3].axvline(x = mpline, c='black', ls=':')
-    axs[4].axvline(x = mpline, c='black', ls=':')
-    axs[5].axvline(x = mpline, c='black', ls=':')
-    pltname = 'ms-pp-' + str(dtime) + '-[x,' + str(yGSM) +',' + str(zGSM) + ']' + str([xmin, xmax]) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
-    
+    pltname = 'ms-u-' + str(dtime) + '-[x,' + str(yGSM) + ','  + str(zGSM) + ']'+ str([xmin, xmax]) \
+        + 'Iter-' + str(iteration) + '.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
+            
     plt.close('all')
     return
 
-def create_wireframe_plots(info, num_yz_pts, xmeshmp, xmeshbs, ymesh, zmesh, dtime, angmp, angbs):
-    """ Wireframe plots of magnetopause and bow shock.  Illustrate the 3D boundaries
+def create_2Dplots_ns(info, df, xGSM, yGSM, zmin, zmax, nsline, dtime):
+    """2D plots of parameters that change at boundaries, including solar wind
+    velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
+    are used to confirm that neutral sheet is located. The neutral sheet (nsline) 
+    is plotted on the graphs.  The neutral sheet should occur when the magnetic
+    field switches directions, i.e., Bx = 0
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
+        
+       df = dataframe with data to be plotted
        
-       num_yz_pts = number of points in mesh grid = num_yz_pts x num_yz_pts x num_yz_pts
+       xGSM, yGSM = x and y offset for line on which neutral sheet locations 
+           are found.  That is, we walk along (xGSM, yGSM, z), changing
+           z to find the neutral sheet. (GSM)
        
-       xmeshmp, xmeshbs = x coordinates of wireframe for magnetopause and bow shock
-           respectively (GSM)
+       zmin, zmax = limits of z-axis (GSM)
        
-       ymesh, zmesh = y and z coordinates of wireframe, the same for magnetopause
-           and bow shock (GSM)
-              
-       dtime = datetime of BATSRUS file, used in titles and filenames
+       nsline = z axis coordinate of boundary (neutral sheet) (GSM)
        
-       angmp, angbs = angle (deg) between the x axis and the normal to magnetopause 
-           (or bow shock) (GSM)
+       dtime = datetime of associated BATSRUS file
        
     Outputs:
         None = other than plots generated
     """
-    create_directory(info['dir_plots'], 'mp_bs/')
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
+    
+    # Create subplots to support multiple graphs on a page
+    fig, axs = plt.subplots(6, sharex=True, figsize=(8,10))
+    
+    # Create plots for bow shock
+    df.plot(y=[r'$B_x$'], use_index=True, \
+                ylabel = '$B_x (nT)$', xlabel = r'$z_{GSM}$ $(R_E)$', xlim = [zmin, zmax],
+                title = 'Neutral Sheet ' + info['run_name'] + ' ' + str(dtime) + ' [' + str(xGSM)+ ',' + str(yGSM) +',z] ' 
+                    + "{:.2f}".format(nsline) + r' $R_e$ ', ax=axs[0])
+    df.plot(y=[r'$u_x$', r'$u_y$', r'$u_z$'], use_index=True, \
+                ylabel = 'Velocity $(km/s)$', xlabel = 'z_{GSM} (Re)', xlim = [zmin, zmax], ax=axs[1])
+    df.plot(y=[r'$|B|$'], use_index=True, \
+                ylabel = 'B Field $(nT)$', xlabel = 'z_{GSM} (Re)', xlim = [zmin, zmax], ax=axs[2])
+    df.plot(y=[r'$B_x$', r'$B_y$', r'$B_z$'], use_index=True, \
+                ylabel = 'B Field $(nT)$', xlabel = 'z_{GSM} (Re)', xlim = [zmin, zmax], ax=axs[3])
+    df.plot(y=[r'$p$'], use_index=True, \
+                ylabel = 'Pressure $(nPa)$', xlabel = 'z_{GSM} (Re)', xlim = [zmin, zmax], ax=axs[4])
+    df.plot(y=[r'$\rho$'], use_index=True, \
+                ylabel = 'Density $(amu/cc)$', xlabel = 'z_{GSM} (Re)', xlim = [zmin, zmax], ax=axs[5])
+    axs[0].axvline(x = nsline, c='black', ls=':')
+    axs[1].axvline(x = nsline, c='black', ls=':')
+    axs[2].axvline(x = nsline, c='black', ls=':')
+    axs[3].axvline(x = nsline, c='black', ls=':')
+    axs[4].axvline(x = nsline, c='black', ls=':')
+    axs[5].axvline(x = nsline, c='black', ls=':')
+    pltname = 'ms-bx-' + str(dtime) + '-[' + str(xGSM) + ',' + str(yGSM) + ',z]'+ str([zmin, zmax]) + '.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
+            
+    plt.close('all')
+    return
+
+
+def create_wireframe_plots_mp(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang):
+    """ Wireframe plots of magnetopause.  Illustrates the 3D boundary
+    
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+
+       basename = basename of file that was processed
+       
+       max_yz = grid ranges from -max_yz to +max_yz along y axis and along z axis (GSM)
+
+       num_yz_pts = number of points in mesh grid = num_yz_pts x num_yz_pts x num_yz_pts
+       
+       xmesh, ymesh, zmesh = x,y,z coordinates of wireframe of magnetopause (GSM)
+              
+       dtime = datetime of BATSRUS file, used in titles and filenames
+       
+       ang = angle (deg) between the x axis and the normal to magnetopause (GSM)
+       
+    Outputs:
+        None = other than plots generated
+    """
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
 
     ymesh2 = ymesh.reshape((num_yz_pts,num_yz_pts))
     zmesh2 = zmesh.reshape((num_yz_pts,num_yz_pts))
-    xmeshmp2 = xmeshmp.reshape((num_yz_pts,num_yz_pts))
-    xmeshbs2 = xmeshbs.reshape((num_yz_pts,num_yz_pts))
-    angmp2 = angmp.reshape((num_yz_pts,num_yz_pts))
-    angbs2 = angbs.reshape((num_yz_pts,num_yz_pts))
-
+    xmesh2 = xmesh.reshape((num_yz_pts,num_yz_pts))
+    ang2 = ang.reshape((num_yz_pts,num_yz_pts))
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(xmeshmp2, ymesh2, zmesh2, label='Magnetopause')
-    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Magnetopause')
+    ax.plot_wireframe(xmesh2, ymesh2, zmesh2, label='Magnetopause')
+    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Magnetopause' )
     ax.set_xlabel( r'$X_{GSM} (R_e)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = 'ms-magnetopause-' + str(dtime) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
+    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.magnetopause.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
    
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(angmp2, ymesh2, zmesh2, label='Magnetopause')
-    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Magnetopause')
+    ax.plot_wireframe(ang2, ymesh2, zmesh2, label='Magnetopause')
+    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Magnetopause' )
     ax.set_xlabel( r'$acos( \hat n \cdot \hat x ) (Deg)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = 'ms-magnetopause-ang-' + str(dtime) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
+    pltname =  basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.angle.magnetopause.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
    
+    # plt.close('all')
+    return
+
+def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang):
+    """ Wireframe plots of bow shock.  Illustrate the 3D boundaries
+    
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+       
+       basename = basename of file that was processed
+       
+       max_yz = grid ranges from -max_yz to +max_yz along y axis and along z axis (GSM)
+
+       num_yz_pts = number of points in mesh grid = num_yz_pts x num_yz_pts x num_yz_pts
+       
+       xmesh, ymesh, zmesh = x,y,z coordinates of wireframe for bow shock (GSM)
+              
+       dtime = datetime of BATSRUS file, used in titles and filenames
+       
+       ang = angle (deg) between the x axis and the normal to bow shock (GSM)
+       
+    Outputs:
+        None = other than plots generated
+    """
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
+
+    ymesh2 = ymesh.reshape((num_yz_pts,num_yz_pts))
+    zmesh2 = zmesh.reshape((num_yz_pts,num_yz_pts))
+    xmesh2 = xmesh.reshape((num_yz_pts,num_yz_pts))
+    ang2 = ang.reshape((num_yz_pts,num_yz_pts))
+
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(xmeshbs2, ymesh2, zmesh2, label='Bow Shock')
+    ax.plot_wireframe(xmesh2, ymesh2, zmesh2, label='Bow Shock')
     ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Bow Shock' )
     ax.set_xlabel( r'$X_{GSM} (R_e)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = 'ms-bowshock-' + str(dtime) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
+    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
     
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(angbs2, ymesh2, zmesh2, label='Bow Shock')
+    ax.plot_wireframe(ang2, ymesh2, zmesh2, label='Bow Shock')
     ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Bow Shock' )
     ax.set_xlabel( r'$acos( \hat n \cdot \hat x ) (Deg)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = 'ms-bowshock-ang-' + str(dtime) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
+    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.angle.bowshock.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
     
     # plt.close('all')
     return
 
-def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, normalmp, normalbs):
+def create_wireframe_plots_ns(info, basename, max_xy, num_xy_pts, xmesh, ymesh, zmesh, dtime):
+    """ Wireframe plots of neutral sheet.  Illustrate the 3D boundaries
+    
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+       
+       basename = basename of file that was processed
+       
+       max_xy = grid ranges -max_xy to 0 along x axis and from -max_xy to 
+           +max_xy along y axis (GSM)
+
+        num_yz_pts = number of points in mesh grid = num_yz_pts x num_yz_pts x num_yz_pts
+       
+       xmesh, ymesh zmesh = x,y,z coordinates of wireframe, the same for neutral 
+           sheet (GSM)
+                     
+       dtime = datetime of BATSRUS file, used in titles and filenames
+       
+    Outputs:
+        None = other than plots generated
+    """
+    create_directory(info['dir_plots'], 'mp-bs-ns/')
+
+    xmesh2 = xmesh.reshape((num_xy_pts,num_xy_pts))
+    ymesh2 = ymesh.reshape((num_xy_pts,num_xy_pts))
+    zmesh2 = zmesh.reshape((num_xy_pts,num_xy_pts))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.plot_wireframe(xmesh2, ymesh2, zmesh2, label='Neutral Sheet')
+    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Neutral Sheet' )
+    ax.set_xlabel( r'$X_{GSM} (R_e)$' )
+    ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
+    ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
+    pltname = basename + '.' + str(max_xy) + '-' + str(num_xy_pts) + '.neutralsheet.png'
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
+        
+    # plt.close('all')
+    return
+
+def create_boundary_dataframe_mp(batsrus, num_x_points, xmin, xmax, delx, y, z, normal):
     """ Create dataframe based on data from BATSRUS file.  In addition to the 
     data read from the file, the dataframe includes calculated quantities to 
-    determine the boundaries of the bow shock and the magnetopause.
+    determine the boundary of the magnetopause.
     
     Inputs:
        batsrus = batsrus class that includes interpolator to pull values from the
@@ -248,11 +414,8 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
        
        y, z = y and z offset.  Points will be interpolated at x[i] along x[i],y,z (GSM)
        
-       normalmp = normal to magnetopause at the point that the line ( x[i], y, z ) 
+       normal = normal to magnetopause at the point that the line ( x[i], y, z ) 
            hits the magnetopause.  np.array of three numbers (GSM)
-
-       normalbs = normal to bow shock at the point that the line ( x[i], y, z ) 
-           hits the bow shock.  np.array of three numbers (GSM)
                
     Outputs:
         df = the dataframe with BATSRUS and calculated quantaties
@@ -310,7 +473,7 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
     # In MHD papers, when they talk about dynamic pressure, they're
     # generally talking about ram pressure, also known as momentum flux
     #
-    # Ram pressure pdyn = rho * u^2 whereas dynamic pressure that is 
+    # Ram pressure is pdyn = rho * u^2, whereas dynamic pressure that is 
     # discussed in aerodynamics is q = 1/2 rho * u^2
     #
     # If rho is in amu/cc, then amu/cc => 1.66 * 10^-21 kg/m^3
@@ -324,16 +487,16 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
     # 
     # In this case, we focus on the solar wind speed normal to the magnetopause
     # (See Basic Space Plasma Physics by Baumjohann and Treumann, 1997, page 188, eqn 8.80)
-    df[r'$p_{dyn}$'] = KAPPA * rho * ((normalmp[0] * df[r'$u_x$'])**2 + 
-                                      (normalmp[1] * df[r'$u_y$'])**2 + 
-                                      (normalmp[2] * df[r'$u_z$'])**2) * 1.66 * 10**(-6)
+    df[r'$p_{dyn}$'] = KAPPA * rho * ((normal[0] * df[r'$u_x$'])**2 + 
+                                      (normal[1] * df[r'$u_y$'])**2 + 
+                                      (normal[2] * df[r'$u_z$'])**2) * 1.66 * 10**(-6)
 
     df[r'$p_{tot}$'] = df[r'$p$'] + df[r'$p_{dyn}$']
     
     df[r'$|B|$'] = np.sqrt( bx**2 + by**2 + bz**2 )
     df[r'$|u|$'] = np.sqrt( ux**2 + uy**2 + uz**2 )
     
-    # Determine magnetic pressure = |normalmp x B|^2 / 2 / mu0
+    # Determine magnetic pressure = |normal x B|^2 / 2 / mu0
     #
     # We look at the tangential component of B because there is no normal component
     # at the magnetopause (see Basic Space Plasma Physics from above).
@@ -344,16 +507,94 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
     # df[r'$p_{mag}$'] = df[r'$|B|$']**2 * 10**-9 / 2 / MU0
     #
     # (See Basic Space Plasma Physics by Baumjohann and Treumann, 1997, page 188, eqn 8.80)
-    df[r'$p_{mag}$'] = ((normalmp[1] * df[r'$B_z$'] - normalmp[2] * df[r'$B_y$'] )**2 +
-                        (normalmp[2] * df[r'$B_x$'] - normalmp[0] * df[r'$B_z$'] )**2 +
-                        (normalmp[0] * df[r'$B_y$'] - normalmp[1] * df[r'$B_x$'] )**2) \
+    df[r'$p_{mag}$'] = ((normal[1] * df[r'$B_z$'] - normal[2] * df[r'$B_y$'] )**2 +
+                        (normal[2] * df[r'$B_x$'] - normal[0] * df[r'$B_z$'] )**2 +
+                        (normal[0] * df[r'$B_y$'] - normal[1] * df[r'$B_x$'] )**2) \
                         * 10**-9 / 2 / MU0
     
-    # Determine difference between dynamic and magnetic pressure, we will
-    # use this to find the magnetopause.  The magnetopause is where magnetic
-    # pressure equals dynamic (ram) pressure.
+    # The magnetopause is where magnetic pressure equals dynamic plus thermal 
+    # pressure (total pressure).
     # df[r'$p_{dyn} - p_{mag}$'] = df[r'$p_{dyn}$'] - df[r'$p_{mag}$']
     df[r'$p_{tot} - p_{mag}$'] = df[r'$p_{tot}$'] - df[r'$p_{mag}$']
+        
+    return df
+
+def create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, y, z, normal):
+    """ Create dataframe based on data from BATSRUS file.  In addition to the 
+    data read from the file, the dataframe includes calculated quantities to 
+    determine the boundary of the bow shock.
+    
+    Inputs:
+       batsrus = batsrus class that includes interpolator to pull values from the
+           file
+       
+       num_x_points = the number of points along the x axis at which data will
+           be interpolated (GSM)
+       
+       xmin, xmax = limits of interpolation along x-axis (GSM)
+       
+       delx = spacing between points parallel to x-axis (GSM)
+       
+       y, z = y and z offset.  Points will be interpolated at x[i] along x[i],y,z (GSM)
+       
+       normal = normal to bow shock at the point that the line ( x[i], y, z ) 
+           hits the bow shock.  np.array of three numbers (GSM)
+               
+    Outputs:
+        df = the dataframe with BATSRUS and calculated quantaties
+    """
+    # Set up data storage
+    x = np.zeros(num_x_points)
+
+    bx = np.zeros(num_x_points)
+    by = np.zeros(num_x_points)
+    bz = np.zeros(num_x_points)
+
+    ux = np.zeros(num_x_points)
+    uy = np.zeros(num_x_points)
+    uz = np.zeros(num_x_points)
+
+    p = np.zeros(num_x_points)
+
+    rho = np.zeros(num_x_points)
+
+    # Loop through the range steps, determining variable values at each
+    # point on the x[i],y,z line
+    for i in range(num_x_points):  
+        x[i] = xmin + delx*i
+        XGSM = np.array([x[i], y, z])
+        
+        bx[i] = batsrus.interpolate( XGSM, 'bx' )
+        by[i] = batsrus.interpolate( XGSM, 'by' )
+        bz[i] = batsrus.interpolate( XGSM, 'bz' )
+
+        ux[i] = batsrus.interpolate( XGSM, 'ux' )
+        uy[i] = batsrus.interpolate( XGSM, 'uy' )
+        uz[i] = batsrus.interpolate( XGSM, 'uz' )
+
+        p[i] = batsrus.interpolate( XGSM, 'p' )
+                            
+        rho[i] = batsrus.interpolate( XGSM, 'rho' )
+                            
+    # Store variables in dataframe, and calculate some quantities
+    df = pd.DataFrame()
+    
+    df[r'x'] = x
+    
+    df[r'$B_x$'] = bx
+    df[r'$B_y$'] = by
+    df[r'$B_z$'] = bz
+
+    df[r'$u_x$'] = ux
+    df[r'$u_y$'] = uy
+    df[r'$u_z$'] = uz
+
+    df[r'$p$'] = p
+    
+    df[r'$\rho$'] = rho
+
+    df[r'$|B|$'] = np.sqrt( bx**2 + by**2 + bz**2 )
+    df[r'$|u|$'] = np.sqrt( ux**2 + uy**2 + uz**2 )
     
     # c_s = speed of sound in km/sec
     #
@@ -378,9 +619,9 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
     
     # The solar wind speed normal to the bow shock
     # (See Basic Space Plasma Physics by Baumjohann and Treumann, 1997, page 182)
-    df[r'$u_{bs\perp}$'] = np.abs( normalbs[0] * df[r'$u_x$'] +
-                             normalbs[1] * df[r'$u_y$'] +
-                             normalbs[2] * df[r'$u_z$'] )
+    df[r'$u_{bs\perp}$'] = np.abs( normal[0] * df[r'$u_x$'] +
+                             normal[1] * df[r'$u_y$'] +
+                             normal[2] * df[r'$u_z$'] )
     
     # Determine difference between magnetosonic speed and solar wind speed.
     # We will use this to find the bow shock.  The bow shock is when the solar
@@ -389,13 +630,88 @@ def create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, y, z, nor
     
     return df
 
-def initialize_xmesh( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
+def create_boundary_dataframe_ns(batsrus, num_z_points, zmin, zmax, delz, x, y):
+    """ Create dataframe based on data from BATSRUS file.  In addition to the 
+    data read from the file, the dataframe includes calculated quantities to 
+    determine the neutral sheet boundary.
+    
+    Inputs:
+       batsrus = batsrus class that includes interpolator to pull values from the
+           file
+       
+       num_z_points = the number of points along the z axis at which data will
+           be interpolated (GSM)
+       
+       zmin, zxmax = limits of interpolation along x-axis (GSM)
+       
+       delz = spacing between points parallel to x-axis (GSM)
+       
+       x, y = x and y offset.  Points will be interpolated at z[i] along x,y,z[i] (GSM)
+       
+    Outputs:
+        df = the dataframe with BATSRUS and calculated quantaties
+    """
+    # Set up data storage
+    z = np.zeros(num_z_points)
+
+    bx = np.zeros(num_z_points)
+    by = np.zeros(num_z_points)
+    bz = np.zeros(num_z_points)
+
+    ux = np.zeros(num_z_points)
+    uy = np.zeros(num_z_points)
+    uz = np.zeros(num_z_points)
+
+    p = np.zeros(num_z_points)
+
+    rho = np.zeros(num_z_points)
+
+    # Loop through the range steps, determining variable values at each
+    # point on the x[i],y,z line
+    for i in range(num_z_points):  
+        z[i] = zmin + delz*i
+        XGSM = np.array([x, y, z[i]])
+        
+        # bx is how we find the neutral sheet.  Bx switches direction, so
+        # we look for bx = 0
+        bx[i] = batsrus.interpolate( XGSM, 'bx' )
+        by[i] = batsrus.interpolate( XGSM, 'by' )
+        bz[i] = batsrus.interpolate( XGSM, 'bz' )
+
+        ux[i] = batsrus.interpolate( XGSM, 'ux' )
+        uy[i] = batsrus.interpolate( XGSM, 'uy' )
+        uz[i] = batsrus.interpolate( XGSM, 'uz' )
+
+        p[i] = batsrus.interpolate( XGSM, 'p' )
+                            
+        rho[i] = batsrus.interpolate( XGSM, 'rho' )
+                            
+    # Store variables in dataframe, and calculate some quantities
+    df = pd.DataFrame()
+    
+    df[r'z'] = z
+    
+    df[r'$B_x$'] = bx
+    df[r'$B_y$'] = by
+    df[r'$B_z$'] = bz
+
+    df[r'$u_x$'] = ux
+    df[r'$u_y$'] = uy
+    df[r'$u_z$'] = uz
+
+    df[r'$p$'] = p
+    
+    df[r'$\rho$'] = rho
+
+    df[r'$|B|$'] = np.sqrt( bx**2 + by**2 + bz**2 )
+    df[r'$|u|$'] = np.sqrt( ux**2 + uy**2 + uz**2 )
+        
+    return df
+
+def initialize_xmesh_mp( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
     """Initialize the x mesh grids used in the interpolations to find the shape
-    of the magnetopause and bow shock. Based on various text books and papers, we 
-    assume that the magnetopause is a parabola. With the "bottom" of the parabola 
-    at (x, 0, 0), and the width at the earth (0, +/-2 x, 0) and (0, 0, +/-2 x) 
-    along the y and z axes respectively.  We make a similar for the bow shock.  
-    From this, we initialize the x mesh grids.
+    of the magnetopause. Based on various text books and papers, we assume
+    that the magnetopause is a parabola.  
     
     Inputs:
        batsrus = batsrus class that includes interpolator to pull values from the
@@ -412,23 +728,24 @@ def initialize_xmesh( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
            combination of y,z points (GSM)
       
     Outputs:
-        xmeshmp, xmeshbs = x mesh grids for magnetopause and bow shock (GSM)
+        xmesh = x mesh grid for magnetopause (GSM)
+        
+        xmp = subsolar distance to magnetopause (GSM)
     """
 
-    logging.info('Initializing xmesh')
+    logging.info('Initializing magnetopause xmesh')
 
-    # Create dataframe for finding boundaries.  Dataframe includes data
+    # Create dataframe for finding the magnetopause.  Dataframe includes data
     # on magnetic pressures, dynamic ram pressure, magnetosonic speed, and
     # solar wind speed used to find boundaries.  We're looking nose on to the
-    # boundaries, so the normals are (1,0,0) in GSM coordinates
-    normalmp = np.array([1,0,0])
-    normalbs = np.array([1,0,0])
-    df = create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, 
-                                   0, 0, normalmp, normalbs)
+    # boundary, so the normals are (1,0,0) in GSM coordinates
+    normal = np.array([1,0,0])
+    df = create_boundary_dataframe_mp(batsrus, num_x_points, xmin, xmax, delx, 
+                                   0, 0, normal)
 
     # Walk from xmax toward xmin find the first x value where total pressure 
     # equals magnetic pressure, that is, when p_{tot} - p_{mag} becomes 
-    # negative.  This will be the approximate location of the magnetopause
+    # negative.  This will be the location of the magnetopause
     #
     # df[r'$p_{tot} - p_{mag}$'] = df[r'$p_{tot}$'] - df[r'$p_{mag}$']
     #
@@ -438,7 +755,54 @@ def initialize_xmesh( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
         if df[r'$p_{tot} - p_{mag}$'][q] < 0: 
             xmp = df[r'x'][q]
             break
+
+    xmesh = np.zeros(ymesh.shape)
+    
+    # Based on the paper, "Magnetopause as conformal mapping," Yasuhito Narita, 
+    # Simon Toepfer, and Daniel Schmid, Ann. Geophys., 41, 87–91,
+    # In the examples that we used to test this algorithm, alpha tended to be
+    # close to 1.  In which case the Shue formala reduces to:
+    xmesh = xmp - 1 / 4 / xmp * ( ymesh**2 + zmesh**2 )
+    
+    return xmesh, xmp
+
+def initialize_xmesh_bs( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
+    """Initialize the x mesh grids used in the interpolations to find the shape
+    of bow shock. Based on various text books and papers, we assume
+    that the bow shock is a parabola. With the "bottom" of the parabola 
+    at (x, 0, 0), and the width at the earth (0, +/-2 x, 0) and (0, 0, +/-2 x) 
+    along the y and z axes respectively.  
+    
+    Inputs:
+       batsrus = batsrus class that includes interpolator to pull values from the
+            file
+            
+       num_x_pts = the number of points in grid along x axis (GSM)
+         
+       xmin, xmax = range of x values that we examine in the interpolation, will
+           set the limits of the x mesh grid
+       
+       delx = spacing between points parallel to x-axis (GSM)
+       
+       ymesh, zmesh = y and z mesh grids. We fill in at the x mesh grid at each
+           combination of y,z points (GSM)
+      
+    Outputs:
+        xmesh = x mesh grid for bow shock (GSM)
         
+        xbs = subsolar distance to bow shock (GSM)
+    """
+
+    logging.info('Initializing bow shock xmesh')
+
+    # Create dataframe for finding the bow shock.  Dataframe includes data
+    # on magnetic pressures, dynamic ram pressure, magnetosonic speed, and
+    # solar wind speed used to find boundaries.  We're looking nose on to the
+    # boundaries, so the normals are (1,0,0) in GSM coordinates
+    normal = np.array([1,0,0])
+    df = create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, 
+                                   0, 0, normal)
+
     # Walk from xmax to xmin and find the first x value where magnetosonic 
     # speed is equal to solar wind speed, that is, when c_{MS} - u_{bs\perp}  
     # becomes positive.  This will be the approximate location of the bow shock
@@ -452,32 +816,281 @@ def initialize_xmesh( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
             xbs = df[r'x'][q]
             break
 
-    xmeshmp = np.zeros(ymesh.shape)
-    xmeshbs = np.zeros(ymesh.shape)
+    xmesh = np.zeros(ymesh.shape)
     
     # Based on the paper, "Orientation and shape of the Earth's bow shock in three dimensions,"
     # V. Formisano, Planetary and Space Science, Volume 27, Issue 9, September 1979, 
-    # Pages 1151-1161, assume that the magnetopause is a parabola. the width at 
+    # Pages 1151-1161, assume that the bow shock is a parabola. the width at 
     # the earth (0, +/-2 x, 0) and (0, 0, +/-2 x) along the y and z axes respectively 
-    xmeshmp = xmp - 1 / 4 / xmp * ( ymesh**2 + zmesh**2 )
-
-    # Make a similar assumption for the bow shock
-    xmeshbs = xbs - 1 / 4 / xbs * ( ymesh**2 + zmesh**2 )
+    xmesh = xbs - 1 / 4 / xbs * ( ymesh**2 + zmesh**2 )
     
-    return xmeshmp, xmeshbs
+    return xmesh, xbs
 
-def findboundaries(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_points, maxits, tol, plotit=False):
-    """Find the boundaries of the bow shock and the magnetopause. To find
-    boundaries we iteratively explore a 3D grid.  The equations for the bow shock
-    and magnetopause boundaries depend on the solar wind speed normal to the 
-    boundary, and for the magnetopause, the magnetic field B parallel to the boundary.
-    This requires us to know the shape of the boundaries to find normals.  So assume
-    shapes, estimate the boundaries. And repeat iteratively until maxits or tolerance
-    tol is reached.
+def findboundary_mp(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_points, maxits, tol, 
+                    alpha = 0.7, plotit=False):
+    """Find the boundary of the magnetopause. To find the boundary, we iteratively 
+    explore a 3D grid.  The equations for the magnetopause boundary depend
+    on the solar wind speed normal to the boundary and the magnetic field B parallel 
+    to the boundary.  This requires us to know the shape of the boundary to find normals.  
+    So we assume a shape, estimate the boundary. And repeat iteratively until 
+    maxits or tolerance tol is reached.
     
     To find the shape, we march down a series of lines parallel to the x axis.
-    Along each line, we find where the bow shock and the magnetopause are.  See
-    create_boundary_dataframe for the boundary criteria.
+    Along each line, we find the magnetopause.  See create_boundary_dataframe_mp 
+    for the boundary criteria.
+    
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+        
+       filepath = filepath of BATSRUS file 
+       
+       time = time for BATSRUS file 
+       
+       max_yz = grid ranges from -max_yz to +max_yz along y axis and along z axis (GSM)
+             
+       num_yz_pts = y-z plane split into num_yz_pts * num_yz_pts points to create grid (GSM)
+       
+       xlimits = grid ranges from xlimits[0] to xlimits[1] (GSM)
+
+       num_x_pts = the number of points in grid along x axis (GSM)
+     
+       maxits = max number of iterations
+       
+       tol = tolerence, once std deviation between successive iterations drops below
+           tol, the iteration loop ends
+           
+       alpha = initial value of exponent in Shue equation describing magnetopause
+           boundary.  Shue equation used to estimate normal to magnetopause
+           
+       plotit = Boolean, create plots for each line using create_2Dplots
+       
+    Outputs:
+        None - results saved in pickle files and plots
+    """
+    
+    basename = os.path.basename(filepath)
+    logging.info(f'Data for BATSRUS file... {basename}')
+
+    # Read BATSRUS file
+    batsrus = swmfio.read_batsrus(filepath)
+    assert(batsrus != None)
+     
+    # Convert times to datetime format for use in plots
+    dtime = datetime(*time) 
+    
+    # Set up grid for finding magnetopause
+    
+    # Look for the magnetopause boundary between the user-specified xmin and xmax
+    xmin = xlimits[0]
+    xmax = xlimits[1]
+    delx = (xmax - xmin)/num_x_points
+    
+    # # Find dely and delz for the gradients below
+    # delyz = 2 * max_yz / ( num_yz_pts - 1 )
+
+    # Create 3D mesh grid where we will record the magnetopause boundary.
+    # y-z grid is uniform.  x values initially assume a specific boundary shape, 
+    # see initialize_xmesh_mp.  x values will be updated with estimated magnetopause 
+    # position
+    y = np.linspace(-max_yz, max_yz, num_yz_pts)
+    z = np.linspace(-max_yz, max_yz, num_yz_pts)
+    ymesh, zmesh = np.meshgrid(y, z)
+    
+    ymesh = ymesh.reshape(-1)
+    zmesh = zmesh.reshape(-1)
+    xmesh, xmp = initialize_xmesh_mp( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh)
+
+    # Initialize arrays for statistics on convergence
+    stdmp = np.full(maxits, np.nan, dtype=np.float32)
+    
+    # Do an interative process to determine the shape of magnetopause boundary, 
+    # specified by xmeshmp.  We start with an assumed shape, recalculate boundary.
+    # Used recalculated boundary to iterate again.  Rinse and repeat.
+    for l in range(maxits):
+        logging.info(f'Iteration {l}...')
+        
+        if USE_SHUE:
+            # Find the normal for the magnetopause.  The numeric gradient won't work 
+            # for the magnetopause, it is unstable.  So we smooth the curve by using a 
+            # least squares fit of the Shue equation to the data from the previous iteration
+            # For the first iteration, l = 0, we used the assumed values from 
+            # initialize_xmesh_mp and the input value for alpha
+            if l > 0:
+                rn = np.sqrt( xmesh**2 + ymesh**2 + zmesh**2 )
+                bn = np.log( 2 / (1 + xmesh/rn) )
+                b2n = bn * bn
+                rrn = np.log( rn / xmp )
+                alpha = np.nansum( bn * rrn ) / np.nansum( b2n )
+            logging.info(f'alpha: {alpha}')
+        else:
+            # Find the numerical gradient for the magnetopause, so we can get the 
+            # normal to the magnetopause
+            delyz = 2 * max_yz / ( num_yz_pts - 1 )
+            xmesh2 = xmesh.reshape((num_yz_pts,num_yz_pts))
+            gradmp = np.gradient(xmesh2, delyz)
+            # d/dy term
+            gradmpy = gradmp[1].reshape(-1)
+            # d/dz term
+            gradmpz = gradmp[0].reshape(-1)
+
+        # Keep a copy so we can see how quickly the iterations converge
+        # Nothing to save on l == 0 iteration
+        xmesh_old = deepcopy(xmesh)
+        
+        # Create new storage for mesh.  NaNs specify that the magnetopause was not found.
+        xmesh = np.full(ymesh.shape, np.nan, dtype=np.float32)
+                
+        # Record the angle between the normal and the x axis (1,0,0)
+        # We use this to analyze the solution.  At high normal angles,  the magnetopause
+        # are oblique to the solar wind.  The dynamic ram pressure depends on 
+        # the normal component of the solar wind.  When the magnetopause normal
+        # is obliqueu to the solar wind, the dynamic pressure is never high 
+        # enough to exceed the magnetic pressure.  
+        ang = np.zeros(ymesh.shape)
+        
+        # Loop thru the lines parallel to x axis that we travel down
+        # The y and z offsets from the x axis are stored in ymesh and zmesh
+        for m in range(len(ymesh)):
+            
+            # To find the magnetopause boundary, we need the normal to the boundary
+            
+            if USE_SHUE:
+                # Assume the magnetopause has a shape described by the Shue equation
+                # See (Shue et al) 1997 New Functional Form Magnetopause Size & Shape
+                # 
+                # Use the gradient of that equation to determine the normal.
+                rr = np.sqrt( xmesh_old[m]**2 + ymesh[m]**2 + zmesh[m]**2 ) 
+                term = 2**alpha * xmp * alpha /(1 + xmesh_old[m]/rr)**(alpha+1)
+                normalx = xmesh_old[m]/rr + term*(1-xmesh_old[m]**2/rr**2)/rr
+                normaly = ymesh[m]/rr - term*xmesh_old[m]*ymesh[m]/rr**3
+                normalz = zmesh[m]/rr - term*xmesh_old[m]*zmesh[m]/rr**3
+                normal = np.array([normalx, normaly, normalz]) \
+                    / np.sqrt( normalx**2 + normaly**2 + normalz**2 )
+                
+                # # If normal is NaN, we assume we're on the flanks of the magnetopause.
+                # # We assume the normal to the boundary has an angle of 85 degrees 
+                # # from the x axis.  And ensure that the normal is a unit vector.
+                # if( np.isnan( normal[0] ) or np.isnan( normal[1] ) or np.isnan( normal[2] ) ):
+                #     rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
+                #     xx = rr * np.tan( 0.0875 ) # 5 degrees 
+                #     normal = np.array( [xx, ymesh[m], zmesh[m] ] ) / np.sqrt( xx**2 + rr**2 )
+
+            else:         
+                # Use gradient to determine normal
+                #
+                # If the gradient is NaN, we assume that we're on the flanks of the 
+                # magnetopause, where the boundary becomes parallel to the solar wind. 
+                # So we assume the normal to the boundary has an angle of 85 degrees 
+                # from the x axis.  And ensure that the normal is a unit vector.
+                if( np.isnan( gradmpy[m] ) or np.isnan( gradmpz[m] ) ):
+                    rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
+                    xx = rr * np.tan( 0.0875 ) # 5 degrees 
+                    normal = np.array( [xx, ymesh[m], zmesh[m] ] ) / np.sqrt( xx**2 + rr**2 )
+                else:
+                    normal = np.array( [1, -gradmpy[m], -gradmpz[m]] ) \
+                        / np.sqrt( 1 + gradmpy[m]**2 + gradmpz[m]**2 )
+            
+            # Record the angles between the normals and the x axis (1,0,0) 
+            # We use this in some plots.
+            ang[m] = np.rad2deg( np.arccos( np.dot( normal, np.array([1,0,0]) )))
+
+            # Create dataframe for finding the boundary.  Dataframe includes data
+            # on magnetic pressure, dynamic ram pressure, etc. used to find magnetopause
+            df = create_boundary_dataframe_mp(batsrus, num_x_points, xmin, xmax, delx, 
+                                           ymesh[m], zmesh[m], normal)
+            
+            # Walk from xmax toward xmin and find the first x value where total 
+            # pressure (dynamic ram + thermal pressure) equals magnetic pressure, 
+            # that is, when p_{tot} - p_{mag} becomes negative.  This will be 
+            # the approximate location of the magnetopause
+            #
+            # df[r'$p_{tot} - p_{mag}$'] = df[r'$p_{tot}$'] - df[r'$p_{mag}$']
+            #
+            # range(num_x_points-1,-1,-1) handles that ranges are xmin to xmax, and we
+            # want to start at xmax
+            #
+            # Only do loop if $p_{tot} starts out larger than p_{mag}.  If it
+            # is smaller at the start, we'll never have a transition to a value
+            # smaller than p_{mag}
+            # if df[r'$p_{dyn} - p_{mag}$'][num_x_points-1] > 0:
+            if df[r'$p_{tot} - p_{mag}$'][num_x_points-1] > 0:
+                for q in range(num_x_points-1,-1,-1):
+                    if df[r'$p_{tot} - p_{mag}$'][q] <= 0: 
+                        xmesh[m] = df[r'x'][q]
+                        break
+                
+            df.set_index(r'x', inplace=True)
+
+            # Create plots that we visually inspect to determine the 
+            # magnetopause boundary selection
+            if plotit:
+                create_2Dplots_ms(info, df, ymesh[m], zmesh[m], xmin, xmax, xmesh[m], 
+                              dtime, normal )
+
+        logging.info(f'Iteration: {l} Std Dev MP Diff: {np.nanstd(xmesh - xmesh_old)}')
+        
+        # Calculate statistics on convergence
+        # Note, nothing to calculate for l == 0 iteration
+        stdmp[l] = np.nanstd(xmesh - xmesh_old)
+
+        # If both the magnetosphere are known within tolerance (tol),
+        # exit loop
+        if np.nanstd(xmesh - xmesh_old) < tol:
+            break
+ 
+    # Create 3D wireframe plots for the magnetopause and the bow shock
+    create_wireframe_plots_mp(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang)
+    
+    # Save magnetopause results to pickle files
+    create_directory(info['dir_derived'], 'mp-bs-ns')
+    pklname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.magnetopause.pkl'
+    
+    dfmp = pd.DataFrame()
+    dfmp['y'] = ymesh
+    dfmp['z'] = zmesh
+    dfmp['x'] = xmesh
+    dfmp['angle'] = ang
+    dfmp['abs diff'] = np.abs(xmesh - xmesh_old)
+
+    dfmp.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname) )
+
+    pklname2 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.magnetopause.pkl'
+    pklname3 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.magnetopause.png'
+ 
+    dfstats = pd.DataFrame()
+    dfstats['STD MP'] = stdmp
+
+    dfstats.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname2) )
+    
+    # Also store the data in a VTK file
+    xyz = ['x', 'y', 'z']
+    colorvars = ['angle', 'abs diff']
+   
+    vtkname = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '.magnetopause'
+   
+    vtk_mp = sqwireframe( dfmp, xyz, colorvars, num_yz_pts )
+    vtk_mp.convert_to_vtk()
+    vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe' )
+ 
+    # Create plot of convergence stats
+    fig, ax = plt.subplots()   
+    dfstats.plot(y=['STD MP'], title='Std Dev of Diff. Successive Iterations (Magnetopause)', 
+              ylabel = 'Std Deviation', xlabel= 'Iteration',ax=ax)
+    ax.axhline( y = tol, ls =":")
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pklname3 ) )
+
+    return dfmp
+
+def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_points, maxits, tol, plotit=False):
+    """Find the boundary of the bow shock. To find the boundary, we iteratively 
+    explore a 3D grid.  The equations for the bow shock on the solar wind speed 
+    normal to the boundary. This requires us to know the shape of the boundary
+    to find normals.  So we assume a shape, estimate the boundary. And repeat 
+    iteratively until maxits or tolerance tol is reached.
+    
+    To find the shape, we march down a series of lines parallel to the x axis.
+    Along each line, we find where the bow shock is located.  See
+    create_boundary_dataframe_bs for the boundary criteria.
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -515,147 +1128,80 @@ def findboundaries(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poin
     # Convert times to datetime format for use in plots
     dtime = datetime(*time) 
     
-    # Set up grid for finding bow shock and magnetopause
+    # Set up grid for finding bow shock
     
-    # Look for the bow shock and magnetopause boundaries between the
-    # user specified xmin and xmax
+    # Look for the bow shock boundary between the user-specified xmin and xmax
     xmin = xlimits[0]
     xmax = xlimits[1]
     delx = (xmax - xmin)/num_x_points
     
-    # Find dely and delz for the gradients below
-    delyz = 2 * max_yz / ( num_yz_pts - 1 )
-
-    # Create 3D mesh grid where we will record the bow shock and magnetopause surfaces
+    # Create 3D mesh grid where we will record the bow shock boundary.
     # y-z grid is uniform.  x values initially assume a specific boundary shape, 
-    # see initialize_xmesh.  x values will be updated with estimated bow shock
-    # and magnetopause locations
+    # see initialize_xmesh_bs.  x values will be updated with estimated bow shock
+    # boundary
     y = np.linspace(-max_yz, max_yz, num_yz_pts)
     z = np.linspace(-max_yz, max_yz, num_yz_pts)
     ymesh, zmesh = np.meshgrid(y, z)
     
     ymesh = ymesh.reshape(-1)
     zmesh = zmesh.reshape(-1)
-    xmeshmp, xmeshbs = initialize_xmesh( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh)
+    xmesh, xbs = initialize_xmesh_bs( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh)
 
-    # Initialize counters for statistics
-    to_nanmp = np.zeros(ymesh.shape, dtype=np.int16)
-    from_nanmp = np.zeros(ymesh.shape, dtype=np.int16)
-    to_nanbs = np.zeros(ymesh.shape, dtype=np.int16)
-    from_nanbs = np.zeros(ymesh.shape, dtype=np.int16)
-    
-    # Initialize arrays for statistics
-    stdmp = np.full(maxits, np.nan, dtype=np.float32)
+    # Initialize array for statistics
     stdbs = np.full(maxits, np.nan, dtype=np.float32)
-    mptonan = np.full(maxits, np.nan, dtype=np.int16)
-    mpfromnan = np.full(maxits, np.nan, dtype=np.int16)
-    bstonan = np.full(maxits, np.nan, dtype=np.int16)
-    bsfromnan = np.full(maxits, np.nan, dtype=np.int16)
 
-    # Do an interative process to determine the shape of magnetopause and
-    # bow shock boundaries, specified by xmeshmp and xmeshbs.
-    # We start with an assumed shape, recalculate boundaries.  Used recalculated 
-    # boundaries to iterate again.  Rinse and repeat.
+    # Do an interative process to determine the shape of bow shock boundary, 
+    # specified by xmeshbs.  We start with an assumed shape, recalculate boundary.
+    # Used recalculated boundary to iterate again.  Rinse and repeat.
     for l in range(maxits):
-        # Find the gradient, so we can get the normal to the magnetopause and bow shock
-        xmeshmp2 = xmeshmp.reshape((num_yz_pts,num_yz_pts))
-        xmeshbs2 = xmeshbs.reshape((num_yz_pts,num_yz_pts))
-    
-        # Don't forget the dy and dz
-        gradmp = np.gradient(xmeshmp2, delyz)
-        gradbs = np.gradient(xmeshbs2, delyz)
-        
-        # d/dy terms
-        gradmpy = gradmp[1].reshape(-1)
-        gradbsy = gradbs[1].reshape(-1)
-        # d/dz terms
-        gradmpz = gradmp[0].reshape(-1)
-        gradbsz = gradbs[0].reshape(-1)
-        
-        # Keep a copy so we can see how quickly the iterations converge
-        xmeshmp_old = deepcopy(xmeshmp)
-        xmeshbs_old = deepcopy(xmeshbs)
-        
-        # Create new storage for mesh.  NaNs specify that the bow shock
-        # or magnetopause (as appropriate) were not found.
-        xmeshmp = np.full(ymesh.shape, np.nan, dtype=np.float32)
-        xmeshbs = np.full(ymesh.shape, np.nan, dtype=np.float32)
-                
-        # Record the angle between the normal and the x axis (1,0,0)
-        # We use this to analyze the solution.  We know that the bow shock
-        # breaks down around 80 deg.  At that angle the bow shock and magnetopause
-        # are oblique to the solar wind.  Thus, the solar wind normal to the
-        # bow shock is so small that it is never super-magnetosonic, and hence
-        # can't go sub-magnetosonic.  Similarly, the dynamic ram pressure that
-        # depends on the normal component of the solar wind, is never high
-        # enough to exceed the magnetic pressure.  Hence, no bow shock or 
-        # magnetopause.
-        angmp = np.zeros(ymesh.shape)
-        angbs = np.zeros(ymesh.shape)
-        
         logging.info(f'Iteration {l}...')
 
+        # Find the normal for the bow shock.  The numerical gradient won't work 
+        # for the bow shock, it is unstable.  So we smooth the curve by using a 
+        # least squares fit of a parabola of revolution to the data from the
+        # previous iteration
+        #
+        # xn = xbs + A (yn^2 + zn^2) 
+        # where A = Sum_n (xn - xbs)(y^2 + z^2) / Sum_n (y^2 + z^2)^2
+        #
+        xn = xmesh.reshape(-1) - xbs
+        r2n = ymesh**2 + zmesh**2
+        r2n[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+        A = np.nansum( xn * r2n ) / np.nansum( r2n**2 )
+        logging.info(f'A: {A}')
+        
+        # Keep a copy so we can see how quickly the iterations converge
+        xmesh_old = deepcopy(xmesh)
+        
+        # Create new storage for mesh.  NaNs specify that the bow shock
+        # boundary was not found along a given y-z line
+        xmesh = np.full(ymesh.shape, np.nan, dtype=np.float32)
+                
+        # Record the angle between the normal and the x axis (1,0,0)
+        # We use this to analyze the solution. We know that the bow shock
+        # breaks down around 80 deg.  At that angle the bow shock is oblique to 
+        # the solar wind.  Thus, the solar wind normal to the bow shock is so 
+        # small that it is never super-magnetosonic, and hence
+        # can't go sub-magnetosonic.  
+        ang = np.zeros(ymesh.shape)
+        
         # Loop thru the lines parallel to x axis that we travel down
         # The y and z offsets from the x axis are stored in ymesh and zmesh
         for m in range(len(ymesh)):
             
-            # To find the magnetopause and bow shock boundaries, we need the
-            # normals to the boundaries
-            
-            # If the gradient is NaN, we assume that we're on the flanks of the 
-            # magnetopause or bow shock, as appropriate, where the boundary
-            # becomes parallel to the solar wind. So we assume the normal to the
-            # boundary has an angle of 85 degrees from the x axis.  Otherwise,
-            # ensure that the normal is a unit vector.
-            if( np.isnan( gradmpy[m] ) or np.isnan( gradmpz[m] ) ):
-               rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
-               xx = rr * np.tan( 0.0875 ) # 5 degrees 
-               normalmp = np.array( [xx, ymesh[m], zmesh[m] ] ) / np.sqrt( xx**2 + rr**2 )
-            else:
-                normalmp = np.array( [1, -gradmpy[m], -gradmpz[m]] ) \
-                    / np.sqrt( 1 + gradmpy[m]**2 + gradmpz[m]**2 )
-                                        
-            if( np.isnan( gradbsy[m] ) or np.isnan( gradbsz[m] ) ):
-               rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
-               xx = rr * np.tan( 0.0875 ) # 5 degrees 
-               normalbs = np.array( [xx, ymesh[m], zmesh[m] ] ) / np.sqrt( xx**2 + rr**2 )
-            else:
-                normalbs = np.array( [1, -gradbsy[m], -gradbsz[m]] ) \
-                    / np.sqrt( 1 + gradbsy[m]**2 + gradbsz[m]**2 )
+            # To find the bow shock boundary, we need the normal to the boundary
+            normal = np.array( [1, -2*A*ymesh[m], -2*A*zmesh[m]] ) \
+                / np.sqrt( 1 + 4*A**2*ymesh[m]**2 + 4*A**2*zmesh[m]**2 )
 
-            # Record the angles between the normals and the x axis (1,0,0) 
-            # We use this in some plots to determine if we've covered the bow
-            # shock and magnetosphere.  If we cover them, we'll see a plane of
-            # constant normal of 85 degrees around the edges.
-            angmp[m] = np.rad2deg( np.arccos( np.dot( normalmp, np.array([1,0,0]) )))
-            angbs[m] = np.rad2deg( np.arccos( np.dot( normalbs, np.array([1,0,0]) )))
+            # Record the angle between the normal and the x axis (1,0,0) 
+            # We use this in some plots
+            ang[m] = np.rad2deg( np.arccos( np.dot( normal, np.array([1,0,0]) )))
 
-            # Create dataframe for finding boundaries.  Dataframe includes data
-            # on magnetic pressure, dynamic ram pressure, magnetosonic speed, and
-            # solar wind speed used to find boundaries
-            df = create_boundary_dataframe(batsrus, num_x_points, xmin, xmax, delx, 
-                                           ymesh[m], zmesh[m], normalmp, normalbs)
+            # Create dataframe for finding boundary.  Dataframe includes data
+            # on magnetosonic speed and solar wind speed needed to find bow shock
+            df = create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, 
+                                           ymesh[m], zmesh[m], normal)
             
-            # Walk from xmax toward xmin and find the first x value where total 
-            # pressure (dynamic ram + thermal pressure) equals magnetic pressure, 
-            # that is, when p_{tot} - p_{mag} becomes negative.  This will be 
-            # the approximate location of the magnetopause
-            #
-            # df[r'$p_{tot} - p_{mag}$'] = df[r'$p_{tot}$'] - df[r'$p_{mag}$']
-            #
-            # range(num_x_points-1,-1,-1) handles that ranges are xmin to xmax, and we
-            # want to start at xmax
-            #
-            # Only do loop if $p_{tot} starts out larger than p_{mag}.  If it
-            # is smaller at the start, we'll never have a transition to a value
-            # smaller than p_{mag}
-            if df[r'$p_{tot} - p_{mag}$'][num_x_points-1] > 0:
-                for q in range(num_x_points-1,-1,-1):
-                    # if df[r'$p_{dyn} - p_{mag}$'][q] < 0: 
-                    if df[r'$p_{tot} - p_{mag}$'][q] < 0: 
-                        xmeshmp[m] = df[r'x'][q]
-                        break
-                
             # Walk from xmax to xmin and find the first x value where magnetosonic 
             # speed is equal to solar wind speed, that is, when c_{MS} - u becomes 
             # positive.  Here, we are concerned with the component of the solar
@@ -672,180 +1218,207 @@ def findboundaries(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poin
             # submagnetosonic
             if df[r'$c_{MS} - u_{bs\perp}$'][num_x_points-1] < 0:
                 for q in range(num_x_points-1,-1,-1):
-                    if df[r'$c_{MS} - u_{bs\perp}$'][q] > 0: 
-                        xmeshbs[m] = df[r'x'][q]
+                    if df[r'$c_{MS} - u_{bs\perp}$'][q] >= 0: 
+                        xmesh[m] = df[r'x'][q]
                         break
             
             df.set_index(r'x', inplace=True)
-            
-            # Increment counters for statistics
-            if np.isnan(xmeshmp_old[m]) and not np.isnan(xmeshmp[m]):
-                from_nanmp[m] += 1
-            if not np.isnan(xmeshmp_old[m]) and np.isnan(xmeshmp[m]):
-                to_nanmp[m] += 1
-
-            if np.isnan(xmeshbs_old[m]) and not np.isnan(xmeshbs[m]):
-                from_nanbs[m] += 1
-            if not np.isnan(xmeshbs_old[m]) and np.isnan(xmeshbs[m]):
-                to_nanbs[m] += 1
-
+        
             # Create plots that we visually inspect to determine the bow
-            # shock and magnetopause boundaries, which are stored in xmeshmp
-            # and xmeshbs
-            if l == maxits-1 and plotit:
-                create_2Dplots(info, df, ymesh[m], zmesh[m], xmin, xmax, xmeshmp[m], 
-                              xmeshbs[m], dtime, normalmp, normalbs )
+            # shock boundary is determined
+            if plotit and ymesh[m] < 0.01 and ymesh[m] > -0.01:
+                create_2Dplots_bs(info, df, ymesh[m], zmesh[m], xmin, xmax, xmesh[m], 
+                                  dtime, normal, l )
 
-        logging.info(f'Iteration: {l} Std Dev MP Diff: {np.nanstd(xmeshmp - xmeshmp_old)}')
-        logging.info(f'Iteration: {l} Std Dev BS Diff: {np.nanstd(xmeshbs - xmeshbs_old)}')
-        # logging.info(f'Iteration: {l} Total MP To Nan: {np.sum(to_nanmp)}')
-        # logging.info(f'Iteration: {l} Total MP From Nan: {np.sum(from_nanmp)}')
-        # logging.info(f'Iteration: {l} Total BS To Nan: {np.sum(to_nanbs)}')
-        # logging.info(f'Iteration: {l} Total BS From Nan: {np.sum(from_nanbs)}')
+        logging.info(f'Iteration: {l} Std Dev BS Diff: {np.nanstd(xmesh - xmesh_old)}')
         
-        stdmp[l] = np.nanstd(xmeshmp - xmeshmp_old)
-        stdbs[l] = np.nanstd(xmeshbs - xmeshbs_old)
-        mptonan[l] = np.sum(to_nanmp)
-        mpfromnan[l] = np.sum(from_nanmp)
-        bstonan[l] = np.sum(to_nanbs)
-        bsfromnan[l] = np.sum(from_nanbs)
+        # Calculate statistics on differences between successive iterations
+        # Note, no difference for the l == 0 iteration
+        stdbs[l] = np.nanstd(xmesh - xmesh_old)
         
-        # If both the magnetosphere and bow shock are know within tolerance (tol),
-        # exit loop
-        if np.nanstd(xmeshmp - xmeshmp_old) < tol and np.nanstd(xmeshbs - xmeshbs_old) < tol:
+        # If the bow shock is known within tolerance (tol), exit loop
+        if np.nanstd(xmesh - xmesh_old) < tol:
             break
 
-    # Create 3D wireframe plots for the magnetopause and the bow shock
-    create_wireframe_plots(info, num_yz_pts, xmeshmp, xmeshbs, ymesh, zmesh, dtime, angmp, angbs)
+    # Create 3D wireframe plots for the bow shock
+    create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang)
     
-    # Save magnetopause and bow shock results to pickle file
-    create_directory(info['dir_derived'], 'mp-bs')
-    pklname = basename + '.' + str(max_yz) + '.mp-bs.pkl'
+    # Save bow shock results and stats to pickle files
+    create_directory(info['dir_derived'], 'mp-bs-ns')
+    pklname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock.pkl'
     
-    dfmpbs = pd.DataFrame()
-    dfmpbs['y'] = ymesh
-    dfmpbs['z'] = zmesh
-    dfmpbs['x mp'] = xmeshmp
-    dfmpbs['x bs'] = xmeshbs
-    dfmpbs['angle mp'] = angmp
-    dfmpbs['angle bs'] = angbs
-    dfmpbs['to nan mp'] = to_nanmp
-    dfmpbs['from nan mp'] = from_nanmp
-    dfmpbs['to nan bs'] = to_nanbs
-    dfmpbs['from nan bs'] = from_nanbs
+    dfbs = pd.DataFrame()
+    dfbs['y'] = ymesh
+    dfbs['z'] = zmesh
+    dfbs['x'] = xmesh
+    dfbs['angle'] = ang
+    dfbs['abs diff'] = np.abs(xmesh - xmesh_old)
 
-    dfmpbs.to_pickle( os.path.join( info['dir_derived'], 'mp-bs', pklname) )
+    dfbs.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname) )
 
-    pklname2 = basename + '.' + str(max_yz) + '.stats.mp-bs.pkl'
+    pklname2 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.bowshock.pkl'
+    pklname3 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.bowshock.png'
 
     dfstats = pd.DataFrame()
-    dfstats['STD MP'] = stdmp
     dfstats['STD BS'] = stdbs
-    dfstats['MP to NaN'] = mptonan
-    dfstats['MP from NaN'] = mpfromnan
-    dfstats['BS to NaN'] = bstonan
-    dfstats['BS from NaN'] = bsfromnan
 
-    dfstats.to_pickle( os.path.join( info['dir_derived'], 'mp-bs', pklname2) )
+    dfstats.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname2) )
     
+    # Also store the data in a VTK file
+    xyz = ['x', 'y', 'z']
+    colorvars = ['angle', 'abs diff']
+   
+    vtkname = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock'
+   
+    vtk_mp = sqwireframe( dfbs, xyz, colorvars, num_yz_pts )
+    vtk_mp.convert_to_vtk()
+    vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe' )
+ 
+    # Create plot of convergence stats
     fig, ax = plt.subplots()   
-    dfstats.plot(y=['STD MP', 'STD BS'], title='Std Dev of Diff. Successive Iterations', 
+    dfstats.plot(y=['STD BS'], title='Std Dev of Diff. Successive Iterations (Bow Shock)', 
               ylabel = 'Std Deviation', xlabel= 'Iteration',ax=ax)
     ax.axhline( y = tol, ls =":")
- 
-    return
+    fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pklname3 ) )
 
-def findneutralsheet(info, time, max_x, max_y, num_x_pts, num_y_pts):
-    """ Find the neutral sheet in the tail region.  We use the definition
-    found at https://sscweb.gsfc.nasa.gov/users_guide/ssc_reg_doc.shtml  Which
-    references the Tsyganenko models (JGR, 100, 5599, 1995)
+    return dfbs
+
+def findboundary_ns(info, filepath, time, max_xy, num_xy_pts, zlimits, num_z_points, mpfile, plotit=False):
+    """Find the boundary of the neutral sheet. To find the boundary, we explore 
+    a 3D grid.  The neutral sheet occurs where Bx is zero, above the neutral sheet
+    Bx is in the positive x (GSM) direction and below it is in the negative x
+    (GSM) direction.  So we look for when Bx is 0.
     
-   Inputs:
+    To find the shape, we march down a series of lines parallel to the z axis.
+    Along each line, we find where the neutral sheet is located.  
+    
+    Inputs:
        info = info on files to be processed, see info = {...} example above
-             
+        
+       filepath = filepath of BATSRUS file 
+       
        time = time for BATSRUS file 
        
-       max_y = grid ranges from -max_y to +max_y along y axis (GSM)
-       
-       max_x = grid ranges from 0 to -max_x along x axis (GSM)
+       max_xy = grid ranges -max_xy to 0 along x axis and from -max_xy/2 to 
+           +max_xy/2 along y axis (GSM)
              
-       num_y_pts = y split into num_y_pts to create grid
+       num_xy_pts = x-y plane split into num_xy_pts * num_xy_pts points to create grid (GSM)
        
-       num_x_pts = y split into num_y_pts to create grid
-                  
+       zlimits = grid ranges from zlimits[0] to zlimits[1] (GSM)
+
+       num_z_pts = the number of points in grid along z axis (GSM)
+       
+       mpfile = path to magnetopause file associated with the neutral sheet
+     
+       plotit = Boolean, create plots for each line using create_2Dplots
+           
     Outputs:
-        
+        None - results saved in pickle files and plots
     """
+    
+    basename = os.path.basename(filepath)
+    logging.info(f'Data for BATSRUS file... {basename}')
+
+    # Read BATSRUS file
+    batsrus = swmfio.read_batsrus(filepath)
+    assert(batsrus != None)
+    
+    # Read magnetopause pkl file
+    dfmp = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', mpfile))
+    
+    # Replace NaN values with large neg. values to improve interpolation.
+    # NaNs in magnetopause represent values where we could not find a boundary
+    xmp = np.nan_to_num( dfmp['x'], nan=-10000.)
+    ymp = np.nan_to_num( dfmp['y'], nan=-10000.)
+    zmp = np.nan_to_num( dfmp['z'], nan=-10000.)
+    
+    # Set up 2D interpolation of magnetopause data
+    # Note, the reordering of x,y,z to y,z,x because x in magnetopause df is
+    # a function of y,z
+    interpmp = LinearNDInterpolator(list(zip(ymp, zmp)), xmp )
+    
     # Convert times to datetime format for use in plots
     dtime = datetime(*time) 
-
-    # Create 3D mesh grid where we will record the bow shock and magnetopause surfaces
-    # y-z grid is uniform.  x values assume a specific boundary shape, see initialize_xmesh
-    x = np.linspace(-max_x, 0, num_x_pts)
-    y = np.linspace(-max_y, max_y, num_y_pts)
+    
+    # Set up grid for finding bow shock and magnetopause
+    
+    # Look for the bow shock and magnetopause boundaries between the
+    # user specified xmin and xmax
+    zmin = zlimits[0]
+    zmax = zlimits[1]
+    delz = (zmax - zmin)/num_z_points
+    
+    # Create 3D mesh grid where we will record the neutral sheet surface
+    # y-z grid is uniform.  x values will be updated with estimated neutral 
+    # sheet positon 
+    x = np.linspace(-max_xy, 0, num_xy_pts)
+    y = np.linspace(-max_xy/2, max_xy/2, num_xy_pts)
     xmesh, ymesh = np.meshgrid(x, y)
     
-    # Convert from GSM to aberrated GSM (AGSM), which is what the Tsyganenko
-    # model uses.  We rotate the x-y plane 4.3 degrees = atan( 30/sqrt(400**2 + 30**2) )
-    # where 400 km/s = avg solar wind and 30 km/s is speed of earth.
-    # We use average values because Tsyganenko model is based on typical data.
-    ang = np.deg2rad( 4.3 )
-    cosang = np.cos(ang)
-    sinang = np.sin(ang)
-    axmesh = xmesh*cosang - ymesh*sinang
-    aymesh = ymesh*cosang + xmesh*sinang
+    xmesh = xmesh.reshape(-1)
+    ymesh = ymesh.reshape(-1)
+    zmesh = np.full(xmesh.shape, np.nan, dtype=np.float32)
 
-    from spacepy import coordinates as coord
-    from spacepy.time import Ticktock
-    from deltaB import date_timeISO
+    # Use to make sure we're outside the equatorial plane of the earth
+    rrmesh = xmesh**2 + ymesh**2
 
-    # The dipole is aligned with z-hat in SM and dipole tilt (psi) is
-    # angle between z-hat GSM
-    #
-    # See Magnetic Coordinate Systems
-    # K.M. Laundal · A.D. Richmond, Space Sci Rev (2016) 
-    ZSM = coord.Coords((0,0,1), 'SM', 'car')
-    # Set time to our BATSRUS data time
-    timeISO = date_timeISO( time )
-    ZSM.ticks = Ticktock([timeISO], 'ISO')
-    ZGSM = ZSM.convert( 'GSM', 'car' )
-    psi = np.arccos( np.dot(ZGSM.data[0],(0,0,1)) )
-    psi *= -1 if (ZGSM.data[0][0] < 0) else 1
+    # Loop thru the lines parallel to x axis that we travel down
+    # The y and z offsets from the x axis are stored in ymesh and zmesh
+    for m in range(len(ymesh)):
+        
+        # Create dataframe for finding boundaries.  Dataframe includes data
+        # on magnetic pressure, dynamic ram pressure, magnetosonic speed, and
+        # solar wind speed used to find boundaries
+        df = create_boundary_dataframe_ns(batsrus, num_z_points, zmin, zmax, delz, 
+                                        xmesh[m], ymesh[m])
+        
+        # Walk from zmax to zmin and find the first z value where bx is negative 
+        #
+        # Only do loop if bx starts out postive.  If it is negative at the start, 
+        # we'll never have a transition
+        if df[r'$B_x$'][num_z_points-1] > 0:
+            for q in range(num_z_points-1,-1,-1):
+                if df[r'$B_x$'][q] <= 0: 
+                    # Verify that the point on the neutralsheet is inside the
+                    # magnetopause and outside the equatorial plane of the earth
+                    # behind the earth
+                    xmp = interpmp( ymesh[m], df[r'z'][q] )
+                    if xmesh[m] < xmp and rrmesh[m] > 1 and xmesh[m] <= 0:
+                        zmesh[m] = df[r'z'][q]
+                    break
+        
+        df.set_index(r'z', inplace=True)
+        
+        # Create plots that we visually inspect to determine the bow
+        # shock and magnetopause boundaries, which are stored in xmeshmp
+        # and xmeshbs
+        if plotit:
+            create_2Dplots_ns(info, df, xmesh[m], ymesh[m], zmin, zmax, zmesh[m], 
+                          dtime )
 
-    tanpsi = np.tan(psi)
-    cospsi = np.cos(psi)
-    sinpsi = np.cos(psi)
+
+    # Create 3D wireframe plots for the bow shock
+    create_wireframe_plots_ns(info, basename, max_xy, num_xy_pts, xmesh, ymesh, zmesh, dtime)
     
-    # For the model parameters, use the values specified at
-    # https://sscweb.gsfc.nasa.gov/users_guide/ssc_reg_doc.html
-    RH = 8.
-    delta = 4.
-    G = 10.
-    Ly = 10.
+    # Save neutral sheet results to pickle file
+    create_directory(info['dir_derived'], 'mp-bs-ns')
+    pklname = basename + '.' + str(max_xy) + '-' + str(num_xy_pts) + '.neutralsheet.pkl'
     
-    # For each x,y pair, calculate z using the Tsyganenko model
-    zmesh = 0.5 * tanpsi * ( np.sqrt( (axmesh - RH * cospsi)**2 + (delta * cospsi)**2 ) - \
-                             np.sqrt( (axmesh + RH * cospsi)**2 + (delta * cospsi)**2 ) ) - \
-                             G * sinpsi * aymesh**4 / (aymesh*4 + Ly**4)
+    dfns = pd.DataFrame()
+    dfns['x'] = xmesh
+    dfns['y'] = ymesh
+    dfns['z'] = zmesh
+
+    dfns.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname) )
+    
+    # Also store the data in a VTK file
+    xyz = ['x', 'y', 'z']
+    colorvars = []
+   
+    vtkname = basename + '-' + str(max_xy) + '-' + str(num_xy_pts) + '.neutralsheet'
+   
+    vtk_mp = sqwireframe( dfns, xyz, colorvars, num_xy_pts )
+    vtk_mp.convert_to_vtk()
+    vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe'  )
  
-    # Plot Neutral Sheet
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(xmesh, ymesh, zmesh, label='Neutral Sheet')
-    ax.set_title( info['run_name'] + ' ' + str(dtime) + ' Neutral Sheet')
-    ax.set_xlabel( r'$X_{GSM} (R_e)$' )
-    ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
-    ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = 'ms-neutralsheet-' + str(dtime) + '.png'
-    fig.savefig( os.path.join( info['dir_plots'], 'mp_bs', pltname ) )
-
-    # Create dataframe containing neutral sheet x,y,z mesh grid
-    df = pd.DataFrame()
-    df['x'] = xmesh.reshape(-1)
-    df['y'] = ymesh.reshape(-1)
-    df['z'] = zmesh.reshape(-1)
-    df['aberrated x'] = axmesh.reshape(-1)
-    df['aberrated y'] = aymesh.reshape(-1)
-    
-    return df
-
+    return dfns

@@ -69,7 +69,7 @@ def ned(time, pos, csys, pole_csys='GEO'):
     from spacepy.time import Ticktock
     
     # Geographic z axis in csys
-    Z001 = coord.Coords([[0,0,1]], pole_csys, 'car')
+    Z001 = coord.Coords([[0,0,1]], pole_csys, 'car', use_irbem=False)
     Z001.ticks = Ticktock([time], 'ISO')
     Z = Z001.convert(csys, 'car')
     

@@ -805,7 +805,7 @@ def plot_heatmapworld_iono( info, times, vmin, vmax, nlat, nlong ):
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
         fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
 
-def loop_heatmapworld_gap(info, times, nlat, nlong):
+def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
     """Loop thru data in RIM files to create plots showing the breakdown of
     Bn due to field aligned currents in the gap region.  Results 
     will be used to generate heatmaps of Bn over surface of earth
@@ -819,6 +819,10 @@ def loop_heatmapworld_gap(info, times, nlat, nlong):
 
         nlat, nlong = number of latitude and longitude samples
                     
+        nTheta, nPhi, nR = number of points to be examined in the 
+            numerical integration. nTheta, nPhi, nR points in spherical grid
+            between rIonosphere and rCurrents
+            
     Outputs:
         None - other than the pickle file that is generated
     """
@@ -883,7 +887,7 @@ def loop_heatmapworld_gap(info, times, nlat, nlong):
                 # Get the B field at the point X and timeiso using the RIM data
                 # results are in SM coordinates
                 Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = \
-                    calc_gap_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'], 30, 30, 30)
+                    calc_gap_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
     
         # Determine the fraction of the B field due to various currents - those
         # parallell to the B field, perpendicular to B field and in the phi-hat

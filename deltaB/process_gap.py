@@ -6,6 +6,7 @@ Created on Wed Feb 22 11:10:35 2023
 @author: Dean Thomas
 """
 
+from numba import jit
 import logging
 import numpy as np
 import swmfio
@@ -24,12 +25,11 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%S')
 
-def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR):
-    """Process data in RIM file to calculate the delta B at point XSM as
-    determined by the field-aligned currents between the radius rIonosphere
-    and rCurrents.  Biot-Savart Law is used for calculation.  We will integrate
-    across all currents flowing through the sphere at range rIonosphere from earth
-    origin.
+@jit(nopython=True)
+def calc_gap_b_sub(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR, dTheta, dPhi, dR,
+                    theta_array, phi_array, jr_array):
+    """ Subroutine for calc_gap_ that allow numba accelleration.  It calculates the
+    total B field at point XSM
     
     Inputs:
         XSM = SM (cartesian) position where magnetic field will be measured.
@@ -49,73 +49,18 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
             numerical integration. nTheta, nPhi, nR points in spherical grid
             between rIonosphere and rCurrents
             
+        theta_array, phi_array, jr_array = arrays defining jr at grid of theta
+            and phi points.  Values taken from ionosphere data file.  Used to
+            determine initial current density along field line.
+            
     Outputs:
-        Bn, Be, Bd = cumulative sum of dB data in north-east-down coordinates,
-            provides total B at point X (in SM coordinates)
-
         B = total B due to field-aligned currents (in SM coordinates)
-        
     """
-
-    logging.info(f'Calculate gap dB... {os.path.basename(filepath)}')
 
     # Set up some variables used below
     x_fac = np.empty(3)
-    B = np.empty(3)
     b_fac = np.empty(3)
-
-    ############################################################
-    # Earth dipole field is in SM coordinates, and RIM is in SM
-    # cordinates, so we do everything in SM coordinates
-    ############################################################
-
-    # Determine the size of the steps in theta, phi, r for numerical integration
-    # over spherical shell between rIonosphere and rCurrents
-    dTheta = np.pi    / nTheta
-    dPhi   = 2.*np.pi / nPhi
-    dR     = (rCurrents - rIonosphere) / nR
-    
-    base_ext = os.path.splitext( filepath )
-    if base_ext[1] == '.idl':
-        # If its an idl file, use spacepy Iono to read
-        ionodata = Iono( filepath )
-
-        # Make sure arrays have same dimensions
-        assert ionodata['n_theta'].shape == ionodata['n_psi'].shape
-        assert ionodata['n_theta'].shape == ionodata['n_jr'].shape
-        assert ionodata['s_theta'].shape == ionodata['s_psi'].shape
-        assert ionodata['s_theta'].shape == ionodata['s_jr'].shape
-
-        # Get north and south hemisphere data  
-        # Note, psi is the angle phi
-        n_theta = ionodata['n_theta'].reshape( -1 ) 
-        n_psi   = ionodata['n_psi'].reshape( -1 ) 
-        n_jr    = ionodata['n_jr'].reshape( -1 ) 
-        s_theta = ionodata['s_theta'].reshape( -1 )
-        s_psi   = ionodata['s_psi'].reshape( -1 )
-        s_jr    = ionodata['s_jr'].reshape( -1 )
-
-        # Combine north and south hemisphere data and setup interpolator for 
-        # finding jr at point theta, phi on 2D surface from IDL file.  NOTE, 
-        # must transform input data from degrees to radians.
-        # Note: theta is 0 -> pi
-        theta_array = np.concatenate( [n_theta, s_theta], axis = 0 ) * np.pi/180
-        phi_array = np.concatenate( [n_psi, s_psi], axis = 0 ) * np.pi/180
-        jr_array = np.concatenate( [n_jr, s_jr], axis = 0 )
-        jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
-       
-    else:
-        # Read RIM file
-        # swmfio.logger.setLevel(logging.INFO)
-        data_arr, var_dict, units = swmfio.read_rim(filepath)
-        assert(data_arr.shape[0] != 0)
-    
-        # Setup interpolator for finding jr at point theta, phi on 2D surface from 
-        # RIM file.  NOTE, must transform input data from degrees to radians
-        theta_array = data_arr[var_dict['Theta']][:] * np.pi/180
-        phi_array = data_arr[var_dict['Psi']][:] * np.pi/180
-        jr_array = data_arr[var_dict['JR']][:]
-        jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
+    B = np.empty(3)
 
     # Start the loops for the Biot-Savart numerical integration. We use three 
     # loops - theta, phi and r.  theta and phi cover the inner boundary
@@ -171,11 +116,12 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
             # Volume is from phi - dPhi/2 to phi + dPhi/2
             phi = (j + 0.5) * dPhi
 
-            # Use interpolator to get jr for a point at theta, phi. We assume
-            # this is the current density at rIonosphere.
+            # Look for nearest neighbor (d2 min) to get jr for a point at 
+            # theta, phi. We assume this is the current density at rIonosphere.
             # Note, must transform theta from latitude to elevation with 0 at 
             # north pole, pi at south pole
-            jr = jtp_interpolate( np.pi/2 - theta, phi )
+            d2 = (theta_array - np.pi/2 + theta)**2 + (phi_array - phi)**2
+            jr = jr_array[d2.argmin()]
   
             ################################################################
             # Below we find the Field Aligned Current (FAC).  We can safely
@@ -300,6 +246,99 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
 
                     # In Biot-Savart, remember i_fac is in b_fac_hat direction
                     B[:] = B[:] + 637.1 * i_fac * np.cross( b_fac_hat, r_fac ) * ds / r_fac_mag**3
+                    
+    return B
+
+def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR):
+    """Process data in RIM file to calculate the delta B at point XSM as
+    determined by the field-aligned currents between the radius rIonosphere
+    and rCurrents.  Biot-Savart Law is used for calculation.  We will integrate
+    across all currents flowing through the sphere at range rIonosphere from earth
+    origin.
+    
+    Inputs:
+        XSM = SM (cartesian) position where magnetic field will be measured.
+        Dipole data is in SM coordinates
+        
+        filepath = path to RIM file
+              
+        timeISO = ISO time for data in RIM file
+              
+        rCurrents = range from earth center below which results are not valid
+            measured in Re units
+            
+        rIonosphere = equal range from earth center to the ionosphere, measured
+            in Re units (1.01725 in magnetopost code)
+            
+        nTheta, nPhi, nR = number of points to be examined in the 
+            numerical integration. nTheta, nPhi, nR points in spherical grid
+            between rIonosphere and rCurrents
+            
+    Outputs:
+        Bn, Be, Bd = cumulative sum of dB data in north-east-down coordinates,
+            provides total B at point X (in SM coordinates)
+
+        B = total B due to field-aligned currents (in SM coordinates)
+        
+    """
+
+    logging.info(f'Calculate gap dB... {os.path.basename(filepath)} {nTheta} {nPhi} {nR}')
+
+    ############################################################
+    # Earth dipole field is in SM coordinates, and RIM is in SM
+    # cordinates, so we do everything in SM coordinates
+    ############################################################
+
+    # Determine the size of the steps in theta, phi, r for numerical integration
+    # over spherical shell between rIonosphere and rCurrents
+    dTheta = np.pi    / nTheta
+    dPhi   = 2.*np.pi / nPhi
+    dR     = (rCurrents - rIonosphere) / nR
+    
+    base_ext = os.path.splitext( filepath )
+    if base_ext[1] == '.idl':
+        # If its an idl file, use spacepy Iono to read
+        ionodata = Iono( filepath )
+
+        # Make sure arrays have same dimensions
+        assert ionodata['n_theta'].shape == ionodata['n_psi'].shape
+        assert ionodata['n_theta'].shape == ionodata['n_jr'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_psi'].shape
+        assert ionodata['s_theta'].shape == ionodata['s_jr'].shape
+
+        # Get north and south hemisphere data  
+        # Note, psi is the angle phi
+        n_theta = ionodata['n_theta'].reshape( -1 ) 
+        n_psi   = ionodata['n_psi'].reshape( -1 ) 
+        n_jr    = ionodata['n_jr'].reshape( -1 ) 
+        s_theta = ionodata['s_theta'].reshape( -1 )
+        s_psi   = ionodata['s_psi'].reshape( -1 )
+        s_jr    = ionodata['s_jr'].reshape( -1 )
+
+        # Combine north and south hemisphere data and setup interpolator for 
+        # finding jr at point theta, phi on 2D surface from IDL file.  NOTE, 
+        # must transform input data from degrees to radians.
+        # Note: theta is 0 -> pi
+        theta_array = np.concatenate( [n_theta, s_theta], axis = 0 ) * np.pi/180
+        phi_array = np.concatenate( [n_psi, s_psi], axis = 0 ) * np.pi/180
+        jr_array = np.concatenate( [n_jr, s_jr], axis = 0 )
+        # jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
+       
+    else:
+        # Read RIM file
+        # swmfio.logger.setLevel(logging.INFO)
+        data_arr, var_dict, units = swmfio.read_rim(filepath)
+        assert(data_arr.shape[0] != 0)
+    
+        # Setup interpolator for finding jr at point theta, phi on 2D surface from 
+        # RIM file.  NOTE, must transform input data from degrees to radians
+        theta_array = data_arr[var_dict['Theta']][:] * np.pi/180
+        phi_array = data_arr[var_dict['Psi']][:] * np.pi/180
+        jr_array = data_arr[var_dict['JR']][:]
+        # jtp_interpolate = NearestNDInterpolator( list(zip( theta_array, phi_array )), jr_array )
+
+    B = calc_gap_b_sub(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR, dTheta, dPhi, dR,
+                        theta_array, phi_array, jr_array)
     
     # Bn, Be, Bd = get_NED_vector_components( b.reshape(1,3), X.reshape(1,3) ).ravel()
     Bn, Be, Bd = get_NED_components( B, XSM )

@@ -250,7 +250,7 @@ def plot_2D_ms( info, time_limits, Bn_limits ):
     
     return
 
-def loop_2D_gap_iono(XSM, info, reduce):
+def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30):
     """Loop thru data in RIM files to create data for 2D plots showing Bn versus 
     time including the breakdown of contributions from currents parallel and 
     perpendicular to B field components.  This routine examines field aligned 
@@ -264,6 +264,10 @@ def loop_2D_gap_iono(XSM, info, reduce):
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
+        nTheta, nPhi, nR = number of points to be examined in the 
+            numerical integration. nTheta, nPhi, nR points in spherical grid
+            between rIonosphere and rCurrents for gap integrals
+
     Outputs:
         None - other than the pickle file saved
     """
@@ -303,7 +307,7 @@ def loop_2D_gap_iono(XSM, info, reduce):
         # results are in SM coordinates.  This call looks at Field Aligned 
         # Currents in the gap region
         B_gap[i], Be, Bd, Bx, By, Bz = \
-            calc_gap_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'], 30, 30, 30)
+            calc_gap_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
 
         # Get the B field at the point XSM and timeISO using the RIM data
         # results are in SM coordinates.  This call looks at Pedersen and Hall
@@ -326,7 +330,7 @@ def loop_2D_gap_iono(XSM, info, reduce):
 
     return
 
-def loop_2D_gap_iono_point(point, info, reduce):
+def loop_2D_gap_iono_point(point, info, reduce, nTheta=30, nPhi=30, nR=30):
     """Loop thru data in RIM files to create data for 2D plots showing Bn versus 
     time including the breakdown of contributions from currents parallel and 
     perpendicular to B field components.  This routine examines field aligned 
@@ -341,6 +345,10 @@ def loop_2D_gap_iono_point(point, info, reduce):
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
+        nTheta, nPhi, nR = number of points to be examined in the 
+            numerical integration. nTheta, nPhi, nR points in spherical grid
+            between rIonosphere and rCurrents for gap integrals
+
     Outputs:
         None - other than the pickle file saved
     """
@@ -394,7 +402,7 @@ def loop_2D_gap_iono_point(point, info, reduce):
         # results are in SM coordinates.  This call looks at Field Aligned 
         # Currents in the gap region
         B_gap[i], Be, Bd, Bx, By, Bz = \
-            calc_gap_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'], 30, 30, 30)
+            calc_gap_b(XSM, filepath, timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
 
         # Get the B field at the point XSM and timeISO using the RIM data
         # results are in SM coordinates.  This call looks at Pedersen and Hall

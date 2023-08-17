@@ -19,12 +19,15 @@ from datetime import datetime
 import numpy as np
 import cartopy.crs as ccrs
 from cartopy.feature.nightshade import Nightshade
-
+from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 
 from deltaB import calc_ms_b_paraperp, calc_ms_b_region,\
     calc_iono_b, calc_gap_b, \
     convert_BATSRUS_to_dataframe, \
     date_timeISO, create_directory
+
+# Colormap used in heatmaps below
+COLORMAP = 'coolwarm'
 
 # Example of info = {...}
 # data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
@@ -39,6 +42,132 @@ from deltaB import calc_ms_b_paraperp, calc_ms_b_region,\
 #         "dir_plots": os.path.join(data_dir, "DIPTSUR2.plots"),
 #         "dir_derived": os.path.join(data_dir, "DIPTSUR2.derived"),
 # }
+
+def plot_heatmapworld( info, time, vmin, vmax, nlat, nlong, pklname, pltstr, pltname, title, csys='GEO', threesixty=False ):
+    """Generic routine for creating heatmaps.  Called by other routines below
+    to generate heatmaps for magnetosphere, gap region, and ionosphere.
+    
+    Inputs:
+        info = info on files to be processed, see info = {...} example above
+             
+        time = the time associated with the file for which we will create
+            heatmaps
+
+        vmin, vmax = min/max limits of heatmap color scale
+        
+        nlat, nlong = number of latitude and longitude samples
+        
+        pklname = path for pickle file containing data to be plotted
+        
+        pltstr = name of column in pklfile used to create heatmap
+        
+        pltname = filename for storing plot
+        
+        title = plot title
+
+        csys = coordinate system for plots (e.g., GEO, SM)
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
+        
+    Outputs:
+        None - other than the plot files saved
+    """
+    
+    from spacepy import coordinates as coord
+    from spacepy.time import Ticktock
+    from itertools import repeat
+    
+    # Read the pickle file with the data 
+    # Pickle file in info['dir_derived'] folder
+    df = pd.read_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
+    
+    # If needed transform from 'GEO' to csys
+    if csys != 'GEO':
+        # Get the ISO time from the filepath
+        timeISO = date_timeISO( time )
+
+        # Create list of radii, lats and longs
+        lat = df['Latitude']
+        lon = df['Longitude']
+        r = np.ones( len(lat) )
+        latlon1 = list( zip( r, lat, lon ) )
+        
+        # Use spacepy for coordinate transformation
+        tim = list( repeat( timeISO, len(lat) ) )
+        X1 = coord.Coords(latlon1, 'GEO', 'sph', use_irbem=False)
+        X1.ticks = Ticktock(tim, 'ISO')
+        X2 = X1.convert( csys, 'sph' )
+        latlon2 = X2.data
+        
+        # Extract lats and longs
+        lat3 = []
+        lon3 = []
+        for i in range(len(latlon2)):
+            lat3.append( latlon2[i][1] )
+            lon3.append( latlon2[i][2] )
+    else:
+        # Data in pickle file is in 'GEO' if cys == 'GEO'
+        lat3 = df['Latitude']
+        lon3 = df['Longitude']
+
+    lat3 = np.array(lat3)
+    lon3 = np.array(lon3)
+    total = np.array(df[pltstr])
+
+    # if vmin or vmax are not specified, base them on limits of data
+    # Vmin/vmax set range of heatmap colormap
+    if vmin is None or vmax is None:
+        vmin1 = np.min( total )
+        vmax1 = np.max( total )
+    else:
+        vmin1 = vmin
+        vmax1 = vmax
+
+    # Reshape bins to 2D meshes
+    lon_bins_2d = lon3.reshape(nlat,nlong)
+    lat_bins_2d = lat3.reshape(nlat,nlong)
+    density = total.reshape(nlat,nlong)
+    
+    # Colormap for heatmap
+    cmap = plt.colormaps[COLORMAP]
+    
+    # Is the map 0->360 or -180->180 in longitude
+    if threesixty:
+        proj = ccrs.PlateCarree(central_longitude=180.)
+    else:
+        proj = ccrs.PlateCarree()
+
+    # Create heatmap
+    fig, ax = plt.subplots(1,1, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    im = ax.pcolormesh(lon_bins_2d, lat_bins_2d, density, cmap=cmap, vmin=vmin1, 
+                       vmax=vmax1, transform=ccrs.PlateCarree())
+    
+    # Set ticks and axis labels
+    if threesixty:
+        ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
+    else:
+        ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+        
+    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
+    
+    lon_formatter = LongitudeFormatter(direction_label=True)
+    lat_formatter = LatitudeFormatter(direction_label=True)
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
+    
+    ax.set_xlabel(csys + ' Longitude')
+    ax.set_ylabel(csys + ' Latitude')
+
+    # Draw colorbar
+    plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
+
+    # Save plot
+    plt.title(title)
+    create_directory( info['dir_plots'], 'heatmaps' )
+    fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
+     
+    return
 
 def loop_heatmapworld_ms(info, times, nlat, nlong):
     """Loop thru data in BATSRUS files to create data for heat maps showing the 
@@ -56,7 +185,7 @@ def loop_heatmapworld_ms(info, times, nlat, nlong):
         nlat, nlong = number of latitude and longitude samples
                     
     Outputs:
-        None - other than the pickle file that is generated
+        None - other than the pickle file that is saved
     """
 
     # We will walk around the globe collecting B field estimates,
@@ -87,28 +216,28 @@ def loop_heatmapworld_ms(info, times, nlat, nlong):
         # Read in the BATSRUS file 
         df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
         
-        # Get the ISO time from the filepath
+        # Get the ISO time
         timeISO = date_timeISO( time )
         
         # Loop through the lat and long points on the earth's surface.
-        # We will determine the B field at each pont
+        # We will determine the B field at each point
         for i in range(nlat):
             for j in range(nlong):
     
                 logging.info(f'======== Examining {i} of {nlat}, {j} of {nlong}')
     
-                # k is counter to keep track of where we're at in storing the results
+                # k is counter to keep track of where to store results
                 k = i*nlong + j
     
                 # Store the lat and long, which is at the center of each cell
-                # Remember,we  must have -180 < longitude < +180            
+                # Remember, we must have -180 < longitude < +180            
                 B_lat[k] = 90. - (i + 0.5)*dlat
                 B_long[k] = 180. - (j + 0.5)*dlong
                 B_time[k] = (j + 0.5) * 24. / nlong
                 
                 # We need to convert the lat-long into GSM coordiantes for use
                 # with BATSRUS data.  Our point is on the earth's surface, so the
-                # first entry is 1.
+                # first entry (radius) is 1.
                 Xlatlong=[1., B_lat[i*nlong + j], B_long[i*nlong + j]]
                 Xgeo = coord.Coords([Xlatlong], 'GEO', 'sph', use_irbem=False)
                 Xgeo.ticks = Ticktock([timeISO], 'ISO')
@@ -180,11 +309,12 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, t
         nearradius = sphere near earth in which we examine ring currents and other
             phenonmena
                     
-        mpfiles, bsfiles, nsfiles = list of filenames (located in os.path.join( info['dir_derived'], 'mp-bs-ns') 
+        mpfiles, bsfiles, nsfiles = list of filenames 
+                (located in os.path.join( info['dir_derived'], 'mp-bs-ns') 
                 that contain the magnetopause, bow shock, and neutral sheet locations 
                 at time time
     Outputs:
-        None - other than the pickle file that is generated
+        None - other than the pickle file that is saved
     """
 
     # We will walk around the globe collecting B field estimates,
@@ -216,7 +346,7 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, t
         filepath = info['files']['magnetosphere'][time]
         basename = os.path.basename(filepath)
  
-        # Get the ISO time from the filepath
+        # Get the ISO time
         timeISO = date_timeISO( time )
         
         # Loop through the lat and long points on the earth's surface.
@@ -226,7 +356,7 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, t
     
                 logging.info(f'======== Examining {i} of {nlat}, {j} of {nlong}')
     
-                # k is counter to keep track of where we're at in storing the results
+                # k is counter to keep track of where we store the results
                 k = i*nlong + j
     
                 # Store the lat and long, which is at the center of each cell
@@ -250,10 +380,8 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, t
                    calc_ms_b_region( info, deltamp, deltabs, thicknessns, nearradius, 
                                           time, mpfiles[p], bsfiles[p], nsfiles[p], X )
         
-        # Determine the fraction of the B field due to various currents - those
-        # parallell to the B field, perpendicular to B field and in the phi-hat
-        # direction (jperpenddicular dot phi-hat), and the remaining perpendicular 
-        # current (jperpendicular - jperpendicular dot phi-hat).
+        # Determine the fraction of the B field due to various regions in the
+        # magnetosphere
         B_fraction_other = [m/n for m, n in zip(Bnother, Bn)]
         B_fraction_mag = [m/n for m, n in zip(Bnmag, Bn)]
         B_fraction_neu = [m/n for m, n in zip(Bnneu, Bn)]
@@ -277,6 +405,50 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, t
         pklname = basename + '.' + params + '.ms-region-heatmap-world.pkl'
         df.to_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
     
+    return
+
+def plot_heatmapworld_ms_total( info, times, vmin, vmax, nlat, nlong, csys='GEO', threesixty=False ):
+    """Plot results from loop_heatmap_ms, showing the heatmap of total Bn 
+    contributions from all magnetosphere contributions.
+
+    Inputs:
+        info = info on files to be processed, see info = {...} example above
+             
+        times = the times associated with the files for which we will create
+            heatmaps
+
+        vmin, vmax = min/max limits of heatmap color scale
+        
+        nlat, nlong = number of latitude and longitude samples
+
+        csys = coordinate system for plots (e.g., GEO, SM)
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
+        
+    Outputs:
+        None - other than the plot files saved
+    """
+    # Loop through the files
+    for i in range(len(times)):
+        time = times[i]
+        
+        # Read the pickle file with the data from loop_heatmapworld_ms above
+        filepath = info['files']['magnetosphere'][time]
+        basename = os.path.basename(filepath)
+        pklname = basename + '.ms-heatmap-world.pkl'
+        pltstr = 'Total'
+
+        # Time for the data in the file (hour:minutes)
+        time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
+        
+        # Create names
+        title = r'$B_N$ (nT) due to MS $\mathbf{j}$ ' + f'({time_hhmm})'
+        pltname = 'ms-heatmap-' +  csys + '-' + str(time[0]) + str(time[1]) + str(time[2]) + \
+            '-' + str(time[3]) + '-' + str(time[4]) + '.png'
+            
+        # Make plot
+        plot_heatmapworld( info, time, vmin, vmax, nlat, nlong, pklname, pltstr, 
+                          pltname, title, csys=csys, threesixty=threesixty )
     return
 
 def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
@@ -305,7 +477,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
     # assert( nlong == 12 )
     
     # Colorscale for heatmap
-    cmap = plt.colormaps['coolwarm']
+    cmap = plt.colormaps[COLORMAP]
 
     # Loop through the files
     for i in range(len(times)):
@@ -322,10 +494,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         basename = os.path.basename(filepath)
         pklname = basename + '.ms-heatmap-world.pkl'
         df = pd.read_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
-        
-        # Get the ISO time from the filepath
-        timeISO = date_timeISO( time )
-        
+                
         # Determine where Colaba is
         colabalatlong = [18.907, 72.815]
 
@@ -466,15 +635,9 @@ def plot_heatmapworld_ms_by_region( info, times, vmin, vmax, nlat, nlong, deltam
     Outputs:
         None - other than the plot files saved
     """
-
-    # To use different nlat/nlong values the code below must be generalized.
-    # It assumes nlat = 9 and nlong = 12.  See, for example, the calls to
-    # set the xticks and yticks below    
-    # assert( nlat == 9 )
-    # assert( nlong == 12 )
     
     # Colorscale for heatmap
-    cmap = plt.colormaps['coolwarm']
+    cmap = plt.colormaps[COLORMAP]
     
     # Make string to be used below in names, etc.
     params = '[' + str(deltamp) + ',' + str(deltabs) + ',' + str(thicknessns) \
@@ -490,15 +653,12 @@ def plot_heatmapworld_ms_by_region( info, times, vmin, vmax, nlat, nlong, deltam
         # Time for the data in the file (hour:minutes)
         time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
         
-        # Read the pickle file with the data from loop_heatmap_ms above
+        # Read the pickle file with the data from loop_heatmapworld_ms_by_region above
         filepath = info['files']['magnetosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.' + params + '.ms-region-heatmap-world.pkl'
         df = pd.read_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
-        
-        # Get the ISO time from the filepath
-        timeISO = date_timeISO( time )
-        
+                
         # Determine where Colaba is
         colabalatlong = [18.907, 72.815]
 
@@ -612,7 +772,6 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
     will be used to generate heatmaps of Bn over surface of earth
 
     Inputs:
-        
         info = locations of key directories and other info on data 
         
         times = the times associated with the files for which we will create
@@ -652,13 +811,10 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
     for i in range(len(times)):
         time = times[i]
             
-        # We need the filepath for BATSRUS file
+        # We need the filepath for RIM file
         filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
     
-        # # Read in the BATSRUS file 
-        # df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
-        
         # Get the ISO time from the filepath
         timeISO = date_timeISO( time )
         
@@ -669,7 +825,7 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
     
                 logging.info(f'======== Examining {i} of {nlat}, {j} of {nlong}')
     
-                # k is counter to keep track of where we're at in storing the results
+                # k is counter to keep track of where we store the results
                 k = i*nlong + j
     
                 # Store the lat and long, which is at the center of each cell
@@ -680,7 +836,7 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
                 
                 # We need to convert the lat-long into SM coordiantes for use
                 # with RIM data.  Our point is on the earth's surface, so the
-                # first entry is 1.
+                # first entry (radius) is 1.
                 Xlatlong=[1., B_lat[i*nlong + j], B_long[i*nlong + j]]
                 Xgeo = coord.Coords([Xlatlong], 'GEO', 'sph', use_irbem=False)
                 Xgeo.ticks = Ticktock([timeISO], 'ISO')
@@ -691,15 +847,6 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
                 # results are in SM coordinates
                 Bnp[k], Bep[k], Bdp[k], Bxp[k], Byp[k], Bzp[k], Bnh[k], Beh[k], Bdh[k], Bxh[k], Byh[k], Bzh[k] = \
                     calc_iono_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'])
-    
-        # Determine the fraction of the B field due to various currents - those
-        # parallell to the B field, perpendicular to B field and in the phi-hat
-        # direction (jperpenddicular dot phi-hat), and the remaining perpendicular 
-        # current (jperpendicular - jperpendicular dot phi-hat).
-        # b_fraction = [m/n for m, n in zip(b_original_parallel, b_original)]
-        # b_fraction_perp = [m/n for m, n in zip(b_original_perp, b_original)]
-        # b_fraction_perpphi = [m/n for m, n in zip(b_original_perpphi, b_original)]
-        # b_fraction_perpphires = [m/n for m, n in zip(b_original_perpphires, b_original)]
     
         # Put the results in a dataframe and save it.
         df = pd.DataFrame( { r'Total Pedersen': Bnp, 
@@ -714,9 +861,9 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
     
     return
 
-def plot_heatmapworld_iono( info, times, vmin, vmax, nlat, nlong ):
+def plot_heatmapworld_iono( info, times, vmin, vmax, nlat, nlong, csys='GEO', threesixty=False ):
     """Plot results from loop_heatmap_iono, showing the heatmap of
-    Bn contributions from Pedersend and Hall currents in the inonosphere
+    Bn contributions from ionospheric currents (Pedersen and Hall).
 
     Inputs:
         info = info on files to be processed, see info = {...} example above
@@ -726,84 +873,49 @@ def plot_heatmapworld_iono( info, times, vmin, vmax, nlat, nlong ):
 
         vmin, vmax = min/max limits of heatmap color scale
         
+        nlat, nlong = number of latitude and longitude samples
+
+        csys = coordinate system for plots (e.g., GEO, SM)
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
         
     Outputs:
         None - other than the plot files saved
     """
     
-    # To use different nlat/nlong values the code below must be generalized.
-    # It assumes nlat = 9 and nlong = 12.  See, for example, the calls to
-    # set the xticks and yticks below    
-    # assert( nlat == 9 )
-    # assert( nlong == 12 )
-    
-    # Colorscale for heatmap
-    cmap = plt.colormaps['coolwarm']
-
     # Loop through the files
     for i in range(len(times)):
         time = times[i]
-        
-        # Time for the data in the file (hour:minutes)
-        time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
         
         # Read the pickle file with the data from loop_sum_db above
         filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.iono-heatmap-world.pkl'
-        df = pd.read_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
-        
-        # Get the ISO time from the filepath
-        timeISO = date_timeISO( time )
-        
 
-        # Determine where Colaba is
-        colabalatlong = [18.907, 72.815]
-
-        # Create the heatmaps
-    
-        # Earth rotates CCW viewed from above North Pole.  Dawn happens on west 
-        # side of globe as the earth rotates to the east.
-        # https://commons.wikimedia.org/wiki/File:AxialTiltObliquity.png
+        # Time for the data in the file (hour:minutes)
+        time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
         
-        # set_xticks has a trick.  The ticks are numbered by the columns in the
-        # pivot table, not by the values of the xaxis.
-        
-        colabaxy = [(6 + (colabalatlong[1])*nlong/360)%nlong, \
-                    nlat - (colabalatlong[0] + 90)*nlat/180]
-
-        fig = plt.gcf()
-        df1 = df.pivot(index='Latitude', columns='Longitude', values='Total Pedersen' )
-        df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
-        # ax.set_xticks([0,3,6,9,12])
-        # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
-        ax.set_xlabel('Longitude')
-        ax.set_ylabel('GEO Latitude')
-        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to $\mathbf{j}_{Pedersen}$ ' + f'({time_hhmm})')
-        plt.show()
-        pltname = 'iono-pedersen-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
+        # Create names
+        pltstr = 'Total Pedersen'
+        title = r'$B_N$ (nT) due to $\mathbf{j}_{Pedersen}$ ' + f'({time_hhmm})'
+        pltname = 'iono-pedersen-heatmap-' +  csys + '-' + str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
-        create_directory( info['dir_plots'], 'heatmaps' )
-        fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
-        
-        fig = plt.gcf()
-        df1 = df.pivot(index='Latitude', columns='Longitude', values='Total Hall' )
-        df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
-        # ax.set_xticks([0,3,6,9,12])
-        # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
-        ax.set_xlabel('Longitude')
-        ax.set_ylabel('GEO Latitude')
-        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to $\mathbf{j}_{Hall}$ ' + f'({time_hhmm})')
-        plt.show()
-        pltname = 'iono-hall-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
+            
+        # Make plot
+        plot_heatmapworld( info, time, vmin, vmax, nlat, nlong, pklname, pltstr, 
+                          pltname, title, csys=csys, threesixty=threesixty )
+
+        # Create names
+        pltstr = 'Total Hall'
+        title = r'$B_N$ (nT) due to $\mathbf{j}_{Hall}$ ' + f'({time_hhmm})'
+        pltname = 'iono-hall-heatmap-' +  csys + '-' + str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
-        fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
+            
+        # Make plot
+        plot_heatmapworld( info, time, vmin, vmax, nlat, nlong, pklname, pltstr, 
+                          pltname, title, csys=csys, threesixty=threesixty )
+
+    return
 
 def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
     """Loop thru data in RIM files to create plots showing the breakdown of
@@ -849,13 +961,10 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
     for i in range(len(times)):
         time = times[i]
             
-        # We need the filepath for BATSRUS file
+        # We need the filepath for RIM file
         filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
-    
-        # # Read in the BATSRUS file 
-        # df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
-        
+            
         # Get the ISO time from the filepath
         timeISO = date_timeISO( time )
         
@@ -877,7 +986,7 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
                 
                 # We need to convert the lat-long into GSM coordiantes for use
                 # with RIM data.  Our point is on the earth's surface, so the
-                # first entry is 1.
+                # first entry (radius) is 1.
                 Xlatlong=[1., B_lat[i*nlong + j], B_long[i*nlong + j]]
                 Xgeo = coord.Coords([Xlatlong], 'GEO', 'sph', use_irbem=False)
                 Xgeo.ticks = Ticktock([timeISO], 'ISO')
@@ -888,15 +997,6 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
                 # results are in SM coordinates
                 Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = \
                     calc_gap_b(X, filepath, timeISO, info['rCurrents'], info['rIonosphere'], nTheta, nPhi, nR)
-    
-        # Determine the fraction of the B field due to various currents - those
-        # parallell to the B field, perpendicular to B field and in the phi-hat
-        # direction (jperpenddicular dot phi-hat), and the remaining perpendicular 
-        # current (jperpendicular - jperpendicular dot phi-hat).
-        # b_fraction = [m/n for m, n in zip(b_original_parallel, b_original)]
-        # b_fraction_perp = [m/n for m, n in zip(b_original_perp, b_original)]
-        # b_fraction_perpphi = [m/n for m, n in zip(b_original_perpphi, b_original)]
-        # b_fraction_perpphires = [m/n for m, n in zip(b_original_perpphires, b_original)]
     
         # Put the results in a dataframe and save it.
         df = pd.DataFrame( { r'Total': Bn, 
@@ -910,7 +1010,7 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
     
     return
 
-def plot_heatmapworld_gap( info, times, vmin, vmax, nlat, nlong ):
+def plot_heatmapworld_gap( info, times, vmin, vmax, nlat, nlong, csys='GEO', threesixty=False ):
     """Plot results from loop_heatmap_gap, showing the heatmap of
     Bn contributions from field aligned currents in the gap region.
 
@@ -922,94 +1022,64 @@ def plot_heatmapworld_gap( info, times, vmin, vmax, nlat, nlong ):
 
         vmin, vmax = min/max limits of heatmap color scale
         
+        nlat, nlong = number of latitude and longitude samples
+
+        csys = coordinate system for plots (e.g., GEO, SM)
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
         
     Outputs:
         None - other than the plot files saved
     """
-    
-    # To use different nlat/nlong values the code below must be generalized.
-    # It assumes nlat = 9 and nlong = 12.  See, for example, the calls to
-    # set the xticks and yticks below    
-    # assert( nlat == 9 )
-    # assert( nlong == 12 )
-    
-    # Colorscale for heatmap
-    cmap = plt.colormaps['coolwarm']
-
     # Loop through the files
     for i in range(len(times)):
         time = times[i]
-        
-        # Time for the data in the file (hour:minutes)
-        time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
         
         # Read the pickle file with the data from loop_sum_db above
         filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.gap-heatmap-world.pkl'
-        df = pd.read_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
-        
-        # Get the ISO time from the filepath
-        timeISO = date_timeISO( time )
-        
-        # Determine where Colaba is
-        colabalatlong = [18.907, 72.815]
+        pltstr = 'Total'
 
-        # Create the heatmaps
-    
-        # Earth rotates CCW viewed from above North Pole.  Dawn happens on west 
-        # side of globe as the earth rotates to the east.
-        # https://commons.wikimedia.org/wiki/File:AxialTiltObliquity.png
+        # Time for the data in the file (hour:minutes)
+        time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
         
-        # set_xticks has a trick.  The ticks are numbered by the columns in the
-        # pivot table, not by the values of the xaxis.
-        
-        # Draw (1,0,0) SM point on graph.  Note, that the x and y axes are the 
-        # the column and row numbers of the heatmap.  So prorate the lat long
-        # accordingly. x axis is 0 to nlong, y axis is 0 to nlat
-
-        colabaxy = [(6 + (colabalatlong[1])*nlong/360)%nlong, \
-                    nlat - (colabalatlong[0] + 90)*nlat/180]
-
-        fig = plt.gcf()
-        df1 = df.pivot(index='Latitude', columns='Longitude', values='Total' )
-        df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", annot_kws={"size":6})
-        plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
-        # ax.set_xticks([0,3,6,9,12])
-        # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
-        ax.set_xlabel('Longitude')
-        ax.set_ylabel('GEO Latitude')
-        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to Gap $\mathbf{j}_\parallel$ ' + f'({time_hhmm})')
-        plt.show()
-        pltname = 'gap-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
+        # Create names
+        title = r'$B_N$ (nT) due to Gap $\mathbf{j}_\parallel$ ' + f'({time_hhmm})'
+        pltname = 'gap-heatmap-' +  csys + '-' + str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
-        create_directory( info['dir_plots'], 'heatmaps' )
-        fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
-     
+            
+        # Make plot
+        plot_heatmapworld( info, time, vmin, vmax, nlat, nlong, pklname, pltstr, 
+                          pltname, title, csys=csys, threesixty=threesixty )
     return
 
-def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params):   
-    """Plot results from loop_heatmap_gap, showing the heatmap of
-    Bn contributions from field aligned currents in the gap region.
+def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params, threesixty):   
+    """Plot results from loop_heatmapworld_ms_by_region, showing the heatmap of
+    Bn contributions a specific magnetospheric region at a specific time
 
     Inputs:
+        info = info on files to be processed, see info = {...} example above
+
         time = UTC time of plot
         
-        nlong, nlat = number of longitude and latitude bins
+        vmin, vmax = min/max limits of heatmap color scale
+        
+        nlat, nlong = number of latitude and longitude samples
 
         ax = subplot where plot will be placed
         
-        title = title for plot
+        title = title for plot, also specifies which region is plotted.  That is,
+            data is in df[title] stored in pickle file
+        
+        params = string with run information, used in filenames, etc. 
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
         
     Outputs:
         None - other than the plot generated
         
     """
-    # Time for the data in the file (hour:minutes)
-    time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
-
     # We need the filepath for BATSRUS file to get pickle file
     filepath = info['files']['magnetosphere'][time]
     basename = os.path.basename(filepath)
@@ -1029,41 +1099,61 @@ def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params
     lat_bins = np.array(df['Latitude'])
     density_bins = np.array(df[title])
     
+    # if vmin or vmax are not specified, base them on limits of data
+    if vmin is None or vmax is None:
+        vmin = np.min( density_bins )
+        vmax = np.max( density_bins )
+    
+    # Reshape bins to 2D meshes
     lon_bins_2d = lon_bins.reshape(nlat,nlong)
     lat_bins_2d = lat_bins.reshape(nlat,nlong)
     density = density_bins.reshape(nlat,nlong)
     
     # Determine where Colaba is
     colabalatlong = [18.907, 72.815]
-    ax.plot(colabalatlong[1], colabalatlong[0], markersize=5, color='yellow', marker='*', zorder=6, alpha=0.8)
+    ax.plot(colabalatlong[1], colabalatlong[0], markersize=5, color='yellow', 
+            marker='*', zorder=6, alpha=0.8, transform=ccrs.PlateCarree())
     
     # Colormap for heatmap
-    cmap = plt.colormaps['coolwarm']
+    cmap = plt.colormaps[COLORMAP]
     
     # Draw heatmap
-    im = ax.pcolormesh(lon_bins_2d, lat_bins_2d, density, cmap=cmap, vmin=vmin, vmax=vmax)
+    im = ax.pcolormesh(lon_bins_2d, lat_bins_2d, density, cmap=cmap, vmin=vmin, 
+                       vmax=vmax, transform=ccrs.PlateCarree())
     
     # Set ticks
-    ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+    if threesixty:
+        ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
+    else:
+        ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+        
+    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
+    
+    lon_formatter = LongitudeFormatter(direction_label=True)
+    lat_formatter = LatitudeFormatter(direction_label=True)
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
     ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
     
     # Draw colorbar and title
     plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
-    # ax.set_title(r'B\textsubscript{N} (nT) from ' + title + ' (' + time_hhmm +')' )
     return im
 
-def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, deltamp, deltabs, thicknessns, nearradius):
-    """Plot results from loop_heatmap_by_region, showing the heatmap of
-    Bn contributions from field aligned currents in the gap region.
+def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, deltamp, deltabs, 
+                                        thicknessns, nearradius, threesixty=False):
+    """Plot heatmaps in a grid, showing Bn contributions from each magnetospheric
+    region.
 
     Inputs:
-       info = info on files to be processed, see info = {...} example above
+        info = info on files to be processed, see info = {...} example above
             
-       times = the times associated with the files for which we will create
+        times = the times associated with the files for which we will create
            heatmaps
         
+        vmin, vmax = min/max limits of heatmap color scale
+    
         nlat, nlong = number of longitude and latitude bins
-
+    
         deltamp, deltabs = offset the x-values for the magnetopause (mp) or bow
             shock (bs).  Positive in positive GSM x coordinate.  Used to modify
             results for finite thickness of magnetopause and bow shock.
@@ -1074,6 +1164,8 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
             
         nearradius = sphere near earth in which we examine ring currents and other
             phenonmena
+            
+        threesixty = Boolean, is our map 0->360 or -180->180 in longitude
                     
     Outputs:
         None - other than the plot generated
@@ -1096,56 +1188,66 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         "font.sans-serif": "Helvetica",
     })
     
+    # One column of plots for each time
     cols = len(times)
-    
-    fig, ax = plt.subplots(4,cols, sharex=True, sharey=True, subplot_kw={'projection': ccrs.PlateCarree()})
+
+    # Is the map 0->360 or -180->180 in longitude
+    if threesixty:
+        proj = ccrs.PlateCarree(central_longitude=180.)
+    else:
+        proj = ccrs.PlateCarree()
+
+    # Create grid of subplots, 4 regions and 1 column for each time in times
+    fig, ax = plt.subplots(4,cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
     fig.subplots_adjust(right=0.5)
     
+    # Create heatmaps
     for i in range(cols):
         time = times[i]
         
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'Magnetosheath',  params)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'Near Earth', params)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'Neutral Sheet', params)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Other', params)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'Magnetosheath',  params, threesixty)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'Near Earth', params, threesixty)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'Neutral Sheet', params, threesixty)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Other', params, threesixty)
         ax[3,i].set_xlabel('Longitude')
     
-    ax[0,0].set_ylabel('Latitude')
-    ax[1,0].set_ylabel('Latitude')
-    ax[2,0].set_ylabel('Latitude')
-    ax[3,0].set_ylabel('Latitude')
-  
+    # Add titles to each column
     for axp, col in zip(ax[0], times):
         time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
         axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
 
+    # Add titles to each row identifying region
     for axp, row in zip(ax[:,0], ['Magnetosheath\nLatitude', 'Near Earth\nLatitude', 'Neutral Sheet\nLatitude', 'Other\nLatitude']):
         axp.set_ylabel(row, rotation=90)
    
+    # Save plot
     create_directory( info['dir_plots'], 'heatmaps' )
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.png" ) )
     return
 
-def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklpath):   
-    """Plot results from loop_heatmap_gap, showing the heatmap of
-    Bn contributions from field aligned currents in the gap region.
+def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklpath, threesixty):   
+    """Plot results from loop_heatmapworld_ms, showing the heatmap of
+    Bn contributions from various currents in the magnetosphere.
 
     Inputs:
         time = UTC time of plot
         
-        nlong, nlat = number of longitude and latitude bins
+        vmin, vmax = min/max limits of heatmap color scale
+
+        nlat, nlong = number of latitude and longitude samples
 
         ax = subplot where plot will be placed
         
-        title = title for plot
+        title = title for plot, also specifies which current system is plotted
+        
+        pklpath = path to pickle file
+        
+        threesixty = Boolean, is map 0->360 or -180->180 longitude
         
     Outputs:
         None - other than the plot generated
         
     """
-    # Time for the data in the file (hour:minutes)
-    time_hhmm = str(time[3]) + ':' + str(time[4]).zfill(2)
-
     # Get data
     df = pd.read_pickle(pklpath)
 
@@ -1158,6 +1260,7 @@ def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklp
     lon_bins = np.array(df['Longitude'])
     lat_bins = np.array(df['Latitude'])
     
+    # Select current system to be plotted
     if title == 'MS $j_{\perp Residual}$':
         density_bins = np.array(df[r'Perpendicular Residual'])
     if title == 'MS $j_{\perp \phi}$':
@@ -1184,31 +1287,47 @@ def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklp
     if title == 'Fraction $j_{Hall}$':
         density_bins = np.array(df[r'Fraction Total Hall' ])
     
+    # if vmin or vmax are not specified, base them on limits of data
+    if vmin is None or vmax is None:
+        vmin = np.min( density_bins )
+        vmax = np.max( density_bins )
+    
     lon_bins_2d = lon_bins.reshape(nlat,nlong)
     lat_bins_2d = lat_bins.reshape(nlat,nlong)
     density = density_bins.reshape(nlat,nlong)
     
     # Determine where Colaba is
     colabalatlong = [18.907, 72.815]
-    ax.plot(colabalatlong[1], colabalatlong[0], markersize=5, color='yellow', marker='*', zorder=6, alpha=0.8)
+    ax.plot(colabalatlong[1], colabalatlong[0], markersize=5, color='yellow', 
+            marker='*', zorder=6, alpha=0.8, transform=ccrs.PlateCarree())
 
     # Colormap for heatmap
-    cmap = plt.colormaps['coolwarm']
+    cmap = plt.colormaps[COLORMAP]
     
     # Add colormap
-    im = ax.pcolormesh(lon_bins_2d, lat_bins_2d, density, cmap=cmap, vmin=vmin, vmax=vmax)
+    im = ax.pcolormesh(lon_bins_2d, lat_bins_2d, density, cmap=cmap, vmin=vmin, 
+                       vmax=vmax, transform=ccrs.PlateCarree())
     
-    ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+    # Set ticks, changes based on whether longitude is 0->360 or -180->180
+    if threesixty:
+        ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
+    else:
+        ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+        
     ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
     
-    # Add colorbar and titles
+    lon_formatter = LongitudeFormatter(direction_label=True)
+    lat_formatter = LatitudeFormatter(direction_label=True)
+    ax.xaxis.set_major_formatter(lon_formatter)
+    ax.yaxis.set_major_formatter(lat_formatter)
+
+    # Add colorbar
     plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
-    # ax.set_title(r'$B_N$ (nT) from ' + title + ' (' + time_hhmm +')' )
     return 
 
-def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong):
-    """Plot results from loop_heatmap_by_region, showing the heatmap of
-    Bn contributions from field aligned currents in the gap region.
+def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, threesixty = False):
+    """Plot results from loop_heatmapworld_ms, showing the heatmap of
+    Bn contributions from magnetospheric currents.
 
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -1216,18 +1335,11 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong):
        times = the times associated with the files for which we will create
            heatmaps
         
-        nlat, nlong = number of longitude and latitude bins
-
-        deltamp, deltabs = offset the x-values for the magnetopause (mp) or bow
-            shock (bs).  Positive in positive GSM x coordinate.  Used to modify
-            results for finite thickness of magnetopause and bow shock.
-            
-        thicknessns = region around neutral sheet to include.  As specified,
-            neutral sheet is a 'plane.'  The neutral sheet region will extend
-            thicknessns/2 above and below it.
-            
-        nearradius = sphere near earth in which we examine ring currents and other
-            phenonmena
+       vmin, vmax = min/max limits of heatmap color scale
+       
+       nlat, nlong = number of longitude and latitude bins
+       
+       threesixty = Boolean, is our map 0->360 or -180->180 in longitude
                     
     Outputs:
         None - other than the plot generated
@@ -1248,48 +1360,52 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong):
 
     cols = len(times)
     
-    fig, ax = plt.subplots(6,cols, sharex=True, sharey=True, subplot_kw={'projection': ccrs.PlateCarree()})
+    # Is our map 0->360 or -180->180
+    if threesixty:
+        proj = ccrs.PlateCarree(central_longitude=180.)
+    else:
+        proj = ccrs.PlateCarree()
+    
+    fig, ax = plt.subplots(6, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
     fig.subplots_adjust(right=0.5)
     
     for i in range(cols):
         time = times[i]
         
-        # We need the filepath for BATSRUS file
+        # We need the filepath for BATSRUS file to find the pickle filename
         filepath = info['files']['magnetosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.ms-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
 
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'MS $j_\parallel$', pklpath)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'MS $j_{\perp \phi}$',  pklpath)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'MS $j_{\perp Residual}$',  pklpath)
+        # Create heatmaps for different currents
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'MS $j_\parallel$', pklpath, threesixty)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'MS $j_{\perp \phi}$',  pklpath, threesixty)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'MS $j_{\perp Residual}$',  pklpath, threesixty)
         
-        # We need the filepath for BATSRUS file
+        # We need the filepath for RIM file to find the pickle filename
         filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.gap-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
 
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Gap $j_\parallel$', pklpath)
+        # Create heatmaps
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Gap $j_\parallel$', pklpath, threesixty)
         
+        # Rinse and repeat for ionosphere
         pklname = basename + '.iono-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
        
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[4,i], '$j_{Pederson}$', pklpath)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[5,i], '$j_{Hall}$', pklpath)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[4,i], '$j_{Pederson}$', pklpath, threesixty)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[5,i], '$j_{Hall}$', pklpath, threesixty)
         ax[5,i].set_xlabel('Longitude')
-    
-    ax[0,0].set_ylabel('Latitude')
-    ax[1,0].set_ylabel('Latitude')
-    ax[2,0].set_ylabel('Latitude')
-    ax[3,0].set_ylabel('Latitude')
-    ax[4,0].set_ylabel('Latitude')
-    ax[5,0].set_ylabel('Latitude')
-  
+              
+    # Set titles for each column
     for axp, col in zip(ax[0], times):
         time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
         axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
 
+    # Set titles for each row
     for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$\nLatitude', 'Magnetosphere $j_{\perp \phi}$\nLatitude', \
                                   'Magnetosphere $\Delta j_{\perp}$\nLatitude', 'Gap $j_{\parallel}$\nLatitude', \
                                   'Ionosphere $j_{P}$\nLatitude', 'Ionosphere $j_{H}$\nLatitude']):

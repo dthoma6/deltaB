@@ -39,13 +39,9 @@ from .plots2D_Bn import loop_2D_ms, loop_2D_ms_point, plot_2D_ms, \
     loop_2D_gap_iono, loop_2D_gap_iono_point, plot_2D_gap_iono, \
     plot_2D_ms_gap_iono
 
-from .plotsHeatmap_Bn import loop_heatmap_ms, plot_heatmap_ms, \
-    loop_heatmap_ms_by_region, plot_heatmap_ms_by_region, \
-    loop_heatmap_iono, plot_heatmap_iono, \
-    loop_heatmap_gap, plot_heatmap_gap
-    
 from .plotsHeatmapWorld_Bn import loop_heatmapworld_ms, plot_heatmapworld_ms, \
     loop_heatmapworld_ms_by_region, plot_heatmapworld_ms_by_region, \
+    plot_heatmapworld_ms_total, \
     loop_heatmapworld_iono, plot_heatmapworld_iono, \
     loop_heatmapworld_gap, plot_heatmapworld_gap, \
     plot_heatmapworld_ms_by_region_grid, plot_heatmapworld_ms_by_currents_grid

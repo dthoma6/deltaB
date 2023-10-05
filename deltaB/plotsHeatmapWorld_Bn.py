@@ -1415,3 +1415,193 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.png" ) )
     return
 
+#########
+
+def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp, deltabs, 
+                                        thicknessns, nearradius, sharex=True, sharey=True):
+    """Plot heatmaps in a grid, showing Bn contributions from each magnetospheric
+    region.
+
+    Inputs:
+        info = info on files to be processed, see info = {...} example above
+            
+        times = the times associated with the files for which we will create
+           heatmaps
+        
+        vmin, vmax = min/max limits of heatmap color scale
+    
+        binwidth = width of histogram bins
+    
+        deltamp, deltabs = offset the x-values for the magnetopause (mp) or bow
+            shock (bs).  Positive in positive GSM x coordinate.  Used to modify
+            results for finite thickness of magnetopause and bow shock.
+            
+        thicknessns = region around neutral sheet to include.  As specified,
+            neutral sheet is a 'plane.'  The neutral sheet region will extend
+            thicknessns/2 above and below it.
+            
+        nearradius = sphere near earth in which we examine ring currents and other
+            phenonmena
+            
+        threesixty = Boolean, is our map 0->360 or -180->180 in longitude
+                    
+    Outputs:
+        None - other than the plot generated
+        
+    """
+
+    # Make string to be used below in names, etc.
+    params = '[' + str(deltamp) + ',' + str(deltabs) + ',' + str(thicknessns) \
+        + ',' + str(nearradius) + ']'
+
+    # Set some plot configs
+    plt.rcParams["figure.figsize"] = [12.8, 10.0]
+    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams['axes.grid'] = True
+    plt.rcParams['font.size'] = 12
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": "Helvetica",
+    })
+    
+    # One column of plots for each time
+    cols = len(times)
+
+    # Create grid of subplots, 4 regions and 1 column for each time in times
+    fig, ax = plt.subplots(4,cols, sharex=sharex, sharey=sharey)
+    fig.subplots_adjust(right=0.5)
+    
+    if vmin != None and vmax!= None: 
+        bins = range(vmin, vmax, binwidth)
+    else:
+        bins = binwidth
+    
+    # Create heatmaps
+    for i in range(cols):
+        time = times[i]
+        
+        # We need the filepath for BATSRUS file to get pickle file
+        filepath = info['files']['magnetosphere'][time]
+        basename = os.path.basename(filepath)
+    
+        pklname = basename + '.' + params + '.ms-region-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname)
+        
+        df = pd.read_pickle(pklpath)
+
+        ax[0,i].hist(df['Magnetosheath'], bins=bins)
+        ax[1,i].hist(df['Near Earth'], bins=bins)
+        ax[2,i].hist(df['Neutral Sheet'], bins=bins)
+        ax[3,i].hist(df['Other'], bins=bins)
+        ax[3,i].set_xlabel('$B_N$ Contribution (nT)')
+    
+    # Add titles to each column
+    for axp, col in zip(ax[0], times):
+        time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
+        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+
+    # Add titles to each row identifying region
+    for axp, row in zip(ax[:,0], ['Magnetosheath\nCounts', 'Near Earth\nCounts', 'Neutral Sheet\nCounts', 'Other\nCounts']):
+        axp.set_ylabel(row, rotation=90)
+   
+    # Save plot
+    create_directory( info['dir_plots'], 'histograms' )
+    fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "histogram-region-grid.png" ) )
+    return
+
+def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex=True, sharey=True):
+    """Plot results from loop_heatmapworld_ms, showing histograms of
+    Bn contributions from magnetospheric currents.
+
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+            
+       times = the times associated with the files for which we will create
+           heatmaps
+        
+       vmin, vmax = min/max limits of histogram
+       
+       binwidth = width of histogram columns
+                    
+    Outputs:
+        None - other than the plot generated
+        
+    """
+
+    # Set some plot configs
+    plt.rcParams["figure.figsize"] = [12.8, 12.0]
+    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams['axes.grid'] = True
+    plt.rcParams['font.size'] = 12
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": "Helvetica",
+    })
+
+    cols = len(times)
+        
+    fig, ax = plt.subplots(6, cols, sharex=sharex, sharey=sharey)
+    fig.subplots_adjust(right=0.5)
+    
+    if vmin != None and vmax!= None: 
+        bins = range(vmin, vmax, binwidth)
+    else:
+        bins = binwidth
+    
+    for i in range(cols):
+        time = times[i]
+        
+        # We need the filepath for BATSRUS file to find the pickle filename
+        filepath = info['files']['magnetosphere'][time]
+        basename = os.path.basename(filepath)
+        pklname = basename + '.ms-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+        df = pd.read_pickle(pklpath)
+        
+        # Create histograms for different currents
+        ax[0,i].hist(df[r'Parallel'], bins=bins)
+        ax[1,i].hist(df[r'Perpendicular $\phi$'], bins=bins)
+        ax[2,i].hist(df[r'Perpendicular Residual'], bins=bins)
+        
+        # We need the filepath for RIM file to find the pickle filename
+        filepath = info['files']['ionosphere'][time]
+        basename = os.path.basename(filepath)
+        pklname = basename + '.gap-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+        df = pd.read_pickle(pklpath)
+
+        # Create histograms
+        ax[3,i].hist(df['Total'], bins=bins)
+        
+        # Rinse and repeat for ionosphere
+        pklname = basename + '.iono-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+        df = pd.read_pickle(pklpath)
+      
+        # earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[4,i], '$j_{Pederson}$', pklpath, threesixty)
+        # earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[5,i], '$j_{Hall}$', pklpath, threesixty)
+        ax[4,i].hist(df['Total Pedersen'], bins=bins)
+        ax[5,i].hist(df['Total Hall'], bins=bins)
+        ax[5,i].set_xlabel('$B_N$ Contribution (nT)')
+              
+    # Set titles for each column
+    for axp, col in zip(ax[0], times):
+        time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
+        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+
+    # Set titles for each row
+    for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$\nCounts', 'Magnetosphere $j_{\perp \phi}$\nCounts', \
+                                  'Magnetosphere $\Delta j_{\perp}$\nCounts', 'Gap $j_{\parallel}$\nCounts', \
+                                  'Ionosphere $j_{P}$\nCounts', 'Ionosphere $j_{H}$\nCounts']):
+        axp.set_ylabel(row, rotation=90)
+
+    create_directory( info['dir_plots'], 'histograms' )
+    fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "histogram-currents-grid.png" ) )
+    return
+
+
+

@@ -39,8 +39,24 @@ GAMMA = 5/3
 # KAPPA = 1 is specular reflection.
 KAPPA = 1
 
-# Fit Shue eqn to smooth normals or use numeric gradient of fit to find normals
+# Fit Shue eqn to smooth magnetopause normals or use numeric gradient of fit to find normals
 USE_SHUE = True
+
+# Use one parameter fit for bow shock
+USE_ONE_PARAMETER = False
+# Use two parameter fit for bow shock
+USE_TWO_PARAMETER = False
+# Use general quadratic conic section fit for bow shock
+# a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + k = 0 
+# and we divide by k and redefine coeficients to get
+# => a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + 1 = 0
+USE_GEN_PARAMETER = True
+# One and only one of the flags can be true
+assert( USE_ONE_PARAMETER + USE_TWO_PARAMETER + USE_GEN_PARAMETER == 1 )
+
+if USE_GEN_PARAMETER:
+    # Use scipy fsolve to solve general eqn for x
+    from scipy.optimize import fsolve
 
 logging.basicConfig(
     format='%(filename)s:%(funcName)s(): %(message)s',
@@ -66,9 +82,11 @@ logging.basicConfig(
 
 def create_2Dplots_ms(info, df, yGSM, zGSM, xmin, xmax, mpline, dtime, normal):
     """2D plots of parameters that change at boundaries, including solar wind
-    velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
-    are used to confirm that the magnetopause is properly located. The magnetopause 
-    (mpline) are plotted on the graphs.  
+    velocity, pressure, and density.  These plots are used to confirm that the 
+    magnetopause is properly identified. The magnetopause (mpline) are plotted on 
+    the graphs.  The magnetopause (mpline) is plotted on the graphs, and should be
+    where the magnetic pressure is greater than the total pressure (dynamic + 
+    thermal pressure).
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -99,6 +117,7 @@ def create_2Dplots_ms(info, df, yGSM, zGSM, xmin, xmax, mpline, dtime, normal):
     # Create subplots to support multiple graphs on a page
     fig, axs = plt.subplots(6, sharex=True, figsize=(8,10))
     
+    
     # Create plots for magnetopause
     df.plot(y=[r'$p_{tot}$', r'$p_{mag}$'], use_index=True, \
                 ylabel = 'Pressure $(nPa)$', xlabel = '$x_{GSM} (Re)$', xlim = [xmin, xmax],
@@ -127,13 +146,12 @@ def create_2Dplots_ms(info, df, yGSM, zGSM, xmin, xmax, mpline, dtime, normal):
     plt.close('all')
     return
 
-def create_2Dplots_bs(info, df, yGSM, zGSM, xmin, xmax, bsline, dtime, normal, iteration):
+def create_2Dplots_bs(info, df, yGSM, zGSM, xmin, xmax, bsline, dtime, normal, iteration, angle):
     """2D plots of parameters that change at boundaries, including solar wind
-    velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
-    are used to confirm that the bow shock is located. The bow shock (bsline) 
-    is plotted on the graphs.  The bow shock should occur when the solar wind 
-    speed perpendicular (u_perp) to the bow shock boundary goes below the 
-    magnetosonic speed (Cms)
+    velocity, pressure, and density.  These plots are used to confirm that the 
+    bow shock is properly identified. The bow shock (bsline) is plotted on the 
+    graphs.  The bow shock should occur when the solar wind speed perpendicular 
+    (u_perp) to the bow shock boundary goes below the magnetosonic speed (Cms)
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -190,7 +208,7 @@ def create_2Dplots_bs(info, df, yGSM, zGSM, xmin, xmax, bsline, dtime, normal, i
     axs[4].axvline(x = bsline, c='black', ls=':')
     axs[5].axvline(x = bsline, c='black', ls=':')
     pltname = 'ms-u-' + str(dtime) + '-[x,' + str(yGSM) + ','  + str(zGSM) + ']'+ str([xmin, xmax]) \
-        + 'Iter-' + str(iteration) + '.png'
+        + 'Iter-' + str(iteration) + '-' + str(angle) + '.png'
     fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
             
     plt.close('all')
@@ -198,10 +216,10 @@ def create_2Dplots_bs(info, df, yGSM, zGSM, xmin, xmax, bsline, dtime, normal, i
 
 def create_2Dplots_ns(info, df, xGSM, yGSM, zmin, zmax, nsline, dtime):
     """2D plots of parameters that change at boundaries, including solar wind
-    velocity, pressure, density, and magnetic and dynamic pressures.  These plots 
-    are used to confirm that neutral sheet is located. The neutral sheet (nsline) 
-    is plotted on the graphs.  The neutral sheet should occur when the magnetic
-    field switches directions, i.e., Bx = 0
+    velocity, pressure, and density.  These plots are used to confirm that the
+    neutral sheet is located. The neutral sheet (nsline) is plotted on the graphs.  
+    The neutral sheet should occur when the magnetic field switches directions, 
+    i.e., Bx = 0
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -255,7 +273,7 @@ def create_2Dplots_ns(info, df, xGSM, yGSM, zmin, zmax, nsline, dtime):
 
 
 def create_wireframe_plots_mp(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang):
-    """ Wireframe plots of magnetopause.  Illustrates the 3D boundary
+    """Wireframe plots of magnetopause.  Illustrates the 3D boundary.
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -305,8 +323,9 @@ def create_wireframe_plots_mp(info, basename, max_yz, num_yz_pts, xmesh, ymesh, 
     # plt.close('all')
     return
 
-def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang):
-    """ Wireframe plots of bow shock.  Illustrate the 3D boundaries
+def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, 
+                              zmesh, dtime, ang, angle):
+    """Wireframe plots of bow shock.  Illustrate the 3D boundaries.
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -323,6 +342,10 @@ def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, 
        
        ang = angle (deg) between the x axis and the normal to bow shock (GSM)
        
+       angle = angle (degrees) that bow shock makes with x axis.  Positive
+           angle determined by righthand rule about positive y-axis.  If None,
+           angle ignored
+
     Outputs:
         None = other than plots generated
     """
@@ -340,7 +363,7 @@ def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, 
     ax.set_xlabel( r'$X_{GSM} (R_e)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock.png'
+    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.bowshock.png'
     fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
     
     fig = plt.figure()
@@ -350,14 +373,14 @@ def create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, 
     ax.set_xlabel( r'$acos( \hat n \cdot \hat x ) (Deg)$' )
     ax.set_ylabel( r'$Y_{GSM} (R_e)$' )
     ax.set_zlabel( r'$Z_{GSM} (R_e)$' )
-    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.angle.bowshock.png'
+    pltname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.angle.bowshock.png'
     fig.savefig( os.path.join( info['dir_plots'], 'mp-bs-ns', pltname ) )
     
     # plt.close('all')
     return
 
 def create_wireframe_plots_ns(info, basename, max_xy, num_xy_pts, xmesh, ymesh, zmesh, dtime):
-    """ Wireframe plots of neutral sheet.  Illustrate the 3D boundaries
+    """Wireframe plots of neutral sheet.  Illustrate the 3D boundaries
     
     Inputs:
        info = info on files to be processed, see info = {...} example above
@@ -519,8 +542,9 @@ def create_boundary_dataframe_mp(batsrus, num_x_points, xmin, xmax, delx, y, z, 
         
     return df
 
-def create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, y, z, normal):
-    """ Create dataframe based on data from BATSRUS file.  In addition to the 
+def create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, y, z, 
+                                 normal, angle=None):
+    """Create dataframe based on data from BATSRUS file.  In addition to the 
     data read from the file, the dataframe includes calculated quantities to 
     determine the boundary of the bow shock.
     
@@ -539,6 +563,10 @@ def create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, y, z, 
        
        normal = normal to bow shock at the point that the line ( x[i], y, z ) 
            hits the bow shock.  np.array of three numbers (GSM)
+           
+       angle = angle (degrees) that bow shock makes with x axis.  Positive
+           angle determined by righthand rule about positive y-axis.  If None,
+           angle ignored
                
     Outputs:
         df = the dataframe with BATSRUS and calculated quantaties
@@ -562,19 +590,45 @@ def create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, y, z, 
     # point on the x[i],y,z line
     for i in range(num_x_points):  
         x[i] = xmin + delx*i
-        XGSM = np.array([x[i], y, z])
         
-        bx[i] = batsrus.interpolate( XGSM, 'bx' )
-        by[i] = batsrus.interpolate( XGSM, 'by' )
-        bz[i] = batsrus.interpolate( XGSM, 'bz' )
+        # if angle is None, lines being traced are parallel to the x axis
+        # otherwise, they are at an angle and we need to adjust x and z
+        if angle is None:
+            XGSM = np.array([x[i], y, z])
+        else:
+            anglerad = np.deg2rad(angle)
+            xtmp = x[i]*np.cos(anglerad) + z*np.sin(anglerad)
+            ztmp = z*np.cos(anglerad)    - x[i]*np.sin(anglerad)
+            XGSM = np.array([xtmp, y, ztmp])
+        
+        # Make sure we're within the simulation volume
+        if (XGSM[0] < batsrus.xGlobalMin or XGSM[0] > batsrus.xGlobalMax) or \
+            (XGSM[1] < batsrus.yGlobalMin or XGSM[1] > batsrus.yGlobalMax) or \
+            (XGSM[2] < batsrus.zGlobalMin or XGSM[2] > batsrus.zGlobalMax):
 
-        ux[i] = batsrus.interpolate( XGSM, 'ux' )
-        uy[i] = batsrus.interpolate( XGSM, 'uy' )
-        uz[i] = batsrus.interpolate( XGSM, 'uz' )
+            bx[i] = np.nan
+            by[i] = np.nan
+            bz[i] = np.nan
 
-        p[i] = batsrus.interpolate( XGSM, 'p' )
-                            
-        rho[i] = batsrus.interpolate( XGSM, 'rho' )
+            ux[i] = np.nan
+            uy[i] = np.nan
+            uz[i] = np.nan
+
+            p[i] = np.nan
+                                
+            rho[i] = np.nan
+        else:
+            bx[i] = batsrus.interpolate( XGSM, 'bx' )
+            by[i] = batsrus.interpolate( XGSM, 'by' )
+            bz[i] = batsrus.interpolate( XGSM, 'bz' )
+    
+            ux[i] = batsrus.interpolate( XGSM, 'ux' )
+            uy[i] = batsrus.interpolate( XGSM, 'uy' )
+            uz[i] = batsrus.interpolate( XGSM, 'uz' )
+    
+            p[i] = batsrus.interpolate( XGSM, 'p' )
+                                
+            rho[i] = batsrus.interpolate( XGSM, 'rho' )
                             
     # Store variables in dataframe, and calculate some quantities
     df = pd.DataFrame()
@@ -667,7 +721,7 @@ def create_boundary_dataframe_ns(batsrus, num_z_points, zmin, zmax, delz, x, y):
     rho = np.zeros(num_z_points)
 
     # Loop through the range steps, determining variable values at each
-    # point on the x[i],y,z line
+    # point on the x,y,z[i] line
     for i in range(num_z_points):  
         z[i] = zmin + delz*i
         XGSM = np.array([x, y, z[i]])
@@ -711,7 +765,7 @@ def create_boundary_dataframe_ns(batsrus, num_z_points, zmin, zmax, delz, x, y):
 def initialize_xmesh_mp( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh):
     """Initialize the x mesh grids used in the interpolations to find the shape
     of the magnetopause. Based on various text books and papers, we assume
-    that the magnetopause is a parabola.  
+    that the magnetopause is a parabola initially.  
     
     Inputs:
        batsrus = batsrus class that includes interpolator to pull values from the
@@ -832,8 +886,8 @@ def findboundary_mp(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
     explore a 3D grid.  The equations for the magnetopause boundary depend
     on the solar wind speed normal to the boundary and the magnetic field B parallel 
     to the boundary.  This requires us to know the shape of the boundary to find normals.  
-    So we assume a shape, estimate the boundary. And repeat iteratively until 
-    maxits or tolerance tol is reached.
+    So we assume a shape, estimate the boundary. Use new shape to determine normals,
+    and reestimate boundary. Repeat iteratively until maxits or tolerance tol is reached.
     
     To find the shape, we march down a series of lines parallel to the x axis.
     Along each line, we find the magnetopause.  See create_boundary_dataframe_mp 
@@ -966,22 +1020,13 @@ def findboundary_mp(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
                 normalz = zmesh[m]/rr - term*xmesh_old[m]*zmesh[m]/rr**3
                 normal = np.array([normalx, normaly, normalz]) \
                     / np.sqrt( normalx**2 + normaly**2 + normalz**2 )
-                
-                # # If normal is NaN, we assume we're on the flanks of the magnetopause.
-                # # We assume the normal to the boundary has an angle of 85 degrees 
-                # # from the x axis.  And ensure that the normal is a unit vector.
-                # if( np.isnan( normal[0] ) or np.isnan( normal[1] ) or np.isnan( normal[2] ) ):
-                #     rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
-                #     xx = rr * np.tan( 0.0875 ) # 5 degrees 
-                #     normal = np.array( [xx, ymesh[m], zmesh[m] ] ) / np.sqrt( xx**2 + rr**2 )
-
             else:         
                 # Use gradient to determine normal
                 #
                 # If the gradient is NaN, we assume that we're on the flanks of the 
                 # magnetopause, where the boundary becomes parallel to the solar wind. 
                 # So we assume the normal to the boundary has an angle of 85 degrees 
-                # from the x axis.  And ensure that the normal is a unit vector.
+                # from the x axis.  And ensure that the normal is a unit [m].
                 if( np.isnan( gradmpy[m] ) or np.isnan( gradmpz[m] ) ):
                     rr = np.sqrt( ymesh[m]**2 + zmesh[m]**2 )
                     xx = rr * np.tan( 0.0875 ) # 5 degrees 
@@ -1072,6 +1117,51 @@ def findboundary_mp(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
     vtk_mp.convert_to_vtk()
     vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe' )
  
+    # Save data for Shue shape
+    if USE_SHUE:
+        # Update Shue fit, get new alpha
+        rn = np.sqrt( xmesh**2 + ymesh**2 + zmesh**2 )
+        bn = np.log( 2 / (1 + xmesh/rn) )
+        b2n = bn * bn
+        rrn = np.log( rn / xmp )
+        alpha = np.nansum( bn * rrn ) / np.nansum( b2n )
+        logging.info(f'Final alpha: {alpha}')
+
+        # Use scipy fsolve to solve Shue eqn for x, we'll use these x's to
+        # create a meshgrid of the Shue fit
+        from scipy.optimize import fsolve
+        
+        # Need this function for fsolve.  It's the Shue eqn
+        def shuefunc( x0, *params ):
+            alpha0, y0, z0, rmp0 = params
+            r0 = np.sqrt( x0**2 + y0**2 + z0**2 )
+            return r0 - rmp0 * ( 2/(1 + x0/r0) )**alpha0
+            
+        # Create mesh of Shue fit
+        xmeshshue = np.zeros( ymesh.shape ) 
+        for m in range( len(xmeshshue) ):
+            params = ( alpha, ymesh[m], zmesh[m], xmp )
+            # Use xmesh as start point 
+            xmeshshue[m] = fsolve( shuefunc, xmesh[m], args=params, xtol=tol )
+
+        dfmpshue = pd.DataFrame()
+        dfmpshue['y'] = ymesh
+        dfmpshue['z'] = zmesh
+        dfmpshue['x'] = xmeshshue
+        dfmpshue['r'] = np.sqrt( xmeshshue**2 + ymesh**2 + zmesh**2 )
+        # angle x,y,z radius makes to x-sxis, arccos of x,y,z dot product with [1,0,0]
+        # This angle is NOT the normal
+        dfmpshue['angle'] = np.rad2deg( np.arccos( dfmpshue['x']/dfmpshue['r'] ) ) 
+        
+        xyz = ['x', 'y', 'z']
+        colorvars = ['angle']
+       
+        vtknameshue = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '.magnetopause-shue'
+       
+        vtk_mp = sqwireframe( dfmpshue, xyz, colorvars, num_yz_pts )
+        vtk_mp.convert_to_vtk()
+        vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtknameshue, 'wireframe' )
+
     # Create plot of convergence stats
     fig, ax = plt.subplots()   
     dfstats.plot(y=['STD MP'], title='Std Dev of Diff. Successive Iterations (Magnetopause)', 
@@ -1081,12 +1171,14 @@ def findboundary_mp(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
 
     return dfmp
 
-def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_points, maxits, tol, plotit=False):
+def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_points, 
+                    maxits, tol, plotit=False, angle=None):
     """Find the boundary of the bow shock. To find the boundary, we iteratively 
     explore a 3D grid.  The equations for the bow shock on the solar wind speed 
     normal to the boundary. This requires us to know the shape of the boundary
-    to find normals.  So we assume a shape, estimate the boundary. And repeat 
-    iteratively until maxits or tolerance tol is reached.
+    to find normals.  So we assume a shape, estimate the boundary. Use the new
+    shape to determine normals, and reestimate boundary.  Repeat iteratively 
+    until maxits or tolerance tol is reached.
     
     To find the shape, we march down a series of lines parallel to the x axis.
     Along each line, we find where the bow shock is located.  See
@@ -1113,10 +1205,18 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
            tol, the iteration loop ends
            
        plotit = Boolean, create plots for each line using create_2Dplots
+       
+       angle = angle (degrees) that bow shock makes with x axis.  Positive
+           angle determined by righthand rule about positive y-axis.  If None,
+           angle ignored
            
     Outputs:
         None - results saved in pickle files and plots
     """
+    
+    # angle only implemented for USE_GEN_PARAMETER
+    if not angle is None:
+        assert( USE_GEN_PARAMETER )
     
     basename = os.path.basename(filepath)
     logging.info(f'Data for BATSRUS file... {basename}')
@@ -1145,10 +1245,16 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
     
     ymesh = ymesh.reshape(-1)
     zmesh = zmesh.reshape(-1)
-    xmesh, xbs = initialize_xmesh_bs( batsrus, num_x_points, xmin, xmax, delx, ymesh, zmesh)
+    # Note, we ignore angle in initialization, assume bow shock is parallel to x axis
+    xmesh, xbs = initialize_xmesh_bs( batsrus, num_x_points, xmin, xmax, delx, 
+                                     ymesh, zmesh)
 
     # Initialize array for statistics
     stdbs = np.full(maxits, np.nan, dtype=np.float32)
+    
+    # We will need angle in radians below
+    if not angle is None:
+        anglerad = np.deg2rad(angle)
 
     # Do an interative process to determine the shape of bow shock boundary, 
     # specified by xmeshbs.  We start with an assumed shape, recalculate boundary.
@@ -1160,15 +1266,87 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
         # for the bow shock, it is unstable.  So we smooth the curve by using a 
         # least squares fit of a parabola of revolution to the data from the
         # previous iteration
-        #
-        # xn = xbs + A (yn^2 + zn^2) 
-        # where A = Sum_n (xn - xbs)(y^2 + z^2) / Sum_n (y^2 + z^2)^2
-        #
-        xn = xmesh.reshape(-1) - xbs
-        r2n = ymesh**2 + zmesh**2
-        r2n[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
-        A = np.nansum( xn * r2n ) / np.nansum( r2n**2 )
-        logging.info(f'A: {A}')
+        if USE_GEN_PARAMETER:
+            # Use general quadratic conic section fit for bow shock (no x^2 term)
+            #
+            # a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + k = 0 
+            #
+            # We divide by k and redefine coeficients to get
+            #
+            # => a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z - 1 = 0
+            #
+            xn = deepcopy( xmesh.reshape(-1) )
+            yn = deepcopy( ymesh )
+            zn = deepcopy( zmesh )
+            
+            # in fit, ignore entries where we have xn = NaN
+            yn = np.delete( yn, np.argwhere( np.isnan(xn) ) ) 
+            zn = np.delete( zn, np.argwhere( np.isnan(xn) ) ) 
+            xn = np.delete( xn, np.argwhere( np.isnan(xn) ) ) 
+            
+            # if angle is not None, the lines used to find the bow shock are
+            # tilted with respect to x axis.  If angle is None, they are parallel 
+            # to the x axis and nothing needs to be done.
+            if not angle is None:
+                xtmp = deepcopy( xn )
+                ztmp = deepcopy( zn )
+                xn = xtmp*np.cos(anglerad) + ztmp*np.sin(anglerad)
+                zn = ztmp*np.cos(anglerad) - xtmp*np.sin(anglerad)
+                
+            # Use matrix math to do least squares fit to data. AA coeff = 1, 
+            # which is the quadratic eqn above in matrix form
+            k = np.ones(len(xn))
+            AA = np.vstack([xn**2, yn**2, zn**2, xn*yn, xn*zn, yn*zn, xn, yn, zn]).T 
+            coeff = np.linalg.lstsq( AA, k, rcond=None )[0] # We only need the coefficients
+            a0, b0,c0,d0,e0,f0,g0,h0,i0 = coeff
+            logging.info(f'a: {a0}, b: {b0}, c: {c0}, d: {d0}, e: {e0}, f: {f0}, g: {g0}, h: {h0}, i: {i0}')
+
+        if USE_TWO_PARAMETER:
+            # Two parameter parabola
+            #
+            # xn = xbs + A yn^2 + B zn^2 
+            # where A = (Sum_n zn^4 Sum_n (xn - xbs)*yn^2 - Sum_n yn^2*zn^2 Sum_n (xn - xbs)*zn^2)
+            #           / ( Sum_n yn^4 Sum_n zn^4 - (Sum_n yn^2*zn^2)^2 )
+            #
+            #       B = (Sum_n yn^4 Sum_n (xn - xbs)*zn^2 - Sum_n yn^2*zn^2 Sum_n (xn - xbs)*yn^2)
+            #           / ( Sum_n yn^4 Sum_n zn^4 - (Sum_n yn^2*zn^2)^2 )
+            xn = xmesh.reshape(-1) - xbs
+            yn = deepcopy( ymesh )
+            zn = deepcopy( zmesh )
+            yn[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+            zn[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+
+            y2n = yn**2
+            z2n = zn**2
+            y4n = yn**4
+            z4n = zn**4
+            xy2n = xn*y2n
+            xz2n = xn*z2n
+            y2z2n = y2n*z2n
+            
+            y4ns = np.nansum(y4n)
+            z4ns = np.nansum(z4n)
+            xy2ns = np.nansum(xy2n)
+            xz2ns = np.nansum(xz2n)
+            y2z2ns = np.nansum(y2z2n)
+            
+            denom = y4ns * z4ns - y2z2ns**2
+            
+            A = (z4ns * xy2ns - y2z2ns * xz2ns)/denom
+            B = (y4ns * xz2ns - y2z2ns * xy2ns)/denom
+            logging.info(f'A: {A}, B: {B}')
+            
+        if USE_ONE_PARAMETER:
+            # One parameter parabola
+            #
+            # xn = xbs + A (yn^2 + zn^2) 
+            # where A = Sum_n (xn - xbs)(yn^2 + zn^2) / Sum_n (yn^2 + zn^2)^2
+            #
+            xn = xmesh.reshape(-1) - xbs
+            r2n = ymesh**2 + zmesh**2
+            r2n[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+            A = np.nansum( xn * r2n ) / np.nansum( r2n**2 )
+            logging.info(f'A: {A}')
         
         # Keep a copy so we can see how quickly the iterations converge
         xmesh_old = deepcopy(xmesh)
@@ -1185,13 +1363,64 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
         # can't go sub-magnetosonic.  
         ang = np.zeros(ymesh.shape)
         
+        if USE_GEN_PARAMETER:
+            # Need this function for fsolve.  It's the general quadratic eqn
+            # It's used to find points on the quadratic surface
+            def genfunc( x0, params ):
+                a,b,c,d,e,f,g,h,i,y0,z0,angle = params
+                if angle is None:
+                    return a*x0**2 + b*y0**2 +c*z0**2 + d*x0*y0 + e*x0*z0 + \
+                            f*y0*z0 + g*x0 + h*y0 + i*z0 - 1
+                else:
+                    # Rotate about the y-axis
+                    angrad = np.deg2rad(angle)
+                    x1 = x0*np.cos(angrad) + z0*np.sin(angrad)
+                    z1 = z0*np.cos(angrad) - x0*np.sin(angrad)
+                    return a*x1**2 + b*y0**2 +c*z1**2 + d*x1*y0 + e*x1*z1 + \
+                            f*y0*z1 + g*x1 + h*y0 + i*z1 - 1
+           
         # Loop thru the lines parallel to x axis that we travel down
         # The y and z offsets from the x axis are stored in ymesh and zmesh
         for m in range(len(ymesh)):
             
             # To find the bow shock boundary, we need the normal to the boundary
-            normal = np.array( [1, -2*A*ymesh[m], -2*A*zmesh[m]] ) \
-                / np.sqrt( 1 + 4*A**2*ymesh[m]**2 + 4*A**2*zmesh[m]**2 )
+            # Normal is gradient of assumed parabolic shape, see above
+            if USE_GEN_PARAMETER:
+                # Use least squares fit to calc normal
+                params = coeff.tolist()
+                params.append(ymesh[m])
+                params.append(zmesh[m])
+                params.append(angle)
+
+                if np.isnan( xmesh[m] ): 
+                    xguess = -50. # If its NaN, assume an initial value
+                else: 
+                    xguess = xmesh[m]
+                
+                xtmp = fsolve( genfunc, xguess, args=params, xtol=tol )[0]
+
+                if angle is None:
+                    normal = np.array( [2*coeff[0]*xtmp     + coeff[3]*ymesh[m] + coeff[4]*zmesh[m] + coeff[6],
+                                        2*coeff[1]*ymesh[m] + coeff[3]*xtmp     + coeff[5]*zmesh[m] + coeff[7],
+                                        2*coeff[2]*zmesh[m] + coeff[4]*xtmp     + coeff[5]*ymesh[m] + coeff[8]] )
+                else:
+                    xang = xtmp*np.cos(anglerad)     + zmesh[m]*np.sin(anglerad) 
+                    zang = zmesh[m]*np.cos(anglerad) - xtmp*np.sin(anglerad) 
+                    normal = np.array( [2*coeff[0]*xang     + coeff[3]*ymesh[m] + coeff[4]*zang     + coeff[6],
+                                        2*coeff[1]*ymesh[m] + coeff[3]*xang     + coeff[5]*zang     + coeff[7],
+                                        2*coeff[2]*zang     + coeff[4]*xang     + coeff[5]*ymesh[m] + coeff[8]] )
+
+
+                if normal[0] < 0: normal = -normal # Make sure normal points sunward
+                normal = normal / np.linalg.norm(normal)
+                       
+            if USE_TWO_PARAMETER:
+                normal = np.array( [1, -2*A*ymesh[m], -2*B*zmesh[m]] ) \
+                    / np.sqrt( 1 + 4*A**2*ymesh[m]**2 + 4*B**2*zmesh[m]**2 )
+                    
+            if USE_ONE_PARAMETER:
+                normal = np.array( [1, -2*A*ymesh[m], -2*A*zmesh[m]] ) \
+                    / np.sqrt( 1 + 4*A**2*ymesh[m]**2 + 4*A**2*zmesh[m]**2 )
 
             # Record the angle between the normal and the x axis (1,0,0) 
             # We use this in some plots
@@ -1200,7 +1429,7 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
             # Create dataframe for finding boundary.  Dataframe includes data
             # on magnetosonic speed and solar wind speed needed to find bow shock
             df = create_boundary_dataframe_bs(batsrus, num_x_points, xmin, xmax, delx, 
-                                           ymesh[m], zmesh[m], normal)
+                                           ymesh[m], zmesh[m], normal, angle)
             
             # Walk from xmax to xmin and find the first x value where magnetosonic 
             # speed is equal to solar wind speed, that is, when c_{MS} - u becomes 
@@ -1216,8 +1445,14 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
             # Only do loop if u_{bs\perp} starts out supermagnetosonic.  If it
             # is submagnetosonic at the start, we'll never have a transition to 
             # submagnetosonic
-            if df[r'$c_{MS} - u_{bs\perp}$'][num_x_points-1] < 0:
+            # 
+            # Also only do loop if ang <75 degrees.  The bow shock disappears
+            # when the normal get too large, around 80 degrees, the bow shock 
+            # no longer exists.  See Basic Space Plasma Physics by Baumjohann 
+            # and Treumann, 1997.
+            if df[r'$c_{MS} - u_{bs\perp}$'][num_x_points-1] < 0 and ang[m] < 75.:
                 for q in range(num_x_points-1,-1,-1):
+                    # angNorms[m] = np.nan
                     if df[r'$c_{MS} - u_{bs\perp}$'][q] >= 0: 
                         xmesh[m] = df[r'x'][q]
                         break
@@ -1226,9 +1461,10 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
         
             # Create plots that we visually inspect to determine the bow
             # shock boundary is determined
-            if plotit and ymesh[m] < 0.01 and ymesh[m] > -0.01:
+            if plotit and ((zmesh[m] < 0.01 and zmesh[m] > -0.01) or \
+                           (ymesh[m] < 0.01 and ymesh[m] > -0.01)) and l > 3:
                 create_2Dplots_bs(info, df, ymesh[m], zmesh[m], xmin, xmax, xmesh[m], 
-                                  dtime, normal, l )
+                                  dtime, normal, l, angle )
 
         logging.info(f'Iteration: {l} Std Dev BS Diff: {np.nanstd(xmesh - xmesh_old)}')
         
@@ -1241,23 +1477,34 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
             break
 
     # Create 3D wireframe plots for the bow shock
-    create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, ymesh, zmesh, dtime, ang)
+    if angle is None:
+        create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xmesh, 
+                                  ymesh, zmesh, dtime, ang, angle)
+    else:
+        xang = xmesh*np.cos(anglerad) + zmesh*np.sin(anglerad)
+        zang = zmesh*np.cos(anglerad) - xmesh*np.sin(anglerad)
+        create_wireframe_plots_bs(info, basename, max_yz, num_yz_pts, xang, 
+                                  ymesh, zang, dtime, ang, angle)
     
     # Save bow shock results and stats to pickle files
     create_directory(info['dir_derived'], 'mp-bs-ns')
-    pklname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock.pkl'
+    pklname = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.bowshock.pkl'
     
     dfbs = pd.DataFrame()
     dfbs['y'] = ymesh
-    dfbs['z'] = zmesh
-    dfbs['x'] = xmesh
+    if angle is None:
+        dfbs['z'] = zmesh
+        dfbs['x'] = xmesh
+    else:
+        dfbs['z'] = zmesh*np.cos(anglerad) - xmesh*np.sin(anglerad)
+        dfbs['x'] = xmesh*np.cos(anglerad) + zmesh*np.sin(anglerad)
     dfbs['angle'] = ang
     dfbs['abs diff'] = np.abs(xmesh - xmesh_old)
 
     dfbs.to_pickle( os.path.join( info['dir_derived'], 'mp-bs-ns', pklname) )
 
-    pklname2 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.bowshock.pkl'
-    pklname3 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '.stats.bowshock.png'
+    pklname2 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.stats.bowshock.pkl'
+    pklname3 = basename + '.' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.stats.bowshock.png'
 
     dfstats = pd.DataFrame()
     dfstats['STD BS'] = stdbs
@@ -1268,12 +1515,134 @@ def findboundary_bs(info, filepath, time, max_yz, num_yz_pts, xlimits, num_x_poi
     xyz = ['x', 'y', 'z']
     colorvars = ['angle', 'abs diff']
    
-    vtkname = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '.bowshock'
+    vtkname = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.bowshock'
    
-    vtk_mp = sqwireframe( dfbs, xyz, colorvars, num_yz_pts )
-    vtk_mp.convert_to_vtk()
-    vtk_mp.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe' )
- 
+    vtk_bs = sqwireframe( dfbs, xyz, colorvars, num_yz_pts )
+    vtk_bs.convert_to_vtk()
+    vtk_bs.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtkname, 'wireframe' )
+
+    # Save data for parabolic shape
+    if USE_GEN_PARAMETER:
+        # Update coefficients for last iteration
+        
+        # Use general quadratic conic section fit for bow shock
+        # a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + k = 0 
+        # and we divide by k and redefine coeficients to get
+        # => a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z - 1 = 0
+        xn = deepcopy( xmesh.reshape(-1) )
+        yn = deepcopy( ymesh )
+        zn = deepcopy( zmesh )
+        
+        # in fit, ignore entries where we have xn = NaN
+        yn = np.delete( yn, np.argwhere( np.isnan(xn) ) ) 
+        zn = np.delete( zn, np.argwhere( np.isnan(xn) ) ) 
+        xn = np.delete( xn, np.argwhere( np.isnan(xn) ) ) 
+        
+        # if angle is not None, the lines used to find the bow shock are
+        # tilted with respect to x axis.  If angle is None, they are parallel 
+        # to the x axis and nothing needs to be done.
+        if not angle is None:
+            xtmp = deepcopy( xn )
+            ztmp = deepcopy( zn )
+            xn = xtmp*np.cos(anglerad) + ztmp*np.sin(anglerad)
+            zn = ztmp*np.cos(anglerad) - xtmp*np.sin(anglerad)
+
+        # Use matrix math to do least squares fit to data. AA coeff = k, 
+        # the eqn above in matrix form
+        k = np.ones(len(xn))
+        AA = np.vstack([xn**2, yn**2, zn**2, xn*yn, xn*zn, yn*zn, xn, yn, zn]).T          
+        coeff = np.linalg.lstsq( AA, k, rcond=None )[0] # We only need the coefficients
+
+        a0,b0,c0,d0,e0,f0,g0,h0,i0 = coeff
+        logging.info(f'Final a:{a0}, b: {b0}, c: {c0}, d: {d0}, e: {e0}, f: {f0}, g: {g0}, h: {h0}, i: {i0}')
+
+        # Create mesh of quadratic fit
+        xmeshpara = np.zeros( ymesh.shape ) 
+        angNorm = np.zeros( ymesh.shape ) 
+        for m in range( len(xmeshpara) ):
+           
+            params = coeff.tolist()
+            params.append(ymesh[m])
+            params.append(zmesh[m])
+            params.append(None)
+            
+            if np.isnan( xmesh[m] ): 
+                xguess = -50. 
+            else: 
+                xguess = xmesh[m]
+
+            xmeshpara[m] = fsolve( genfunc, xguess, args=params, xtol=tol )[0]
+
+            normal = np.array( [2*coeff[0]*xmeshpara[m] + coeff[3]*ymesh[m]     + coeff[4]*zmesh[m] + coeff[6],
+                                2*coeff[1]*ymesh[m]     + coeff[3]*xmeshpara[m] + coeff[5]*zmesh[m] + coeff[7],
+                                2*coeff[2]*zmesh[m]     + coeff[4]*xmeshpara[m] + coeff[5]*ymesh[m] + coeff[8]] )
+                
+            if normal[0] < 0: normal = -normal # Make sure normal points sunward
+            normal = normal / np.linalg.norm(normal)
+            
+            angNorm[m] = np.rad2deg( np.arccos( np.dot( normal, np.array([1,0,0]) )))
+            # if angNorm[m] > 75.: xmeshpara[m] = np.NaN  # We don't trust results at large angles
+
+    if USE_TWO_PARAMETER:
+        # Update A and B coefficients for last iteration
+        xn = xmesh.reshape(-1) - xbs
+        yn = deepcopy( ymesh )
+        zn = deepcopy( zmesh )
+        yn[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+        zn[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+
+        y2n = yn**2
+        z2n = zn**2
+        y4n = yn**4
+        z4n = zn**4
+        xy2n = xn*y2n
+        xz2n = xn*z2n
+        y2z2n = y2n*z2n
+        
+        y4ns = np.nansum(y4n)
+        z4ns = np.nansum(z4n)
+        xy2ns = np.nansum(xy2n)
+        xz2ns = np.nansum(xz2n)
+        y2z2ns = np.nansum(y2z2n)
+        
+        denom = y4ns * z4ns - y2z2ns**2
+        
+        A = (z4ns * xy2ns - y2z2ns * xz2ns)/denom
+        B = (y4ns * xz2ns - y2z2ns * xy2ns)/denom
+        logging.info(f'Final A: {A}, B: {B}')
+
+        # Create mesh of parabola
+        xmeshpara = xbs + A * ymesh**2 + B * zmesh**2 
+        # angle normal makes with x-axis, arccos of normal's dot product with (1,0,0)
+        angNorm = np.rad2deg( np.arccos( 1 / np.sqrt( 1 + 4*A**2*ymesh**2 + 4*B**2*zmesh**2 ) ) ) 
+
+    if USE_ONE_PARAMETER:
+        # Update A coefficient
+        xn = xmesh.reshape(-1) - xbs
+        r2n = ymesh**2 + zmesh**2
+        r2n[ np.argwhere( np.isnan(xn) ) ] = 0 # in sums, ignore entries where we have xn = NaN
+        A = np.nansum( xn * r2n ) / np.nansum( r2n**2 )
+        logging.info(f'Final A: {A}')
+
+        # Create mesh of parabola
+        xmeshpara = xbs + A * ( ymesh**2 + zmesh**2 )
+        angNorm = np.rad2deg( np.arccos( 1 / np.sqrt( 1 + 4*A**2*ymesh**2 + 4*A**2*zmesh**2 ) ) ) # arccos of dot with (1,0,0))
+        
+    dfbspara = pd.DataFrame()
+    dfbspara['y'] = ymesh
+    dfbspara['z'] = zmesh
+    dfbspara['x'] = xmeshpara
+    dfbspara['angle'] = angNorm
+    
+    xyz = ['x', 'y', 'z']
+    colorvars = ['angle']
+   
+    vtknamepara = basename + '-' + str(max_yz) + '-' + str(num_yz_pts) + '-' + str(angle) + '.bowshock-parabola'
+   
+    vtk_bs = sqwireframe( dfbspara, xyz, colorvars, num_yz_pts )
+    vtk_bs.convert_to_vtk()
+    vtk_bs.write_vtk_to_file( os.path.join( info['dir_derived'], 'mp-bs-ns' ), vtknamepara, 'wireframe' )
+   
     # Create plot of convergence stats
     fig, ax = plt.subplots()   
     dfstats.plot(y=['STD BS'], title='Std Dev of Diff. Successive Iterations (Bow Shock)', 

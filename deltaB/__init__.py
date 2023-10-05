@@ -44,7 +44,8 @@ from .plotsHeatmapWorld_Bn import loop_heatmapworld_ms, plot_heatmapworld_ms, \
     plot_heatmapworld_ms_total, \
     loop_heatmapworld_iono, plot_heatmapworld_iono, \
     loop_heatmapworld_gap, plot_heatmapworld_gap, \
-    plot_heatmapworld_ms_by_region_grid, plot_heatmapworld_ms_by_currents_grid
+    plot_heatmapworld_ms_by_region_grid, plot_heatmapworld_ms_by_currents_grid, \
+    plot_histogram_ms_by_region_grid, plot_histogram_ms_by_currents_grid
     
 from .plots2D_BATSRUS import loop_2D_BATSRUS, \
     loop_2D_BATSRUS_with_cuts, \

@@ -132,11 +132,13 @@ def create_deltaB_spherical_dataframe(df):
     df['jparallely'] = df['jparallelMag'] * df['by']/df['bMag']
     df['jparallelz'] = df['jparallelMag'] * df['bz']/df['bMag']
 
-    df['jperpendicularMag'] = np.sqrt(df['jMag']**2 - df['jparallelMag']**2)
-
     df['jperpendicularx'] = df['jx'] - df['jparallelx']
     df['jperpendiculary'] = df['jy'] - df['jparallely']
     df['jperpendicularz'] = df['jz'] - df['jparallelz']
+    
+    df['jperpendicularMag'] = np.sqrt(df['jperpendicularx']**2 +
+                                      df['jperpendiculary']**2 +
+                                      df['jperpendicularz']**2)
     
     # Convert j perpendicular to spherical coordinates
     df['jperpendicularr'] = df['jperpendicularx'] * np.sin(df['theta']) * np.cos(df['phi']) + \

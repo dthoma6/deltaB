@@ -527,7 +527,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
-        # # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
+        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
         plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}$ ' + f'({time_hhmm})')
         plt.show()
         pltname = 'ms-total-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
@@ -544,8 +544,8 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
-        # # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_\parallel}$' + f' ({time_hhmm})')
+        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
+        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_{\parallel}$' + f' ({time_hhmm})')
         plt.show()
         pltname = 'ms-parallel-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
@@ -560,7 +560,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
-        # # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
+        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
         plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_\perp$' + f' ({time_hhmm})')
         plt.show()
         pltname = 'ms-perpendicular-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
@@ -576,8 +576,8 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
-        # # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_\perp \cdot \hat \phi}$' + f' ({time_hhmm})')
+        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
+        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_{\perp \cdot \hat \phi}$' + f' ({time_hhmm})')
         plt.show()
         pltname = 'ms-perpendicular-phi-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.png'
@@ -592,7 +592,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
-        # # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
+        # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
         plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_\perp - \mathbf{j}_\perp \cdot \hat \phi$' + f' ({time_hhmm})')
         plt.show()
         pltname = 'ms-perpendicular-residue-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
@@ -710,7 +710,7 @@ def plot_heatmapworld_ms_by_region( info, times, vmin, vmax, nlat, nlong, deltam
         ax.set_xlabel('Longitude')
         ax.set_ylabel('GEO Latitude')
         # ax.set_yticklabels(['80','60','40','20','0', '-20', '-40', '-60', '-80'])
-        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_{other}}}$' + f' ({time_hhmm})')
+        plt.title(r'$B_N$ (nT) due to MS $\mathbf{j}_{other}$' + f' ({time_hhmm})')
         plt.show()
         pltname = 'ms-other-heatmap-' +  str(time[0]) + str(time[1]) + str(time[2]) + \
             '-' + str(time[3]) + '-' + str(time[4]) + '.' + params + '.png'
@@ -812,7 +812,13 @@ def loop_heatmapworld_iono(info, times, nlat, nlong):
         time = times[i]
             
         # We need the filepath for RIM file
-        filepath = info['files']['ionosphere'][time]
+        # We only search for the nearest minute, ignoring last entry in key
+        for key in info['files']['ionosphere']:
+            if( key[0] == time[0] and key[1] == time[1] and key[2] == time[2] and \
+                key[3] == time[3] and key[4] == time[4] ):
+                    filepath = info['files']['ionosphere'][key]
+                    
+        # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
     
         # Get the ISO time from the filepath
@@ -962,7 +968,13 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30):
         time = times[i]
             
         # We need the filepath for RIM file
-        filepath = info['files']['ionosphere'][time]
+        # We only search for the nearest minute, ignoring last entry in key
+        for key in info['files']['ionosphere']:
+            if( key[0] == time[0] and key[1] == time[1] and key[2] == time[2] and \
+                key[3] == time[3] and key[4] == time[4] ):
+                    filepath = info['files']['ionosphere'][key]
+
+        # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
             
         # Get the ISO time from the filepath
@@ -1054,7 +1066,7 @@ def plot_heatmapworld_gap( info, times, vmin, vmax, nlat, nlong, csys='GEO', thr
                           pltname, title, csys=csys, threesixty=threesixty )
     return
 
-def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params, threesixty):   
+def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params, threesixty, axisticks):   
     """Plot results from loop_heatmapworld_ms_by_region, showing the heatmap of
     Bn contributions a specific magnetospheric region at a specific time
 
@@ -1076,8 +1088,11 @@ def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params
         
         threesixty = Boolean, is map 0->360 or -180->180 longitude
         
+        axisticks = Boolean, are x and y axis ticks included
+        
     Outputs:
-        None - other than the plot generated
+        im = pseudocolor color plot
+           - the plot generated
         
     """
     # We need the filepath for BATSRUS file to get pickle file
@@ -1122,25 +1137,29 @@ def earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, params
                        vmax=vmax, transform=ccrs.PlateCarree())
     
     # Set ticks
-    if threesixty:
-        ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
-    else:
-        ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+    if axisticks:
+        if threesixty:
+            ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
+        else:
+            ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+            
+        ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
         
-    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
-    
-    lon_formatter = LongitudeFormatter(direction_label=True)
-    lat_formatter = LatitudeFormatter(direction_label=True)
-    ax.xaxis.set_major_formatter(lon_formatter)
-    ax.yaxis.set_major_formatter(lat_formatter)
-    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
+        lon_formatter = LongitudeFormatter(direction_label=True)
+        lat_formatter = LatitudeFormatter(direction_label=True)
+        ax.xaxis.set_major_formatter(lon_formatter)
+        ax.yaxis.set_major_formatter(lat_formatter)
+        ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
+    else:
+        ax.set_yticks([], crs=ccrs.PlateCarree()) # Used only if we don't display ticks
+        ax.set_xticks([], crs=ccrs.PlateCarree()) # Used only if we don't display ticks
     
     # Draw colorbar and title
-    plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
+    # plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
     return im
 
 def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, deltamp, deltabs, 
-                                        thicknessns, nearradius, threesixty=False):
+                                        thicknessns, nearradius, threesixty=False, axisticks=False):
     """Plot heatmaps in a grid, showing Bn contributions from each magnetospheric
     region.
 
@@ -1166,6 +1185,8 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
             phenonmena
             
         threesixty = Boolean, is our map 0->360 or -180->180 in longitude
+        
+        axisticks = Boolean, do we include x and y axis ticks on heatmaps
                     
     Outputs:
         None - other than the plot generated
@@ -1177,7 +1198,7 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         + ',' + str(nearradius) + ']'
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [12.8, 10.0]
+    plt.rcParams["figure.figsize"] = [20.0,8.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
     plt.rcParams["figure.dpi"] = 300
     plt.rcParams['axes.grid'] = True
@@ -1198,34 +1219,47 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         proj = ccrs.PlateCarree()
 
     # Create grid of subplots, 4 regions and 1 column for each time in times
-    fig, ax = plt.subplots(4,cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
-    fig.subplots_adjust(right=0.5)
+    fig, ax = plt.subplots(4,cols+1, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    # fig.subplots_adjust(right=0.5)
     
     # Create heatmaps
     for i in range(cols):
         time = times[i]
         
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'Magnetosheath',  params, threesixty)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'Near Earth', params, threesixty)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'Neutral Sheet', params, threesixty)
-        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Other', params, threesixty)
-        ax[3,i].set_xlabel('Longitude')
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 
+                             'Magnetosheath',  params, threesixty, axisticks)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 
+                             'Near Earth', params, threesixty, axisticks)
+        earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i],
+                             'Neutral Sheet', params, threesixty, axisticks)
+        im = earth_region_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 
+                                  'Other', params, threesixty, axisticks)
+        # ax[3,i].set_xlabel('Longitude')
     
     # Add titles to each column
     for axp, col in zip(ax[0], times):
         time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
-        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        # axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        axp.set_title(time_hhmm)
 
     # Add titles to each row identifying region
-    for axp, row in zip(ax[:,0], ['Magnetosheath\nLatitude', 'Near Earth\nLatitude', 'Neutral Sheet\nLatitude', 'Other\nLatitude']):
+    # for axp, row in zip(ax[:,0], ['Magnetosheath\nLatitude', 'Near Earth\nLatitude', 'Neutral Sheet\nLatitude', 'Other\nLatitude']):
+    #     axp.set_ylabel(row, rotation=90)
+    for axp, row in zip(ax[:,0], ['Magnetosheath', 'Near Earth', 'Neutral Sheet', 'Other']):
         axp.set_ylabel(row, rotation=90)
    
+    # Add colorbar
+    cbar = fig.colorbar( im, ax=ax[:,cols], orientation='vertical', shrink=0.5 )
+    cbar.set_label(r'B\textsubscript{N} (nT)')
+    for axp in range(4): 
+        fig.delaxes(ax=ax[axp,cols])
+
     # Save plot
     create_directory( info['dir_plots'], 'heatmaps' )
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.png" ) )
     return
 
-def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklpath, threesixty):   
+def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklpath, threesixty, axisticks):   
     """Plot results from loop_heatmapworld_ms, showing the heatmap of
     Bn contributions from various currents in the magnetosphere.
 
@@ -1244,8 +1278,11 @@ def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklp
         
         threesixty = Boolean, is map 0->360 or -180->180 longitude
         
+        axisticks = Boolean, are x and y ticks placed on heatmaps
+        
     Outputs:
-        None - other than the plot generated
+        im - pseudocolor
+           - the plot generated
         
     """
     # Get data
@@ -1309,23 +1346,29 @@ def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklp
                        vmax=vmax, transform=ccrs.PlateCarree())
     
     # Set ticks, changes based on whether longitude is 0->360 or -180->180
-    if threesixty:
-        ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
-    else:
-        ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+    if axisticks:
+        if threesixty:
+            ax.set_xticks([90,180,270], crs=ccrs.PlateCarree())
+        else:
+            ax.set_xticks([-90,0,90], crs=ccrs.PlateCarree())
+            
+        ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
         
-    ax.set_yticks([-45,0,45], crs=ccrs.PlateCarree())
-    
-    lon_formatter = LongitudeFormatter(direction_label=True)
-    lat_formatter = LatitudeFormatter(direction_label=True)
-    ax.xaxis.set_major_formatter(lon_formatter)
-    ax.yaxis.set_major_formatter(lat_formatter)
+        lon_formatter = LongitudeFormatter(direction_label=True)
+        lat_formatter = LatitudeFormatter(direction_label=True)
+        ax.xaxis.set_major_formatter(lon_formatter)
+        ax.yaxis.set_major_formatter(lat_formatter)
+    else:
+        ax.set_yticks([], crs=ccrs.PlateCarree()) # Used only if we don't display ticks
+        ax.set_xticks([], crs=ccrs.PlateCarree()) # Used only if we don't display ticks
 
     # Add colorbar
-    plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.4, fraction=0.1, pad=0.02)
-    return 
+    # plt.colorbar(mappable=im, ax=ax, orientation='vertical', shrink=0.2, fraction=0.1, pad=0.02)
+    # plt.colorbar(mappable=im, ax=ax, orientation='horizontal', shrink=0.2, fraction=0.1, pad=0.02)
+    return im
 
-def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, threesixty = False):
+def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
+                                          threesixty = False, axisticks = False):
     """Plot results from loop_heatmapworld_ms, showing the heatmap of
     Bn contributions from magnetospheric currents.
 
@@ -1340,6 +1383,8 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
        nlat, nlong = number of longitude and latitude bins
        
        threesixty = Boolean, is our map 0->360 or -180->180 in longitude
+       
+       axisticks = Boolean, do we include x and y axis ticks on heatmaps
                     
     Outputs:
         None - other than the plot generated
@@ -1347,7 +1392,7 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
     """
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [12.8, 12.0]
+    plt.rcParams["figure.figsize"] = [20.0,12.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
     plt.rcParams["figure.dpi"] = 300
     plt.rcParams['axes.grid'] = True
@@ -1366,8 +1411,8 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
     else:
         proj = ccrs.PlateCarree()
     
-    fig, ax = plt.subplots(6, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
-    fig.subplots_adjust(right=0.5)
+    fig, ax = plt.subplots(6, cols+1, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    # fig.subplots_adjust(right=0.5)
     
     for i in range(cols):
         time = times[i]
@@ -1379,37 +1424,59 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong, 
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
 
         # Create heatmaps for different currents
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 'MS $j_\parallel$', pklpath, threesixty)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 'MS $j_{\perp \phi}$',  pklpath, threesixty)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 'MS $j_{\perp Residual}$',  pklpath, threesixty)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[0,i], 
+                               'MS $j_\parallel$', pklpath, threesixty, axisticks)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[1,i], 
+                               'MS $j_{\perp \phi}$',  pklpath, threesixty, axisticks)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[2,i], 
+                               'MS $j_{\perp Residual}$',  pklpath, threesixty, axisticks)
         
         # We need the filepath for RIM file to find the pickle filename
-        filepath = info['files']['ionosphere'][time]
+        # We only search for the nearest minute, ignoring last entry in key
+        for key in info['files']['ionosphere']:
+            if( key[0] == time[0] and key[1] == time[1] and key[2] == time[2] and \
+                key[3] == time[3] and key[4] == time[4] ):
+                    filepath = info['files']['ionosphere'][key]
+                    
+        # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.gap-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
 
         # Create heatmaps
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 'Gap $j_\parallel$', pklpath, threesixty)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[3,i], 
+                               'Gap $j_\parallel$', pklpath, threesixty, axisticks)
         
         # Rinse and repeat for ionosphere
         pklname = basename + '.iono-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
        
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[4,i], '$j_{Pederson}$', pklpath, threesixty)
-        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[5,i], '$j_{Hall}$', pklpath, threesixty)
-        ax[5,i].set_xlabel('Longitude')
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[4,i], 
+                               '$j_{Pederson}$', pklpath, threesixty, axisticks)
+        im = earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax[5,i], 
+                                    '$j_{Hall}$', pklpath, threesixty, axisticks)
+        # ax[5,i].set_xlabel('Longitude')
               
     # Set titles for each column
     for axp, col in zip(ax[0], times):
         time_hhmm = str(col[3]).zfill(2) + ':' + str(col[4]).zfill(2)
-        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        # axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        axp.set_title(time_hhmm)
 
     # Set titles for each row
-    for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$\nLatitude', 'Magnetosphere $j_{\perp \phi}$\nLatitude', \
-                                  'Magnetosphere $\Delta j_{\perp}$\nLatitude', 'Gap $j_{\parallel}$\nLatitude', \
-                                  'Ionosphere $j_{P}$\nLatitude', 'Ionosphere $j_{H}$\nLatitude']):
+    # for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$\nLatitude', 'Magnetosphere $j_{\perp \phi}$\nLatitude', \
+    #                               'Magnetosphere $\Delta j_{\perp}$\nLatitude', 'Gap $j_{\parallel}$\nLatitude', \
+    #                               'Ionosphere $j_{P}$\nLatitude', 'Ionosphere $j_{H}$\nLatitude']):
+    for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$', 'Magnetosphere $j_{\perp \phi}$', \
+                                  'Magnetosphere $\Delta j_{\perp}$', 'Gap $j_{\parallel}$', \
+                                  'Ionosphere $j_{P}$', 'Ionosphere $j_{H}$']):
         axp.set_ylabel(row, rotation=90)
+
+    # Add colorbar
+    cbar = fig.colorbar( im, ax=ax[:,cols], orientation='vertical', shrink=0.5 )
+    cbar.set_label(r'B\textsubscript{N} (nT)')
+    for axp in range(6): 
+        fig.delaxes(ax=ax[axp,cols])
 
     create_directory( info['dir_plots'], 'heatmaps' )
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.png" ) )
@@ -1455,7 +1522,7 @@ def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp,
         + ',' + str(nearradius) + ']'
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [12.8, 10.0]
+    plt.rcParams["figure.figsize"] = [18.0,12.0] #[12.8, 10.0]
     plt.rcParams["figure.autolayout"] = True
     plt.rcParams["figure.dpi"] = 300
     plt.rcParams['axes.grid'] = True
@@ -1508,7 +1575,7 @@ def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp,
    
     # Save plot
     create_directory( info['dir_plots'], 'histograms' )
-    fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "histogram-region-grid.png" ) )
+    fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.png" ) )
     return
 
 def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex=True, sharey=True):
@@ -1531,7 +1598,7 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
     """
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [12.8, 12.0]
+    plt.rcParams["figure.figsize"] = [18.0,12.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
     plt.rcParams["figure.dpi"] = 300
     plt.rcParams['axes.grid'] = True
@@ -1568,7 +1635,13 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
         ax[2,i].hist(df[r'Perpendicular Residual'], bins=bins)
         
         # We need the filepath for RIM file to find the pickle filename
-        filepath = info['files']['ionosphere'][time]
+        # We only search for the nearest minute, ignoring last entry in key
+        for key in info['files']['ionosphere']:
+            if( key[0] == time[0] and key[1] == time[1] and key[2] == time[2] and \
+                key[3] == time[3] and key[4] == time[4] ):
+                    filepath = info['files']['ionosphere'][key]
+                    
+        # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         pklname = basename + '.gap-heatmap-world.pkl'
         pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
@@ -1600,7 +1673,7 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
         axp.set_ylabel(row, rotation=90)
 
     create_directory( info['dir_plots'], 'histograms' )
-    fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "histogram-currents-grid.png" ) )
+    fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.png" ) )
     return
 
 

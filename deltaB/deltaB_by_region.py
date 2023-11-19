@@ -136,7 +136,7 @@ def write_extended_vtk(file_or_class, variables="all", epsilon=None, blocks=None
     #DT change from original code
     #DT   for sv in ['rho','p', 'measure']:
     for sv in ['rho','p', 'measure', 'boundary', 'magnetosheath', 'neutralsheet', 
-               'nearearth', 'region', 'bowshock', 'magnetopause']:
+               'nearearth', 'region', 'bowshock', 'magnetopause', 'jphi']:
         if not sv in variables: continue
         cell_data.append(
             {
@@ -359,10 +359,10 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
     pointX = defined_magnetometers[point]
     XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
 
-    # # Get a list of BATSRUS and RIM files, info parameters define location 
-    # # (dir_run) and file types.  See definition of info = {...} above.
-    from magnetopost import util as util
-    util.setup(info)
+    # Get a list of BATSRUS and RIM files, info parameters define location 
+    # (dir_run) and file types.  See definition of info = {...} above.
+    # from magnetopost import util as util
+    # util.setup(info)
     
     # Set up memory for results
     length = len(times)
@@ -513,6 +513,10 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         # 3 - near earth
         region = magnetosheath + 2*neutralsheet + 3*nearearth
         
+        # Get j azimuthal, aka j phi.  Note, rCurrents is 0 since we want everything
+        df = convert_BATSRUS_to_dataframe(batsrus, 0)
+        df = create_deltaB_spherical_dataframe(df)
+        
         logging.info('Adding regions to BATSRUS data...')
 
         # Add data to batsrus data so that we can use it elsewhere
@@ -523,9 +527,10 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         batsrus.data_arr = np.hstack((batsrus.data_arr, np.atleast_2d(region).T))
         batsrus.data_arr = np.hstack((batsrus.data_arr, np.atleast_2d(bowshock).T))
         batsrus.data_arr = np.hstack((batsrus.data_arr, np.atleast_2d(magnetopause).T))
+        batsrus.data_arr = np.hstack((batsrus.data_arr, np.atleast_2d(df['jphi']).T))
         
         DataArray = batsrus.data_arr.transpose()
-        batsrus.DataArray = DataArray.reshape((len(batsrus.varidx)+7, nI, nJ, nK, nBlock), order='F')
+        batsrus.DataArray = DataArray.reshape((len(batsrus.varidx)+8, nI, nJ, nK, nBlock), order='F')
 
         batsrus.varidx['other'] = np.int32(len(batsrus.varidx))
         batsrus.varidx['magnetosheath'] = np.int32(len(batsrus.varidx))
@@ -534,6 +539,7 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         batsrus.varidx['region'] = np.int32(len(batsrus.varidx))
         batsrus.varidx['bowshock'] = np.int32(len(batsrus.varidx))
         batsrus.varidx['magnetopause'] = np.int32(len(batsrus.varidx))
+        batsrus.varidx['jphi'] = np.int32(len(batsrus.varidx))
         
         # Save to a vtk file for further analysis
         if createVTK: write_extended_vtk(batsrus)

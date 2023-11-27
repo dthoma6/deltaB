@@ -33,7 +33,8 @@ from .process_iono import calc_iono_b, loop_iono_b
 
 from .coordinates import get_transform_matrix, iso2ints, GSMtoSM, SMtoGSM
 
-from .deltaB_by_region import calc_deltaB_by_region, calc_ms_b_region
+from .deltaB_by_region import write_extended_vtk, find_regions, \
+    calc_ms_b_region_to_files, calc_ms_b_region
 
 from .plots2D_Bn import loop_2D_ms, loop_2D_ms_point, plot_2D_ms, \
     loop_2D_gap_iono, loop_2D_gap_iono_point, plot_2D_gap_iono, \

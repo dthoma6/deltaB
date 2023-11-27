@@ -14,6 +14,7 @@ currents), and currents within the region that find_boundaries examined, and
 in all other points within the BATSRUS grid.
 """
 
+from numba import jit
 import os.path
 import pandas as pd
 import numpy as np
@@ -33,6 +34,7 @@ from deltaB import convert_BATSRUS_to_dataframe, \
 from datetime import datetime
 from copy import deepcopy
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
+from datetime import timedelta
 
 # info = {...} example is below
 
@@ -301,15 +303,183 @@ def write_extended_vtk(file_or_class, variables="all", epsilon=None, blocks=None
 
     return fileout
 
-def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius, 
-                       times, mpfiles, bsfiles, nsfiles, point, createVTK = True, 
+def find_regions( info, batsrus, deltamp, deltabs, thicknessns, nearradius, 
+                       time, mpfile, bsfile, nsfile,   
                        interpType = 'nearest' ):
+    
     """Goes through BATRSUS grid and determines which region each point in the
     BATSRUS grid lies in:
     0 - inside the BATSRUS grid, but not in one of the other regions
     1 - within the magnetosheath
     2 - within the neutral sheet
     3 - near earth
+
+    Inputs:
+        info = tells the script where the data files are stored and where
+            to save plots and calculated data, see example above
+            
+        batsrus = data from BATRUS file, read by swmfio.read_batsrus
+
+        deltamp, deltabs = offset the x-values for the magnetopause (mp) or bow
+            shock (bs).  Positive in positive GSM x coordinate.  Used to modify
+            results for finite thickness of magnetopause and bow shock.
+            
+        thicknessns = region around neutral sheet to include.  As specified,
+            neutral sheet is a 'plane.'  The neutral sheet region will extend
+            thicknessns/2 above and below it.
+            
+        nearradius = sphere near earth in which we examine ring currents and other
+            phenonmena
+            
+        times = the times associated with the files for which we will create
+            heatmaps. The filepath is info['files']['magnetosphere'][bases[i]]
+        
+        mpfile, bsfile, nsfile = filenames (located in os.path.join( info['dir_derived'], 
+                'mp-bs-ns') that contain the magnetopause, bow shock, and neutral 
+                sheet locations
+            
+        interpType = string, type of interpolation used below, either 'nearest' or 'linear'.
+            Interpolation used with magnetopause, bow shock, and neutral sheet data
+            read from mpfiles, bsfiles, and nsfiles.
+        
+    Outputs:
+        other, magnetosheath, neutralsheet, nearearth, region, bowshock, 
+            magnetopause = numpy arrays identifying the region for each point 
+            in the BATSRUS grid
+    """
+
+    logging.info('Identifying regions...')
+
+    # Extract data from BATSRUS
+    var_dict = dict(batsrus.varidx)
+
+    # Read magnetopause pkl file
+    dfmp = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', mpfile))
+    
+    # Replace NaN values with large neg. values to improve interpolation.
+    # NaNs in magnetopause represent values where we could not find a boundary
+    xmp = np.nan_to_num( dfmp['x'], nan=-10000.)
+    ymp = np.nan_to_num( dfmp['y'], nan=-10000.)
+    zmp = np.nan_to_num( dfmp['z'], nan=-10000.)
+    
+    ymp_min = np.min(ymp)
+    ymp_max = np.max(ymp)
+    zmp_min = np.min(zmp)
+    zmp_max = np.max(zmp)
+
+    # Set up 2D interpolation of magnetopause data
+    # Note, the reordering of x,y,z to y,z,x because x in magnetopause df is
+    # a function of y,z
+    if interpType == 'linear':
+        interpmp = LinearNDInterpolator(list(zip(ymp, zmp)), xmp )
+    else:
+        interpmp = NearestNDInterpolator(list(zip(ymp, zmp)), xmp )
+
+    # Read bow shock pkl file
+    dfbs = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', bsfile))
+    
+    # Replace NaN values with large neg. values to improve interpolation.
+    # NaNs in bow shock represent values where we could not find a boundary
+    xbs = np.nan_to_num( dfbs['x'], nan=-10000.)
+    ybs = np.nan_to_num( dfbs['y'], nan=-10000.)
+    zbs = np.nan_to_num( dfbs['z'], nan=-10000.)
+     
+    ybs_min = np.min(ybs)
+    ybs_max = np.max(ybs)
+    zbs_min = np.min(zbs)
+    zbs_max = np.max(zbs)
+        
+    # Set up 2D interpolation of bow shock data
+    # Note, the reordering of x,y,z to y,z,x because x in bow shock df is
+    # a function of y,z
+    if interpType == 'linear':
+        interpbs = LinearNDInterpolator(list(zip(ybs, zbs)), xbs )
+    else:
+        interpbs = NearestNDInterpolator(list(zip(ybs, zbs)), xbs )
+
+    # Read neutral sheet pkl file
+    dfns = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', nsfile))
+    
+    # Replace NaN values with large neg. values to improve interpolation.
+    # NaNs in magnetopause represent values where we could not find a boundary
+    xns = np.nan_to_num( dfns['x'], nan=-10000.)
+    yns = np.nan_to_num( dfns['y'], nan=-10000.)
+    zns = np.nan_to_num( dfns['z'], nan=-10000.)
+    
+    # Set up 2D interpolation of magnetopause data
+    # Note, neutral sheet uses x,y,z order
+    if interpType == 'linear':
+        interpns = LinearNDInterpolator(list(zip(xns, yns)), zns )
+    else:
+        interpns = NearestNDInterpolator(list(zip(xns, yns)), zns )
+
+    # We will repeatedly use the x,y,z coordinates
+    x = np.array( batsrus.data_arr[:, var_dict['x']][:] )
+    y = np.array( batsrus.data_arr[:, var_dict['y']][:] )
+    z = np.array( batsrus.data_arr[:, var_dict['z']][:] )
+    r = np.sqrt( x**2 + y**2 + z**2 )
+    
+    # Set up memory to record whether each BATSRUS grid point is in which region.
+    other = np.zeros( len(x), dtype=np.float32 ) # Within boundary but no another region
+    bowshock = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of bow shock
+    magnetopause = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of magnetopause
+    magnetosheath = np.zeros( len(x), dtype=np.float32 ) # Between bow shock and magnetopause
+    neutralsheet = np.zeros( len(x), dtype=np.float32 ) # Near the neutral sheet
+    nearearth = np.zeros( len(x), dtype=np.float32 ) # Near earth
+    region = np.zeros( len(x), dtype=np.float32 ) # Coded region, see below
+   
+    # Use interpolation to find magnetopause, bow shock, and neutral sheet.
+    x_mp = interpmp( y, z )
+    x_bs = interpbs( y, z )
+    z_ns = interpns( x, y )
+    
+    # Determine which region associated with each point
+    
+    # Between the bow shock and magnetopause, aka within the magnetosheath
+    # Make sure we stay within the limits of calculated bow shock and
+    # magnetopause provided, e.g., np.abs(z) <= zbsMax
+    bowshock[ (x < (x_bs + deltabs)) & (y <= ybs_max) & (y >= ybs_min) \
+             & (z <= zbs_max) & (z >= zbs_min) ] = 1
+    magnetopause[ (x < (x_mp + deltamp)) & (y <= ymp_max) & (y >= ymp_min) \
+             & (z <= zmp_max) & (z >= zmp_min)] = 1
+    magnetosheath[ (bowshock > 0.5) & (magnetopause < 0.5) ] = 1
+    
+    # Within the neutral sheet 
+    # Outside of near earth, within thicknessns of neutral sheet,
+    # and behind the magnetopause
+    neutralsheet[ (r > nearradius) & (z <= z_ns + thicknessns/2) \
+        & (z >= z_ns - thicknessns/2) & (x < 0) & (x <= x_mp + deltamp)] = 1
+    
+    # Near earth
+    nearearth[ (r <= nearradius) & (x <= x_mp + deltamp)] = 1
+    
+    # Not in one of the other regions
+    other[ (magnetosheath < 0.5) & (neutralsheet < 0.5) & (nearearth < 0.5)] = 1
+    
+    # Which region:
+    # 0 - inside the BATSRUS grid, but not in one of the other regions
+    # 1 - within the magnetosheath
+    # 2 - within the neutral sheet
+    # 3 - near earth
+    region = magnetosheath + 2*neutralsheet + 3*nearearth
+    
+    return other, magnetosheath, neutralsheet, nearearth, region, bowshock, \
+        magnetopause
+
+    
+def calc_ms_b_region_to_files( info, deltamp, deltabs, thicknessns, nearradius, 
+                       times, mpfiles, bsfiles, nsfiles, point, createVTK = True, 
+                       interpType = 'nearest', delta_hr = None, delta_min = None ):
+    """Similar to calc_ms_b_region, this function saves significantly more data
+    in a pickle and VTK files.
+    
+    Goes through BATRSUS grid and determines which region each point in the
+    BATSRUS grid lies in:
+    0 - inside the BATSRUS grid, but not in one of the other regions
+    1 - within the magnetosheath
+    2 - within the neutral sheet
+    3 - near earth
+    
     Once the region is identified, the delta B contribution to the magnetic field
     from each region is calculated.
 
@@ -343,6 +513,9 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         interpType = string, type of interpolation used below, either 'nearest' or 'linear'.
             Interpolation used with magnetopause, bow shock, and neutral sheet data
             read from mpfiles, bsfiles, and nsfiles.
+            
+        delta_hr, delta_min = if None ignore, if number, shift ISO time by that 
+            amount.  If value given, must be float.
         
     Outputs:
         None = results stored in pickle file and plot
@@ -350,6 +523,12 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
  
     # Interpolation must be nearest neighbor or linear
     assert interpType == 'nearest' or interpType == 'linear'
+    
+    # Make sure delta_hr and delta_min are float
+    if delta_hr is not None:
+        assert( type(delta_hr) == float )
+    if delta_min is not None:
+        assert( type(delta_min) == float )
     
     # Get the magnetometer location using list in magnetopost
     from magnetopost.config import defined_magnetometers
@@ -359,11 +538,6 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
     pointX = defined_magnetometers[point]
     XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
 
-    # Get a list of BATSRUS and RIM files, info parameters define location 
-    # (dir_run) and file types.  See definition of info = {...} above.
-    # from magnetopost import util as util
-    # util.setup(info)
-    
     # Set up memory for results
     length = len(times)
     
@@ -383,6 +557,8 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
     for j in range(len(times)):
         # Get the magnetometer position in SM coordinates
         timeISO = date_timeISO( times[j] )
+        if delta_hr is not None: timeISO = timeISO + timedelta(hours = delta_hr)
+        if delta_min is not None: timeISO = timeISO + timedelta(minutes = delta_min)
         XGEO.ticks = Ticktock([timeISO], 'ISO')
         X = XGEO.convert( 'SM', 'car' )
         XSM = X.data[0]
@@ -401,118 +577,13 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         
         assert(batsrus.DataArray.shape == (nVar, nI, nJ, nK, nBlock))
 
-        # Extract data from BATSRUS
-        var_dict = dict(batsrus.varidx)
-        
-        logging.info('Identifying regions...')
-
-        # Read magnetopause pkl file
-        dfmp = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', mpfiles[j]))
-        
-        # Replace NaN values with large neg. values to improve interpolation.
-        # NaNs in magnetopause represent values where we could not find a boundary
-        xmp = np.nan_to_num( dfmp['x'], nan=-10000.)
-        ymp = np.nan_to_num( dfmp['y'], nan=-10000.)
-        zmp = np.nan_to_num( dfmp['z'], nan=-10000.)
-        
-        ymp_min = np.min(ymp)
-        ymp_max = np.max(ymp)
-        zmp_min = np.min(zmp)
-        zmp_max = np.max(zmp)
-
-        # Set up 2D interpolation of magnetopause data
-        # Note, the reordering of x,y,z to y,z,x because x in magnetopause df is
-        # a function of y,z
-        if interpType == 'linear':
-            interpmp = LinearNDInterpolator(list(zip(ymp, zmp)), xmp )
-        else:
-            interpmp = NearestNDInterpolator(list(zip(ymp, zmp)), xmp )
-
-        # Read bow shock pkl file
-        dfbs = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', bsfiles[j]))
-        
-        # Replace NaN values with large neg. values to improve interpolation.
-        # NaNs in bow shock represent values where we could not find a boundary
-        xbs = np.nan_to_num( dfbs['x'], nan=-10000.)
-        ybs = np.nan_to_num( dfbs['y'], nan=-10000.)
-        zbs = np.nan_to_num( dfbs['z'], nan=-10000.)
-        
-        ybs_min = np.min(ybs)
-        ybs_max = np.max(ybs)
-        zbs_min = np.min(zbs)
-        zbs_max = np.max(zbs)
-        
-        # Set up 2D interpolation of bow shock data
-        # Note, the reordering of x,y,z to y,z,x because x in bow shock df is
-        # a function of y,z
-        if interpType == 'linear':
-            interpbs = LinearNDInterpolator(list(zip(ybs, zbs)), xbs )
-        else:
-            interpbs = NearestNDInterpolator(list(zip(ybs, zbs)), xbs )
-
-        # Read neutral sheet pkl file
-        dfns = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', nsfiles[j]))
-        
-        # Replace NaN values with large neg. values to improve interpolation.
-        # NaNs in magnetopause represent values where we could not find a boundary
-        xns = np.nan_to_num( dfns['x'], nan=-10000.)
-        yns = np.nan_to_num( dfns['y'], nan=-10000.)
-        zns = np.nan_to_num( dfns['z'], nan=-10000.)
-        
-        # Set up 2D interpolation of magnetopause data
-        # Note, neutral sheet uses x,y,z order
-        if interpType == 'linear':
-            interpns = LinearNDInterpolator(list(zip(xns, yns)), zns )
-        else:
-            interpns = NearestNDInterpolator(list(zip(xns, yns)), zns )
-
-        # We will repeatedly use the x,y,z coordinates
-        x = np.array( batsrus.data_arr[:, var_dict['x']][:] )
-        y = np.array( batsrus.data_arr[:, var_dict['y']][:] )
-        z = np.array( batsrus.data_arr[:, var_dict['z']][:] )
-        r = np.sqrt( x**2 + y**2 + z**2 )
-        
-        # Set up memory to record whether each BATSRUS grid point is in which region.
-        other = np.zeros( len(x), dtype=np.float32 ) # Within boundary but no another region
-        bowshock = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of bow shock
-        magnetopause = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of magnetopause
-        magnetosheath = np.zeros( len(x), dtype=np.float32 ) # Between bow shock and magnetopause
-        neutralsheet = np.zeros( len(x), dtype=np.float32 ) # Near the neutral sheet
-        nearearth = np.zeros( len(x), dtype=np.float32 ) # Near earth
-        region = np.zeros( len(x), dtype=np.float32 ) # Coded region, see below
-   
-        # Use interpolation to find magnetopause, bow shock, and neutral sheet.
-        x_mp = interpmp( y, z )
-        x_bs = interpbs( y, z )
-        z_ns = interpns( x, y )
-        
-        # Determine which region associated with each point
-        
-        # Between the bow shock and magnetopause, aka within the magnetosheath
-        # Make sure we're inside the bow shock and magnetopause that we provided.
-        bowshock[ (x < (x_bs + deltabs)) & (y <= ybs_max) & (y >= ybs_min) \
-                 & (z <= zbs_max) & (z >= zbs_min) ] = 1
-        magnetopause[ (x < (x_mp + deltamp)) & (y <= ymp_max) & (y >= ymp_min) \
-                 & (z <= zmp_max) & (z >= zmp_min)] = 1
-        magnetosheath[ (bowshock > 0.5) & (magnetopause < 0.5) ] = 1
-        
-        # Within the neutral sheet 
-        neutralsheet[ (r > nearradius) & (z <= z_ns + thicknessns/2) \
-            & (z >= z_ns - thicknessns/2) & (x < 0) & (x <= x_mp + deltamp)] = 1
-        
-        # Near earth
-        nearearth[ (r <= nearradius) & (x <= x_mp + deltamp)] = 1
-        
-        # Not in one of the other regions
-        other[ (magnetosheath < 0.5) & (neutralsheet < 0.5) & (nearearth < 0.5)] = 1
-        
-        # Which region:
-        # 0 - inside the BATSRUS grid, but not in one of the other regions
-        # 1 - within the magnetosheath
-        # 2 - within the neutral sheet
-        # 3 - near earth
-        region = magnetosheath + 2*neutralsheet + 3*nearearth
-        
+        # Identify region for each point in BATSRUS grid
+        other, magnetosheath, neutralsheet, nearearth, region, bowshock, \
+            magnetopause = find_regions( info, batsrus, deltamp, deltabs, 
+                       thicknessns, nearradius, 
+                       times[j], mpfiles[j], bsfiles[j], nsfiles[j],   
+                       interpType = interpType)
+                
         # Get j azimuthal, aka j phi.  Note, rCurrents is 0 since we want everything
         df = convert_BATSRUS_to_dataframe(batsrus, 0)
         df = create_deltaB_spherical_dataframe(df)
@@ -560,6 +631,7 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         B_totalGSM = np.array([df_total['dBxSum'].iloc[-1], df_total['dBySum'].iloc[-1], df_total['dBzSum'].iloc[-1]])
         B_totalSM[j,:] = GSMtoSM(B_totalGSM, times[j], ctype_in='car', ctype_out='car')
         Bned_total[j,:] = get_NED_components( B_totalSM[j,:], XSM )
+        del df_total # Save memory
         
         df_other = deepcopy(df)
         df_other = df_other.drop(df_other[df_other['region'] > 0.5].index)
@@ -567,7 +639,8 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         B_otherGSM = np.array([df_other['dBxSum'].iloc[-1], df_other['dBySum'].iloc[-1], df_other['dBzSum'].iloc[-1]])
         B_otherSM[j,:] = GSMtoSM(B_otherGSM, times[j], ctype_in='car', ctype_out='car')
         Bned_other[j,:] = get_NED_components( B_otherSM[j,:], XSM )
-
+        del df_other # Save memory
+        
         df_magnetosheath = deepcopy(df)
         df_magnetosheath = df_magnetosheath.drop(df_magnetosheath[df_magnetosheath['region'] < 0.5].index)
         df_magnetosheath = df_magnetosheath.drop(df_magnetosheath[df_magnetosheath['region'] > 1.5].index)
@@ -575,7 +648,8 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         B_magnetosheathGSM = np.array([df_magnetosheath['dBxSum'].iloc[-1], df_magnetosheath['dBySum'].iloc[-1], df_magnetosheath['dBzSum'].iloc[-1]])
         B_magnetosheathSM[j,:] = GSMtoSM(B_magnetosheathGSM, times[j], ctype_in='car', ctype_out='car')
         Bned_magnetosheath[j,:] = get_NED_components( B_magnetosheathSM[j,:], XSM )
-
+        del df_magnetosheath # Save memory
+        
         df_neutralsheet = deepcopy(df)
         df_neutralsheet = df_neutralsheet.drop(df_neutralsheet[df_neutralsheet['region'] < 1.5].index)
         df_neutralsheet = df_neutralsheet.drop(df_neutralsheet[df_neutralsheet['region'] > 2.5].index)
@@ -583,6 +657,7 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         B_neutralsheetGSM = np.array([df_neutralsheet['dBxSum'].iloc[-1], df_neutralsheet['dBySum'].iloc[-1], df_neutralsheet['dBzSum'].iloc[-1]])
         B_neutralsheetSM[j,:] = GSMtoSM(B_neutralsheetGSM, times[j], ctype_in='car', ctype_out='car')
         Bned_neutralsheet[j,:] = get_NED_components( B_neutralsheetSM[j,:], XSM )
+        del df_neutralsheet # Save memory
 
         df_nearearth = deepcopy(df)
         df_nearearth = df_nearearth.drop(df_nearearth[df_nearearth['region'] < 2.5].index)
@@ -590,6 +665,7 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         B_nearearthGSM = np.array([df_nearearth['dBxSum'].iloc[-1], df_nearearth['dBySum'].iloc[-1], df_nearearth['dBzSum'].iloc[-1]])
         B_nearearthSM[j,:] = GSMtoSM(B_nearearthGSM, times[j], ctype_in='car', ctype_out='car')
         Bned_nearearth[j,:] = get_NED_components( B_nearearthSM[j,:], XSM )
+        del df_nearearth # Save memory
         
         # Double-check, this should be zero
         B_testGSM = B_totalGSM - B_otherGSM - B_magnetosheathGSM \
@@ -673,61 +749,86 @@ def calc_deltaB_by_region( info, deltamp, deltabs, thicknessns, nearradius,
         
     return
 
-
-def calc_ms_b_region( info, deltamp, deltabs, thicknessns, nearradius, 
-                       time, mpfile, bsfile, nsfile, XGSM,  
-                       interpType = 'nearest' ):
-    """Goes through BATRSUS grid and determines which region each point in the
-    BATSRUS grid lies in:
+@jit(nopython=True)
+def calc_ms_b_region_sub( Bx, By, Bz, region ):
+    """ Subroutine for calc_ms_b_region to allow numba accelleration.  It 
+    calculates the cummlative B field in each region:
     0 - inside the BATSRUS grid, but not in one of the other regions
     1 - within the magnetosheath
     2 - within the neutral sheet
     3 - near earth
-    Once the region is identified, the delta B contribution to the magnetic field
-    from each region is calculated.
+    
+    Inputs:
+        Bx, By, Bz = numpy arrays with magnetic field at each point
+        
+        region = numpy array specifying which region each point is in
+
+    Outputs:
+        Btot, Bother, Bms, Bns, Bne = cummulative sum for total (all regions),
+            other, magnetosheath, neutral sheet, and near earth regions.
+    """
+
+    # Initialize memory for cumulative sums
+    Btot = np.zeros(3)
+    Bother = np.zeros(3)
+    Bms = np.zeros(3)
+    Bns = np.zeros(3)
+    Bne = np.zeros(3)
+    
+    # Loop thru each point in the BATSRUS array, sum B field in each region
+    for i in range(len(Bx)):
+        Btot[0] = Btot[0] + Bx[i]
+        Btot[1] = Btot[1] + By[i]
+        Btot[2] = Btot[2] + Bz[i]
+
+        match region[i]:
+             case 0: 
+                Bother[0] = Bother[0] + Bx[i]
+                Bother[1] = Bother[1] + By[i]
+                Bother[2] = Bother[2] + Bz[i]
+        
+             case 1: 
+                Bms[0] = Bms[0] + Bx[i]
+                Bms[1] = Bms[1] + By[i]
+                Bms[2] = Bms[2] + Bz[i]
+        
+             case 2: 
+                Bns[0] = Bns[0] + Bx[i]
+                Bns[1] = Bns[1] + By[i]
+                Bns[2] = Bns[2] + Bz[i]
+        
+             case 3: 
+                Bne[0] = Bne[0] + Bx[i]
+                Bne[1] = Bne[1] + By[i]
+                Bne[2] = Bne[2] + Bz[i]
+                
+    return Btot, Bother, Bms, Bns, Bne
+
+def calc_ms_b_region( XGSM, time, df ):
+    """Goes through BATSRUS grid and the delta B contribution to the 
+    magnetic field from each region is calculated.  The regions are:
+    0 - inside the BATSRUS grid, but not in one of the other regions
+    1 - within the magnetosheath
+    2 - within the neutral sheet
+    3 - near earth
+    
+    Results are in SM coordinates.  This function is similar to calc_ms_b in 
+    process_ms.py, calc_ms_b does not divide the BATSRUS grid into regions.
 
     Inputs:
-        info = tells the script where the data files are stored and where
-            to save plots and calculated data, see example above
+        XGSM = cartesian position where magnetic field will be measured (GSM coordinates)
+                
+        time = the time associated with the file for which we will create heatmaps. 
 
-        deltamp, deltabs = offset the x-values for the magnetopause (mp) or bow
-            shock (bs).  Positive in positive GSM x coordinate.  Used to modify
-            results for finite thickness of magnetopause and bow shock.
+        df = BATSRUS dataframe, from call to convert_BATSRUS_to_dataframe
             
-        thicknessns = region around neutral sheet to include.  As specified,
-            neutral sheet is a 'plane.'  The neutral sheet region will extend
-            thicknessns/2 above and below it.
-            
-        nearradius = sphere near earth in which we examine ring currents and other
-            phenonmena
-                    
-        time = time associated with the file for which we will create
-             heatmaps. The filepath is info['files']['magnetosphere'][bases[i]]
-             
-        mpfile, bsfile, nsfile = filenames (located in os.path.join( info['dir_derived'], 'mp-bs-ns') 
-                that contain the magnetopause, bow shock, and neutral sheet locations 
-                at time time
-            
-        XGSM = artesian position where magnetic field will be measured (GSM coordinates)
-        
-        interpType = string, type of interpolation used below, either 'nearest' or 'linear'.
-            Interpolation used with magnetopause, bow shock, and neutral sheet data
-            read from mpfiles, bsfiles, and nsfiles.
-        
     Outputs:
-        Bned_total[0], Bned_other[0], Bned_magnetosheath[0], Bned_neutralsheet[0], Bned_nearearth[0] =
-            the north components of the magnetic field due to 1) all cells in region 0, 2) 
-            from cell in region 0, 3) ... in region 1, 4) ... in region 2, 5) ... in region 3
+        Bned_total[0], Bned_other[0], Bned_magnetosheath[0], Bned_neutralsheet[0], 
+            Bned_nearearth[0] = the north components (SM coordinates) of the 
+            magnetic field due to 1) all cells, 2) from cells in region 0, 
+            3) ... in region 1, 4) ... in region 2, 5) ... in region 3
     """
  
-    # Interpolation must be nearest neighbor or linear
-    assert interpType == 'nearest' or interpType == 'linear'
-    
-    # Get a list of BATSRUS and RIM files, info parameters define location 
-    # (dir_run) and file types.  See definition of info = {...} above.
-    # from magnetopost import util as util
-    # util.setup(info)
-    
     # Set up memory for results
     B_totalSM = np.zeros(3)
     B_otherSM = np.zeros(3)
@@ -739,174 +840,40 @@ def calc_ms_b_region( info, deltamp, deltabs, thicknessns, nearradius,
     Bned_magnetosheath = np.zeros(3)
     Bned_neutralsheet = np.zeros(3)
     Bned_nearearth = np.zeros(3)
-
+    
     # Get XGSM in SM coordinates
     XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
 
-    # We need the filepath for BATSRUS file
-    filepath = info['files']['magnetosphere'][time]
-    logging.info(f'Parsing BATSRUS file... {os.path.basename(filepath)}')
-    batsrus = swmfio.read_batsrus(filepath)
-
-    # Extract data from BATSRUS
-    var_dict = dict(batsrus.varidx)
-    
-    logging.info('Identifying regions...')
-
-    # Read magnetopause pkl file
-    dfmp = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', mpfile))
-    
-    # Replace NaN values with large neg. values to improve interpolation.
-    # NaNs in magnetopause represent values where we could not find a boundary
-    xmp = np.nan_to_num( dfmp['x'], nan=-10000.)
-    ymp = np.nan_to_num( dfmp['y'], nan=-10000.)
-    zmp = np.nan_to_num( dfmp['z'], nan=-10000.)
-    
-    ymp_min = np.min(ymp)
-    ymp_max = np.max(ymp)
-    zmp_min = np.min(zmp)
-    zmp_max = np.max(zmp)
-
-    # Set up 2D interpolation of magnetopause data
-    # Note, the reordering of x,y,z to y,z,x because x in magnetopause df is
-    # a function of y,z
-    if interpType == 'linear':
-        interpmp = LinearNDInterpolator(list(zip(ymp, zmp)), xmp )
-    else:
-        interpmp = NearestNDInterpolator(list(zip(ymp, zmp)), xmp )
-
-    # Read bow shock pkl file
-    dfbs = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', bsfile))
-    
-    # Replace NaN values with large neg. values to improve interpolation.
-    # NaNs in bow shock represent values where we could not find a boundary
-    xbs = np.nan_to_num( dfbs['x'], nan=-10000.)
-    ybs = np.nan_to_num( dfbs['y'], nan=-10000.)
-    zbs = np.nan_to_num( dfbs['z'], nan=-10000.)
-     
-    ybs_min = np.min(ybs)
-    ybs_max = np.max(ybs)
-    zbs_min = np.min(zbs)
-    zbs_max = np.max(zbs)
-        
-     # Set up 2D interpolation of bow shock data
-    # Note, the reordering of x,y,z to y,z,x because x in bow shock df is
-    # a function of y,z
-    if interpType == 'linear':
-        interpbs = LinearNDInterpolator(list(zip(ybs, zbs)), xbs )
-    else:
-        interpbs = NearestNDInterpolator(list(zip(ybs, zbs)), xbs )
-
-    # Read neutral sheet pkl file
-    dfns = pd.read_pickle(os.path.join( info['dir_derived'], 'mp-bs-ns', nsfile))
-    
-    # Replace NaN values with large neg. values to improve interpolation.
-    # NaNs in magnetopause represent values where we could not find a boundary
-    xns = np.nan_to_num( dfns['x'], nan=-10000.)
-    yns = np.nan_to_num( dfns['y'], nan=-10000.)
-    zns = np.nan_to_num( dfns['z'], nan=-10000.)
-    
-    # Set up 2D interpolation of magnetopause data
-    # Note, neutral sheet uses x,y,z order
-    if interpType == 'linear':
-        interpns = LinearNDInterpolator(list(zip(xns, yns)), zns )
-    else:
-        interpns = NearestNDInterpolator(list(zip(xns, yns)), zns )
-
-    # We will repeatedly use the x,y,z coordinates
-    x = np.array( batsrus.data_arr[:, var_dict['x']][:] )
-    y = np.array( batsrus.data_arr[:, var_dict['y']][:] )
-    z = np.array( batsrus.data_arr[:, var_dict['z']][:] )
-    r = np.sqrt( x**2 + y**2 + z**2 )
-    
-    # Set up memory to record whether each BATSRUS grid point is in which region.
-    other = np.zeros( len(x), dtype=np.float32 ) # Within boundary but no another region
-    bowshock = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of bow shock
-    magnetopause = np.zeros( len(x), dtype=np.float32 ) # Anti-sunward of magnetopause
-    magnetosheath = np.zeros( len(x), dtype=np.float32 ) # Between bow shock and magnetopause
-    neutralsheet = np.zeros( len(x), dtype=np.float32 ) # Near the neutral sheet
-    nearearth = np.zeros( len(x), dtype=np.float32 ) # Near earth
-    region = np.zeros( len(x), dtype=np.float32 ) # Coded region, see below
-   
-    # Use interpolation to find magnetopause, bow shock, and neutral sheet.
-    x_mp = interpmp( y, z )
-    x_bs = interpbs( y, z )
-    z_ns = interpns( x, y )
-    
-    # Determine which region associated with each point
-    
-    # Between the bow shock and magnetopause, aka within the magnetosheath
-    # Make sure we stay within the limits of calculated bow shock and
-    # magnetopause provided, e.g., np.abs(z) <= zbsMax
-    bowshock[ (x < (x_bs + deltabs)) & (y <= ybs_max) & (y >= ybs_min) \
-             & (z <= zbs_max) & (z >= zbs_min) ] = 1
-    magnetopause[ (x < (x_mp + deltamp)) & (y <= ymp_max) & (y >= ymp_min) \
-             & (z <= zmp_max) & (z >= zmp_min)] = 1
-    magnetosheath[ (bowshock > 0.5) & (magnetopause < 0.5) ] = 1
-    
-    # Within the neutral sheet 
-    # Outside of near earth, within thicknessns of neutral sheet,
-    # and behind the magnetopause
-    neutralsheet[ (r > nearradius) & (z <= z_ns + thicknessns/2) \
-        & (z >= z_ns - thicknessns/2) & (x < 0) & (x <= x_mp + deltamp)] = 1
-    
-    # Near earth
-    nearearth[ (r <= nearradius) & (x <= x_mp + deltamp)] = 1
-    
-    # Not in one of the other regions
-    other[ (magnetosheath < 0.5) & (neutralsheet < 0.5) & (nearearth < 0.5)] = 1
-    
-    # Which region:
-    # 0 - inside the BATSRUS grid, but not in one of the other regions
-    # 1 - within the magnetosheath
-    # 2 - within the neutral sheet
-    # 3 - near earth
-    region = magnetosheath + 2*neutralsheet + 3*nearearth
-        
-    logging.info('Calculating delta B contributions...')
+    logging.info('Calculating delta B contributions from each region...')
 
     # Convert BATSRUS data to dataframes for each region
-    df = convert_BATSRUS_to_dataframe(batsrus, info['rCurrents'], region=region)
     df = create_deltaB_rCurrents_dataframe( df, XGSM )
     df = create_deltaB_spherical_dataframe( df )
     df = create_deltaB_rCurrents_spherical_dataframe( df, XGSM )
     
-    df_total = deepcopy(df)
-    df_total = create_cumulative_sum_dataframe( df_total )
-    B_totalGSM = np.array([df_total['dBxSum'].iloc[-1], df_total['dBySum'].iloc[-1], df_total['dBzSum'].iloc[-1]])
+    dBx = df['dBx'].to_numpy()
+    dBy = df['dBy'].to_numpy()
+    dBz = df['dBz'].to_numpy()
+    region = df['region'].to_numpy()
+
+    B_totalGSM, B_otherGSM, B_magnetosheathGSM, B_neutralsheetGSM, \
+        B_nearearthGSM = calc_ms_b_region_sub( dBx, dBy, dBz, region)
+
     B_totalSM[:] = GSMtoSM(B_totalGSM, time, ctype_in='car', ctype_out='car')
     Bned_total[:] = get_NED_components( B_totalSM[:], XSM )
-    
-    df_other = deepcopy(df)
-    df_other = df_other.drop(df_other[df_other['region'] > 0.5].index)
-    df_other = create_cumulative_sum_dataframe( df_other )
-    B_otherGSM = np.array([df_other['dBxSum'].iloc[-1], df_other['dBySum'].iloc[-1], df_other['dBzSum'].iloc[-1]])
+
     B_otherSM[:] = GSMtoSM(B_otherGSM, time, ctype_in='car', ctype_out='car')
     Bned_other[:] = get_NED_components( B_otherSM[:], XSM )
 
-    df_magnetosheath = deepcopy(df)
-    df_magnetosheath = df_magnetosheath.drop(df_magnetosheath[df_magnetosheath['region'] < 0.5].index)
-    df_magnetosheath = df_magnetosheath.drop(df_magnetosheath[df_magnetosheath['region'] > 1.5].index)
-    df_magnetosheath = create_cumulative_sum_dataframe( df_magnetosheath )
-    B_magnetosheathGSM = np.array([df_magnetosheath['dBxSum'].iloc[-1], df_magnetosheath['dBySum'].iloc[-1], df_magnetosheath['dBzSum'].iloc[-1]])
     B_magnetosheathSM[:] = GSMtoSM(B_magnetosheathGSM, time, ctype_in='car', ctype_out='car')
     Bned_magnetosheath[:] = get_NED_components( B_magnetosheathSM[:], XSM )
 
-    df_neutralsheet = deepcopy(df)
-    df_neutralsheet = df_neutralsheet.drop(df_neutralsheet[df_neutralsheet['region'] < 1.5].index)
-    df_neutralsheet = df_neutralsheet.drop(df_neutralsheet[df_neutralsheet['region'] > 2.5].index)
-    df_neutralsheet = create_cumulative_sum_dataframe( df_neutralsheet )
-    B_neutralsheetGSM = np.array([df_neutralsheet['dBxSum'].iloc[-1], df_neutralsheet['dBySum'].iloc[-1], df_neutralsheet['dBzSum'].iloc[-1]])
     B_neutralsheetSM[:] = GSMtoSM(B_neutralsheetGSM, time, ctype_in='car', ctype_out='car')
     Bned_neutralsheet[:] = get_NED_components( B_neutralsheetSM[:], XSM )
 
-    df_nearearth = deepcopy(df)
-    df_nearearth = df_nearearth.drop(df_nearearth[df_nearearth['region'] < 2.5].index)
-    df_nearearth = create_cumulative_sum_dataframe( df_nearearth )
-    B_nearearthGSM = np.array([df_nearearth['dBxSum'].iloc[-1], df_nearearth['dBySum'].iloc[-1], df_nearearth['dBzSum'].iloc[-1]])
     B_nearearthSM[:] = GSMtoSM(B_nearearthGSM, time, ctype_in='car', ctype_out='car')
     Bned_nearearth[:] = get_NED_components( B_nearearthSM[:], XSM )
-    
+
     # Double-check, this should be zero
     B_testGSM = B_totalGSM - B_otherGSM - B_magnetosheathGSM \
         - B_neutralsheetGSM - B_nearearthGSM
@@ -914,6 +881,7 @@ def calc_ms_b_region( info, deltamp, deltabs, thicknessns, nearradius,
     logging.info(f'Bx Test GSM: {B_testGSM[0]}')
     logging.info(f'By Test GSM: {B_testGSM[1]}')
     logging.info(f'Bz Test GSM: {B_testGSM[2]}')
-
-    return Bned_total[0], Bned_other[0], Bned_magnetosheath[0], Bned_neutralsheet[0], Bned_nearearth[0]
+    
+    return Bned_total[0], Bned_other[0], Bned_magnetosheath[0], Bned_neutralsheet[0], \
+        Bned_nearearth[0]
  

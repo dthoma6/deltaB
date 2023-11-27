@@ -9,7 +9,7 @@ Created on Thu Sep 15 09:42:06 2022
 import logging
 import pandas as pd
 import os.path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from deltaB import calc_ms_b_paraperp, \
     calc_gap_b, calc_iono_b, \
@@ -39,7 +39,7 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%S')
 
-def loop_2D_ms(XSM, info, reduce):
+def loop_2D_ms(XSM, info, reduce, delta_hr=None):
     """Loop thru data in BATSRUS files to generate data for 2D plots showing Bn 
     versus time including the breakdown of contributions from currents parallel 
     and perpendicular to local B field.  This routine examines currents in the
@@ -53,9 +53,17 @@ def loop_2D_ms(XSM, info, reduce):
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
+        delta_hr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
     Outputs:
         None - other than the pickle file saved
     """
+
+    # Make sure delta_hr is float
+    if delta_hr is not None:
+        assert( type(delta_hr) == float )
+ 
     # Time associated with each file
     times = list(info['files']['magnetosphere'].keys())
     if reduce != None:
@@ -86,11 +94,19 @@ def loop_2D_ms(XSM, info, reduce):
         df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     
         # Record time and index for plots
-        h = time[3]
-        m = time[4]
-        B_times[i] = h + m/60
-        B_index[i] = i
-        timeISO = date_timeISO( time )
+        if delta_hr is None:
+            h = time[3]
+            m = time[4]
+            B_times[i] = h + m/60
+            B_index[i] = i
+            timeISO = date_timeISO( time )
+        else:
+            dtime = datetime(*time) + timedelta(hours=delta_hr)
+            timeISO = dtime.isoformat()
+            h = dtime.hour
+            m = dtime.minute
+            B_times[i] = h + m/60
+            B_index[i] = i
         
         # Convert XSM to GSM coordinates, which is what calc_ms_b_paraperp needs
         XGSM = SMtoGSM(XSM, time, ctype_in='car', ctype_out='car')
@@ -119,7 +135,7 @@ def loop_2D_ms(XSM, info, reduce):
 
     return
 
-def loop_2D_ms_point(point, info, reduce):
+def loop_2D_ms_point(point, info, reduce, delta_hr=None):
     """Loop thru data in BATSRUS files to generate data for 2D plots showing Bn 
     versus time including the breakdown of contributions from currents parallel 
     and perpendicular to local B field.  This routine examines currents in the
@@ -134,9 +150,16 @@ def loop_2D_ms_point(point, info, reduce):
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
+        delta_hr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
     Outputs:
         None - other than the pickle file saved
     """
+    # Make sure delta_hr is float
+    if delta_hr is not None:
+        assert( type(delta_hr) == float )
+    
     # Time associated with each file
     times = list(info['files']['magnetosphere'].keys())
     if reduce != None:
@@ -175,11 +198,20 @@ def loop_2D_ms_point(point, info, reduce):
         df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     
         # Record time and index for plots
-        h = time[3]
-        m = time[4]
-        B_times[i] = h + m/60
-        B_index[i] = i
-        timeISO = date_timeISO( time )
+        if delta_hr is None:
+            h = time[3]
+            m = time[4]
+            B_times[i] = h + m/60
+            B_index[i] = i
+            timeISO = date_timeISO( time )
+        else:
+            dtime = datetime(*time)
+            dtime2 = dtime + timedelta(hours=delta_hr)
+            timeISO = dtime2.isoformat()
+            h = dtime2.hour
+            m = dtime2.minute
+            B_times[i] = h + m/60
+            B_index[i] = i
                 
         # Get the magnetometer position, X, in GSM coordinates for compatibility with
         # BATSRUS data
@@ -250,7 +282,7 @@ def plot_2D_ms( info, time_limits, Bn_limits ):
     
     return
 
-def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30):
+def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30, delta_hr=None):
     """Loop thru data in RIM files to create data for 2D plots showing Bn versus 
     time including the breakdown of contributions from currents parallel and 
     perpendicular to B field components.  This routine examines field aligned 
@@ -268,10 +300,17 @@ def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30):
             numerical integration. nTheta, nPhi, nR points in spherical grid
             between rIonosphere and rCurrents for gap integrals
 
+        delta_hr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
     Outputs:
         None - other than the pickle file saved
     """
 
+    # Make sure delta_hr is float
+    if delta_hr is not None:
+        assert( type(delta_hr) == float )
+ 
     # Time associated with each file
     times = list(info['files']['ionosphere'].keys())
     if reduce != None:
@@ -297,11 +336,19 @@ def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30):
         logging.info(f'Calculate gap and ionosphere dB for 2D... {base}')
     
         # Record time and index for plots
-        h = time[3]
-        m = time[4]
-        B_times[i] = h + m/60
-        B_index[i] = i
-        timeISO = date_timeISO( time )
+        if delta_hr is None:
+            h = time[3]
+            m = time[4]
+            B_times[i] = h + m/60
+            B_index[i] = i
+            timeISO = date_timeISO( time )
+        else:
+            dtime = datetime(*time) + timedelta(hours=delta_hr)
+            timeISO = dtime.isoformat()
+            h = dtime.hour
+            m = dtime.minute
+            B_times[i] = h + m/60
+            B_index[i] = i
         
         # Get the B field at the point XSM and timeISO using the RIM data
         # results are in SM coordinates.  This call looks at Field Aligned 
@@ -330,7 +377,7 @@ def loop_2D_gap_iono(XSM, info, reduce, nTheta=30, nPhi=30, nR=30):
 
     return
 
-def loop_2D_gap_iono_point(point, info, reduce, nTheta=30, nPhi=30, nR=30):
+def loop_2D_gap_iono_point(point, info, reduce, nTheta=30, nPhi=30, nR=30, delta_hr=None):
     """Loop thru data in RIM files to create data for 2D plots showing Bn versus 
     time including the breakdown of contributions from currents parallel and 
     perpendicular to B field components.  This routine examines field aligned 
@@ -349,11 +396,18 @@ def loop_2D_gap_iono_point(point, info, reduce, nTheta=30, nPhi=30, nR=30):
             numerical integration. nTheta, nPhi, nR points in spherical grid
             between rIonosphere and rCurrents for gap integrals
 
+        delta_hr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
     Outputs:
         None - other than the pickle file saved
     """
 
-    # Time associated with each file
+    # Make sure delta_hr is float
+    if delta_hr is not None:
+        assert( type(delta_hr) == float )
+ 
+        # Time associated with each file
     times = list(info['files']['ionosphere'].keys())
     if reduce != None:
         assert isinstance( reduce, int )
@@ -386,11 +440,19 @@ def loop_2D_gap_iono_point(point, info, reduce, nTheta=30, nPhi=30, nR=30):
         logging.info(f'Calculate gap and ionosphere dB for 2D... {base} at {point}')
     
         # Record time and index for plots
-        h = time[3]
-        m = time[4]
-        B_times[i] = h + m/60
-        B_index[i] = i
-        timeISO = date_timeISO( time )
+        if delta_hr is None:
+            h = time[3]
+            m = time[4]
+            B_times[i] = h + m/60
+            B_index[i] = i
+            timeISO = date_timeISO( time )
+        else:
+            dtime = datetime(*time) + timedelta(hours=delta_hr)
+            timeISO = dtime.isoformat()
+            h = dtime.hour
+            m = dtime.minute
+            B_times[i] = h + m/60
+            B_index[i] = i
         
         # Get the magnetometer position, X, in SM coordinates for compatibility
         # with RIM data

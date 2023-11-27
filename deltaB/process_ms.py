@@ -5,6 +5,7 @@ Created on Thu Feb 16 13:35:29 2023
 
 @author: Dean Thomas
 """
+from numba import jit
 import logging
 import numpy as np
 import pandas as pd
@@ -63,7 +64,55 @@ def calc_ms_b(X, filepath, timeISO, rCurrents):
     
     Bn, Be, Bd = get_NED_components( BSM, XSM )
         
-    return Bn, Be, Bd, B[0], B[1], B[2]
+    return Bn, Be, Bd, BSM[0], BSM[1], BSM[2]
+
+@jit(nopython=True)
+def calc_ms_b_paraperp_sub( dBx, dBy, dBz, 
+                           dBparax, dBparay, dBparaz,
+                           dBperpx, dBperpy, dBperpz,
+                           dBperpphix, dBperpphiy, dBperpphiz,
+                           dBperpresx, dBperpresy, dBperpresz):
+    """Subroutine to enable numba to speed up the calculation of the total
+    magnetic field.  Replaces calls to create_cumulative_sum_spherical_dataframe
+    and create_cumulative_sum_dataframe.  
+    
+    Inputs:
+        dBx, et al. = x,y,z components of magnetic field at each point in
+            BATSRUS grid stored in numpy arrays.
+            
+    Outputs:
+        BSum, et al = numpy arrays with total magnetic field
+        
+    """
+    
+    BSum = np.zeros(3)
+    BparaSum = np.zeros(3)
+    BperpSum = np.zeros(3)
+    BperpphiSum = np.zeros(3)
+    BperpresSum = np.zeros(3)
+
+    for i in range(len(dBx)):
+        BSum[0] = BSum[0] + dBx[i]
+        BSum[1] = BSum[1] + dBy[i]
+        BSum[2] = BSum[2] + dBz[i]
+
+        BparaSum[0] = BparaSum[0] + dBparax[i]
+        BparaSum[1] = BparaSum[1] + dBparay[i]
+        BparaSum[2] = BparaSum[2] + dBparaz[i]
+
+        BperpSum[0] = BperpSum[0] + dBperpx[i]
+        BperpSum[1] = BperpSum[1] + dBperpy[i]
+        BperpSum[2] = BperpSum[2] + dBperpz[i]
+
+        BperpphiSum[0] = BperpphiSum[0] + dBperpphix[i]
+        BperpphiSum[1] = BperpphiSum[1] + dBperpphiy[i]
+        BperpphiSum[2] = BperpphiSum[2] + dBperpphiz[i]
+
+        BperpresSum[0] = BperpresSum[0] + dBperpresx[i]
+        BperpresSum[1] = BperpresSum[1] + dBperpresy[i]
+        BperpresSum[2] = BperpresSum[2] + dBperpresz[i]
+    
+    return BSum, BparaSum, BperpSum, BperpphiSum, BperpresSum
 
 def calc_ms_b_paraperp(XGSM, timeISO, df):
     """Use Biot-Savart to determine the magnetic field (in North-East-Down 
@@ -106,42 +155,50 @@ def calc_ms_b_paraperp(XGSM, timeISO, df):
 
     logging.info('Calculate cumulative sums...')
 
-    df1 = create_cumulative_sum_dataframe(df1)
-    df1 = create_cumulative_sum_spherical_dataframe( df1 )
-
     # We need the time to switch from GSM to SM coordinates
     time = iso2ints( timeISO )
     XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
+    
+    dBx = df1['dBx'].to_numpy()
+    dBy = df1['dBy'].to_numpy()
+    dBz = df1['dBz'].to_numpy()
 
-    B = [df1['dBxSum'].iloc[-1], \
-         df1['dBySum'].iloc[-1], \
-         df1['dBzSum'].iloc[-1]]
+    dBparax = df1['dBparallelx'].to_numpy()
+    dBparay = df1['dBparallely'].to_numpy()
+    dBparaz = df1['dBparallelz'].to_numpy()
+
+    dBperpx = df1['dBperpendicularx'].to_numpy()
+    dBperpy = df1['dBperpendiculary'].to_numpy()
+    dBperpz = df1['dBperpendicularz'].to_numpy()
+
+    dBperpphix = df1['dBperpendicularphix'].to_numpy()
+    dBperpphiy = df1['dBperpendicularphiy'].to_numpy()
+    dBperpphiz = df1['dBperpendicularphiz'].to_numpy()
+
+    dBperpresx = df1['dBperpendicularphiresx'].to_numpy()
+    dBperpresy = df1['dBperpendicularphiresy'].to_numpy()
+    dBperpresz = df1['dBperpendicularphiresz'].to_numpy()
+
+    B, Bpara, Bperp, Bperpphi, Bperpres = calc_ms_b_paraperp_sub(dBx, dBy, dBz, 
+                               dBparax, dBparay, dBparaz,
+                               dBperpx, dBperpy, dBperpz,
+                               dBperpphix, dBperpphiy, dBperpphiz,
+                               dBperpresx, dBperpresy, dBperpresz)
+    
     BSM = GSMtoSM(B, time, ctype_in='car', ctype_out='car')
     Bn, Be, Bd = get_NED_components(BSM, XSM)     
 
-    Bpara = [df1['dBparallelxSum'].iloc[-1], \
-             df1['dBparallelySum'].iloc[-1], \
-             df1['dBparallelzSum'].iloc[-1]]
     BparaSM = GSMtoSM(Bpara, time, ctype_in='car', ctype_out='car')
     Bparan, Bparae, Bparad = get_NED_components(BparaSM, XSM)     
 
-    Bperp = [df1['dBperpendicularxSum'].iloc[-1], \
-             df1['dBperpendicularySum'].iloc[-1], \
-             df1['dBperpendicularzSum'].iloc[-1]]
     BperpSM = GSMtoSM(Bperp, time, ctype_in='car', ctype_out='car')
     Bperpn, Bperpe, Bperpd = get_NED_components(BperpSM, XSM)     
-
-    Bperpphi = [df1['dBperpendicularphixSum'].iloc[-1], \
-                df1['dBperpendicularphiySum'].iloc[-1], \
-                df1['dBperpendicularphizSum'].iloc[-1]]
+    
     BperpphiSM = GSMtoSM(Bperpphi, time, ctype_in='car', ctype_out='car')
     Bperpphin, Bperpphie, Bperpphid = get_NED_components(BperpphiSM, XSM)     
-
-    Bperpres = [df1['dBperpendicularphiresxSum'].iloc[-1], \
-                df1['dBperpendicularphiresySum'].iloc[-1], \
-                df1['dBperpendicularphireszSum'].iloc[-1]]
+    
     BperpresSM = GSMtoSM(Bperpres, time, ctype_in='car', ctype_out='car')
-    Bperpresn, Bperprese, Bperpresd = get_NED_components(BperpresSM, XSM)     
+    Bperpresn, Bperprese, Bperpresd = get_NED_components(BperpresSM, XSM)  
 
     return Bn, Bparan, Bperpn, Bperpphin, Bperpresn
 
@@ -234,3 +291,4 @@ def loop_ms_b(info, point, reduce):
     create_directory(info['dir_derived'], 'timeseries')
     pklname = 'dB_bs_msph-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    

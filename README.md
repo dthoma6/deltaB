@@ -1,10 +1,10 @@
 This repository includes tools to analyze $\delta B$ contributions from the magnetosphere, 
-ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.0,  
-has the ability to determine contributions from Space Weather Modeling Framework
+ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.0, has 
+the ability to determine contributions from Space Weather Modeling Framework
 (SWMF) current densities.
 
 In processing SWMF results, it uses both the magnetosphere and ionosphere files 
-to determine $\delta B$ contributions to the magnetic field at a specified point.  
+to determine $\delta B$ contributions to the magnetic field at a specified point. 
 The user can specify a point on the Earth's surface, for example, a magnetometer 
 site. Or the user can specify a point in space.  The algorithms will determine 
 the contributions that the magnetosphere, ionosphere, and gap-region make to the 

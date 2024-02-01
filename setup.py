@@ -11,16 +11,26 @@ from setuptools import setup, find_packages
 install_requires = [
                         "pandas",
                         "numpy",
-                        "swmfio",
+                        "scipy",
+                        "joblib",
+                        "multiprocessing",
+                        "matplotlib",
+                        "numba",
+                        "logging",
+                        "seaborn",
+                        "cartopy",
+                        "spacepy",
+                        "swmfio @ git+https://github.com/GaryQ-physics/swmfio.git#egg=swmfio",
+                        "magnetopost @ git+https://github.com/GaryQ-physics/magnetopost#egg=magnetopost",
                         "vtk"
                     ]
 
 setup(
     name='deltaB',
-    version='0.9.0',
+    version='1.0.0',
     author='Dean Thomas',
     author_email='dean.thomas@physics123.net',
     packages=find_packages(),
-    description='Examine delta B contributions from SWMF results',
+    description='For analyzing Space Weather Model Framework (SWMF) results, using Biot-Savart Law to determine delta B contributions from various currents and geospace regions',
     install_requires=install_requires
 )

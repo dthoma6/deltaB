@@ -7,9 +7,9 @@ Created on Mon Mar 13 16:49:17 2023
 """
 
 import os.path
-from deltaB import loop_heatmap_ms, plot_heatmap_ms, \
-    loop_heatmap_iono, plot_heatmap_iono, \
-    loop_heatmap_gap, plot_heatmap_gap
+from deltaB import loop_heatmapworld_ms, plot_heatmapworld_ms, \
+    loop_heatmapworld_iono, plot_heatmapworld_iono, \
+    loop_heatmapworld_gap, plot_heatmapworld_gap
 
 #################################################################
 #
@@ -23,7 +23,7 @@ from deltaB import loop_heatmap_ms, plot_heatmap_ms, \
 # info tells the script where the data files are stored and where
 # to save plots and calculated data
 
-data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
+data_dir = '/Volumes/PhysicsHDv2/runs'
 
 info = {
         "model": "SWMF",
@@ -48,9 +48,7 @@ if __name__ == "__main__":
     NLONG = 12
 
     # The times for the files that we will process to create heatmaps
-    TIMES = ((2019, 9, 2, 4, 15, 0), 
-             (2019, 9, 2, 6, 30, 0),
-             (2019, 9, 2, 10, 30, 0))
+    TIMES = ((2019, 9, 2, 6, 30, 0),)
 
     # Get a list of BATSRUS and RIM files, info parameters define location 
     # (dir_run) and file types.  See definition of info = {...} above.
@@ -60,11 +58,11 @@ if __name__ == "__main__":
     # Calculate the delta B sums to get Bn contributions from 
     # various current systems in the magnetosphere, gap region, and 
     # the ionosphere over a lat-long grid
-    loop_heatmap_ms( info, TIMES, NLAT, NLONG )
-    loop_heatmap_iono( info, TIMES, NLAT, NLONG )
-    loop_heatmap_gap( info, TIMES, NLAT, NLONG )
+    loop_heatmapworld_ms( info, TIMES, NLAT, NLONG )
+    loop_heatmapworld_iono( info, TIMES, NLAT, NLONG )
+    loop_heatmapworld_gap( info, TIMES, NLAT, NLONG )
 
     # Create heatmaps plots of Bn over earth
-    plot_heatmap_ms( info, TIMES, VMIN, VMAX, NLAT, NLONG )
-    plot_heatmap_iono( info, TIMES, VMIN, VMAX, NLAT, NLONG )
-    plot_heatmap_gap( info, TIMES, VMIN, VMAX, NLAT, NLONG )
+    plot_heatmapworld_ms( info, TIMES, VMIN, VMAX, NLAT, NLONG )
+    plot_heatmapworld_iono( info, TIMES, VMIN, VMAX, NLAT, NLONG )
+    plot_heatmapworld_gap( info, TIMES, VMIN, VMAX, NLAT, NLONG )

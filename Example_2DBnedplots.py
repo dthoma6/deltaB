@@ -21,7 +21,7 @@ import deltaB as db
 # info tells the script where the data files are stored and where
 # to save plots and calculated data
 
-data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
+data_dir = '/Volumes/PhysicsHDv2/runs'
 
 info = {
         "model": "SWMF",
@@ -46,14 +46,15 @@ if __name__ == "__main__":
     # Do we skip files to save time.  If None, do all files.  If not
     # None, then reduce is an integer that determine how many files are skipped
     # e.g., do every 10th file
-    reduce = None
+    reduce = 10
+    # reduce = None
     
     # Calculate the delta B sums to get Bn, Be,and Bd contributions from 
     # various current systems in the magnetosphere, gap region, and 
     # the ionosphere.  Bn, Be, and Bd calcuated at points[0]
     db.loop_ms_b(info, points[0], reduce)    
-    db.loop_gap_b(info, points[0], reduce, 30, 30, 30)
-    db.loop_iono_b(info, points[0], reduce, 30, 30, 30)
+    db.loop_gap_b(info, points[0], reduce)
+    db.loop_iono_b(info, points[0], reduce)
     
     # Plot the results
     db.plot_Bned_ms_gap_iono(info, points[0])

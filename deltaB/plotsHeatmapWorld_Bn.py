@@ -23,7 +23,7 @@ from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 import swmfio
 
 from deltaB import find_regions, calc_ms_b_paraperp, calc_ms_b_region,\
-    calc_iono_b, calc_gap_b, \
+    calc_iono_b, calc_gap_b, calc_gap_b_rim, \
     convert_BATSRUS_to_dataframe, \
     date_timeISO, create_directory
 
@@ -198,7 +198,7 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
 
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_ms( p ):
+    def wrap_ms( p, times, deltahr ):
         # We will walk around the globe collecting B field estimates,
         # the spacing of lat and long samples
         dlat = 180. / nlat
@@ -220,6 +220,8 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
         filepath = info['files']['magnetosphere'][times[p]]
         basename = os.path.basename(filepath)
     
+        logging.info(f'Calculate magnetosphere dB heatmap for... {basename}')
+
         # Read in the BATSRUS file 
         df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
         
@@ -298,16 +300,16 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
         num_cores = multiprocessing.cpu_count()
         num_cores = min(num_cores, len(times), maxcores)
         logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_ms)(p) for p in range(len(times)))
+        Parallel(n_jobs=num_cores)(delayed(wrap_ms)(p, times, deltahr) for p in range(len(times)))
     else:
         for p in range(len(times)):
-            wrap_ms(p)
+            wrap_ms(p, times, deltahr)
 
     return
 
 def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs, 
-                                   thicknessns, nearradius, mpfiles, bsfiles, 
-                                   nsfiles, deltahr=None, maxcores = 20):
+                                    thicknessns, nearradius, mpfiles, bsfiles, 
+                                    nsfiles, deltahr=None, maxcores = 20):
     """Loop thru data in BATSRUS files to create data for heat maps showing the 
     breakdown of Bn due to currents in the different regions.  
     0 - inside the BATSRUS grid, but not in one of the other regions
@@ -353,7 +355,8 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs,
 
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_by_region( p, times, mpfiles, bsfiles, nsfiles, params ):
+    def wrap_by_region( p, times, deltahr, deltamp, deltabs, thicknessns, \
+                       nearradius, mpfiles, bsfiles, nsfiles, params ):
         # We will walk around the globe collecting B field estimates,
         # the spacing of lat and long samples
         dlat = 180. / nlat
@@ -375,6 +378,8 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs,
         filepath = info['files']['magnetosphere'][times[p]]
         basename = os.path.basename(filepath)
  
+        logging.info(f'Calculate magnetosphere dB by region heatmap for... {basename}')
+
         # Get the ISO time
         if deltahr is None:
             timeISO = date_timeISO( times[p] )
@@ -469,11 +474,17 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs,
         num_cores = multiprocessing.cpu_count()
         num_cores = min(num_cores, len(times), maxcores)
         logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_by_region)(p, times, mpfiles, bsfiles, \
+        Parallel(n_jobs=num_cores)(delayed(wrap_by_region)(p, times, deltahr,\
+                                    deltamp, deltabs, \
+                                    thicknessns, nearradius, \
+                                    mpfiles, bsfiles, \
                                     nsfiles, params) for p in range(len(times)))
     else:
         for p in range(len(times)):
-            wrap_by_region(p, times, mpfiles, bsfiles, nsfiles, params)
+            wrap_by_region(p, times, deltahr,\
+                        deltamp, deltabs, \
+                        thicknessns, nearradius, \
+                        mpfiles, bsfiles, nsfiles, params)
     return
 
 def plot_heatmapworld_ms_total( info, times, vmin, vmax, nlat, nlong, csys='GEO', 
@@ -864,7 +875,7 @@ def loop_heatmapworld_iono(info, times, nlat, nlong, deltahr=None, maxcores=20):
 
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_iono( p ):
+    def wrap_iono( p, times, deltahr ):
         # We will walk around the globe collecting B field estimates,
         # the spacing of lat and long samples
         dlat = 180. / nlat
@@ -900,6 +911,8 @@ def loop_heatmapworld_iono(info, times, nlat, nlong, deltahr=None, maxcores=20):
         # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
         
+        logging.info(f'Calculate ionosphere dB heatmap for... {basename}')
+
         # Get the ISO time
         if deltahr is None:
             timeISO = date_timeISO( time )
@@ -960,10 +973,11 @@ def loop_heatmapworld_iono(info, times, nlat, nlong, deltahr=None, maxcores=20):
         num_cores = multiprocessing.cpu_count()
         num_cores = min(num_cores, len(times), maxcores)
         logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_iono)(p) for p in range(len(times)))
+        Parallel(n_jobs=num_cores)(delayed(wrap_iono)(p, times, deltahr) \
+                                   for p in range(len(times)))
     else:
         for p in range(len(times)):
-            wrap_iono(p)
+            wrap_iono(p, times, deltahr)
 
     return
 
@@ -1025,7 +1039,7 @@ def plot_heatmapworld_iono( info, times, vmin, vmax, nlat, nlong, csys='GEO',
     return
 
 def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
-                          deltahr=None, maxcores=20):
+                          deltahr=None, maxcores=20, useRIM=False):
     """Loop thru data in RIM files to create plots showing the breakdown of
     Bn due to field aligned currents in the gap region.  Results 
     will be used to generate heatmaps of Bn over surface of earth
@@ -1048,13 +1062,18 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
 
         maxcores = for parallel processing, the maximum number of cores to use
         
+        useRIM = Boolean, if False use calc_gap_b, if True use calc_gap_b_rim
+            The difference is calc_gap_b makes no assumptions about the RIM file
+            while calc_gap_b assumes a structure to the RIM file based on 
+            reverse engineering.
+        
     Outputs:
         None - other than the pickle file that is generated
     """
 
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_gap( p ):
+    def wrap_gap( p, times, deltahr, nTheta, nPhi, nR ):
         # We will walk around the globe collecting B field estimates,
         # the spacing of lat and long samples
         dlat = 180. / nlat
@@ -1084,6 +1103,8 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
         # filepath = info['files']['ionosphere'][time]
         basename = os.path.basename(filepath)
             
+        logging.info(f'Calculate gap dB heatmap for... {basename}')
+
         # Get the ISO time
         if deltahr is None:
             timeISO = date_timeISO( time )
@@ -1118,9 +1139,14 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
     
                 # Get the B field at the point X and timeiso using the RIM data
                 # results are in SM coordinates
-                Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = \
-                    calc_gap_b(X, filepath, timeISO, info['rCurrents'], 
-                               info['rIonosphere'], nTheta, nPhi, nR)
+                if useRIM:
+                    Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = \
+                        calc_gap_b_rim(X, filepath, timeISO, info['rCurrents'], 
+                                   info['rIonosphere'], nR)
+                else:
+                    Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = \
+                        calc_gap_b(X, filepath, timeISO, info['rCurrents'], 
+                                   info['rIonosphere'], nTheta, nPhi, nR)
     
         # Put the results in a dataframe and save it.
         df = pd.DataFrame( { r'Total': Bn, 
@@ -1143,10 +1169,11 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
         num_cores = multiprocessing.cpu_count()
         num_cores = min(num_cores, len(times), maxcores)
         logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_gap)(p) for p in range(len(times)))
+        Parallel(n_jobs=num_cores)(delayed(wrap_gap)(p, times, deltahr, nTheta, nPhi, nR) 
+                                   for p in range(len(times)))
     else:
         for p in range(len(times)):
-            wrap_gap(p)
+            wrap_gap(p, times, deltahr, nTheta, nPhi, nR)
 
     return
 
@@ -1339,11 +1366,11 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         + ',' + str(nearradius) + ']'
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [20.0,8.0] #[12.8, 12.0]
+    plt.rcParams["figure.figsize"] = [8.5,5.25] # [17.0,10.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 12
+    plt.rcParams['font.size'] = 12 #18
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",
@@ -1360,8 +1387,7 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         proj = ccrs.PlateCarree()
 
     # Create grid of subplots, 4 regions and 1 column for each time in times
-    fig, ax = plt.subplots(4,cols+1, sharex=True, sharey=True, subplot_kw={'projection': proj})
-    # fig.subplots_adjust(right=0.5)
+    fig, ax = plt.subplots(5,cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
     
     # Create heatmaps
     for i in range(cols):
@@ -1392,18 +1418,26 @@ def plot_heatmapworld_ms_by_region_grid(info, times, vmin, vmax, nlat, nlong, de
         axp.set_title(time_hhmm)
 
     # Add titles to each row identifying region
-    for axp, row in zip(ax[:,0], ['Magnetosheath', 'Near Earth', 'Neutral Sheet', 'Other']):
+    for axp, row in zip(ax[:,0], ['Magneto-\nsheath', 'Near\nEarth', 'Neutral\nSheet', 'Other']):
         axp.set_ylabel(row, rotation=90)
    
     # Add colorbar
-    cbar = fig.colorbar( im, ax=ax[:,cols], orientation='vertical', shrink=0.5 )
-    cbar.set_label(r'B\textsubscript{N} (nT)')
-    for axp in range(4): 
-        fig.delaxes(ax=ax[axp,cols])
+    cbar = fig.colorbar( im, ax=ax[4,:], orientation='horizontal' )
+    cbar.set_label(r'$B_{N}$ (nT)')
+    for colp in range(cols): 
+        fig.delaxes(ax=ax[4,colp])
+
+    # Set title
+    fig.suptitle(r'$B_{N}$ due to Geospace Regions')
 
     # Save plot
     create_directory( info['dir_plots'], 'heatmaps' )
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.png" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.pdf" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.eps" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.jpg" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.tif" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-region-grid.svg" ) )
     return
 
 def earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title, pklpath, 
@@ -1550,11 +1584,11 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong,
     """
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [20.0,12.0] #[12.8, 12.0]
+    plt.rcParams["figure.figsize"] = [8.5, 7.0] #[17.0,14.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 12
+    plt.rcParams['font.size'] = 12 #18
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",
@@ -1569,9 +1603,8 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong,
     else:
         proj = ccrs.PlateCarree()
     
-    fig, ax = plt.subplots(6, cols+1, sharex=True, sharey=True, subplot_kw={'projection': proj})
-    # fig.subplots_adjust(right=0.5)
-    
+    fig, ax = plt.subplots(7, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
+     
     for i in range(cols):
         time = times[i]
         
@@ -1632,22 +1665,207 @@ def plot_heatmapworld_ms_by_currents_grid(info, times, vmin, vmax, nlat, nlong,
         axp.set_title(time_hhmm)
 
     # Set titles for each row
-    for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$', \
-                                  'Magnetosphere $j_{\perp \phi}$', \
-                                  'Magnetosphere $\Delta j_{\perp}$', \
+    # for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$', \
+    #                               'Magnetosphere $j_{\perp \phi}$', \
+    #                               'Magnetosphere $\Delta j_{\perp}$', \
+    #                               'Gap $j_{\parallel}$', \
+    #                               'Ionosphere $j_{P}$', \
+    #                               'Ionosphere $j_{H}$']):
+    #     axp.set_ylabel(row, rotation=90)
+    for axp, row in zip(ax[:,0], ['$j_{\parallel}$', \
+                                  '$j_{\perp \phi}$', \
+                                  '$\Delta j_{\perp}$', \
                                   'Gap $j_{\parallel}$', \
-                                  'Ionosphere $j_{P}$', \
-                                  'Ionosphere $j_{H}$']):
+                                  '$j_{P}$', \
+                                  '$j_{H}$']):
         axp.set_ylabel(row, rotation=90)
 
     # Add colorbar
-    cbar = fig.colorbar( im, ax=ax[:,cols], orientation='vertical', shrink=0.5 )
-    cbar.set_label(r'B\textsubscript{N} (nT)')
-    for axp in range(6): 
-        fig.delaxes(ax=ax[axp,cols])
+    cbar = fig.colorbar( im, ax=ax[6,:], orientation='horizontal' )
+    cbar.set_label(r'$B_{N}$ (nT)')
+    for colp in range(cols): 
+        fig.delaxes(ax=ax[6,colp])
+
+    # Set title
+    fig.suptitle(r'$B_{N}$ due to Magnetospheric, Gap, and Ionospheric Currents')
 
     create_directory( info['dir_plots'], 'heatmaps' )
     fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.png" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.pdf" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.eps" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.jpg" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.tif" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-currents-grid.svg" ) )
+    return
+
+def plot_heatmapworld_ms_by_currents_grid2(info, times, vmin, vmax, nlat, nlong, 
+                                          threesixty = False, axisticks = False,
+                                          deltahr=None):
+    """Plot results from loop_heatmapworld_ms, showing the heatmap of
+    Bn contributions from magnetospheric currents. Produces the same plots as
+    plot_heatmapworld_ms_by_currents_grid except the graphs are spilt into 2 
+    files
+
+    Inputs:
+       info = info on files to be processed, see info = {...} example above
+            
+       times = the times associated with the files for which we will create
+           heatmaps
+        
+       vmin, vmax = min/max limits of heatmap color scale
+       
+       nlat, nlong = number of longitude and latitude bins
+       
+       threesixty = Boolean, is our map 0->360 or -180->180 in longitude
+       
+       axisticks = Boolean, do we include x and y axis ticks on heatmaps
+                    
+       deltahr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
+    Outputs:
+        None - other than the plot generated
+        
+    """
+
+    # Set some plot configs
+    # plt.rcParams["figure.figsize"] = [17.0,8.0] 
+    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["figure.dpi"] = 600
+    plt.rcParams['axes.grid'] = True
+    plt.rcParams['font.size'] = 12 #18
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": "Helvetica",
+    })
+
+    cols = len(times)
+    
+    # Is our map 0->360 or -180->180
+    if threesixty:
+        proj = ccrs.PlateCarree(central_longitude=180.)
+    else:
+        proj = ccrs.PlateCarree()
+    
+    # Create fig1 for magnetospheric currents and fig2 for gap & ionospheric currents
+    plt.rcParams["figure.figsize"] = [8.5,3.75] #[17.0,6.1] 
+    fig1, ax1 = plt.subplots(3, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    plt.rcParams["figure.figsize"] = [8.5,4.5] #[17.0,8.0] 
+    fig2, ax2 = plt.subplots(4, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    
+    for i in range(cols):
+        time = times[i]
+        
+        # We need the filepath for BATSRUS file to find the pickle filename
+        filepath = info['files']['magnetosphere'][time]
+        basename = os.path.basename(filepath)
+        pklname = basename + '.ms-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+
+        # Create heatmaps for different currents
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax1[0,i], 
+                               'MS $j_\parallel$', pklpath, threesixty, axisticks,
+                               deltahr)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax1[1,i], 
+                               'MS $j_{\perp \phi}$',  pklpath, threesixty, axisticks,
+                               deltahr)
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax1[2,i], 
+                               'MS $j_{\perp Residual}$',  pklpath, threesixty, 
+                               axisticks, deltahr)
+        
+        # We need the filepath for RIM file to find the pickle filename
+        # We only search for the nearest minute, ignoring last entry in key
+        for key in info['files']['ionosphere']:
+            if( key[0] == time[0] and key[1] == time[1] and key[2] == time[2] and \
+                key[3] == time[3] and key[4] == time[4] ):
+                    filepath = info['files']['ionosphere'][key]
+                    
+        # filepath = info['files']['ionosphere'][time]
+        basename = os.path.basename(filepath)
+        pklname = basename + '.gap-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+
+        # Create heatmaps
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax2[0,i], 
+                               'Gap $j_\parallel$', pklpath, threesixty, axisticks,
+                               deltahr)
+        
+        # Rinse and repeat for ionosphere
+        pklname = basename + '.iono-heatmap-world.pkl'
+        pklpath = os.path.join( info['dir_derived'], 'heatmaps', pklname) 
+       
+        earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax2[1,i], 
+                               '$j_{Pederson}$', pklpath, threesixty, axisticks,
+                               deltahr)
+        im = earth_currents_heatmap( info, time, vmin, vmax, nlat, nlong, ax2[2,i], 
+                                    '$j_{Hall}$', pklpath, threesixty, axisticks,
+                                    deltahr)
+
+    # Set titles for each column
+    for axp, col in zip(ax1[0], times):
+        if deltahr is None:
+            dtime = datetime(*col)
+            time_hhmm = dtime.strftime("%H:%M")
+        else:
+            dtime = datetime(*col) + timedelta(hours=deltahr)
+            time_hhmm = dtime.strftime("%H:%M")
+        axp.set_title(time_hhmm)
+
+    for axp, col in zip(ax2[0], times):
+        if deltahr is None:
+            dtime = datetime(*col)
+            time_hhmm = dtime.strftime("%H:%M")
+        else:
+            dtime = datetime(*col) + timedelta(hours=deltahr)
+            time_hhmm = dtime.strftime("%H:%M")
+        axp.set_title(time_hhmm)
+
+    for axp, row in zip(ax1[:,0], ['$j_{\parallel}$', \
+                                  '$j_{\perp \phi}$', \
+                                  '$\Delta j_{\perp}$']):
+        axp.set_ylabel(row, rotation=90)
+    for axp, row in zip(ax2[:,0], ['Gap $j_{\parallel}$', \
+                                  '$j_{P}$', \
+                                  '$j_{H}$']):
+        axp.set_ylabel(row, rotation=90)
+
+    # Add colorbar
+    # cbar1 = fig1.colorbar( im, ax=ax1[3,:], orientation='horizontal')
+    # cbar1.set_label(r'$B_{N}$ (nT)')
+    # for colp in range(cols): 
+    #     fig1.delaxes(ax=ax1[3,colp])
+        
+    cbar2 = fig2.colorbar( im, ax=ax2[3,:], orientation='horizontal' )
+    cbar2.set_label(r'$B_{N}$ (nT)')
+    for colp in range(cols): 
+        fig2.delaxes(ax=ax2[3,colp])
+
+    # Set titles
+    fig1.suptitle(r'$B_{N}$ due to Magnetospheric Currents')
+    fig2.suptitle(r'$B_{N}$ due to Gap and Ionospheric Currents')
+    
+    fig1.tight_layout()
+    fig2.tight_layout()
+    
+    create_directory( info['dir_plots'], 'heatmaps' )
+    fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.png" ) )
+    fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.png" ) )
+    
+    # fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.pdf" ) )
+    # fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.pdf" ) )
+    
+    # fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.eps" ) )
+    # fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.eps" ) )
+    
+    # fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.jpg" ) )
+    # fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.jpg" ) )
+    
+    # fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.tif" ) )
+    # fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.tif" ) )
+    
+    # fig1.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-magnetospheric-currents-grid.svg" ) )
+    # fig2.savefig( os.path.join( info['dir_plots'], 'heatmaps', "heatmap-gap&ionospheric-currents-grid.svg" ) )
     return
 
 #########
@@ -1696,11 +1914,11 @@ def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp,
         + ',' + str(nearradius) + ']'
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [18.0,12.0] #[12.8, 10.0]
+    plt.rcParams["figure.figsize"] = [17.0,10.0] #[12.8, 10.0]
     plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 12
+    plt.rcParams['font.size'] = 18
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",
@@ -1746,7 +1964,7 @@ def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp,
         else:
             dtime = datetime(*col) + timedelta(hours=deltahr)
             time_hhmm = dtime.strftime("%H:%M")
-        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        axp.set_title(r'$B_{N}$ (nT) ' + time_hhmm)
 
     # Add titles to each row identifying region
     for axp, row in zip(ax[:,0], ['Magnetosheath\nCounts', 'Near Earth\nCounts', \
@@ -1756,6 +1974,11 @@ def plot_histogram_ms_by_region_grid(info, times, vmin, vmax, binwidth, deltamp,
     # Save plot
     create_directory( info['dir_plots'], 'histograms' )
     fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.png" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.pdf" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.eps" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.jpg" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.tif" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-region-grid.svg" ) )
     return
 
 def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex=True, 
@@ -1784,11 +2007,11 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
     """
 
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [18.0,12.0] #[12.8, 12.0]
+    plt.rcParams["figure.figsize"] = [18.0,14.0] #[12.8, 12.0]
     plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["figure.dpi"] = 300
+    plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 12
+    plt.rcParams['font.size'] = 18
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",
@@ -1853,12 +2076,12 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
         else:
             dtime = datetime(*col) + timedelta(hours=deltahr)
             time_hhmm = dtime.strftime("%H:%M")
-        axp.set_title(r'B\textsubscript{N} (nT) ' + time_hhmm)
+        axp.set_title(r'$B_{N}$ (nT) ' + time_hhmm)
 
     # Set titles for each row
-    for axp, row in zip(ax[:,0], ['Magnetosphere $j_{\parallel}$\nCounts', \
-                                  'Magnetosphere $j_{\perp \phi}$\nCounts', \
-                                  'Magnetosphere $\Delta j_{\perp}$\nCounts', \
+    for axp, row in zip(ax[:,0], ['Magneto-\nsphere $j_{\parallel}$\nCounts', \
+                                  'Magneto-\nsphere $j_{\perp \phi}$\nCounts', \
+                                  'Magneto-\nsphere $\Delta j_{\perp}$\nCounts', \
                                   'Gap $j_{\parallel}$\nCounts', \
                                   'Ionosphere $j_{P}$\nCounts', \
                                   'Ionosphere $j_{H}$\nCounts']):
@@ -1866,6 +2089,11 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
 
     create_directory( info['dir_plots'], 'histograms' )
     fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.png" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.pdf" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.eps" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.jpg" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.tif" ) )
+    # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.svg" ) )
     return
 
 

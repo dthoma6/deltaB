@@ -7,6 +7,7 @@ Created on Mon Mar 13 16:49:17 2023
 """
 
 import os.path
+import numpy as np
 from deltaB import loop_2D_BATSRUS, \
     loop_2D_BATSRUS_with_cuts, \
     loop_2D_BATSRUS_3d_cut_vtk, \
@@ -28,7 +29,7 @@ from deltaB import loop_2D_BATSRUS, \
 # info tells the script where the data files are stored and where
 # to save plots and calculated data
 
-data_dir = '/Users/dean/Documents/GitHub/deltaB/runs'
+data_dir = '/Volumes/PhysicsHDv2/runs'
 
 info = {
         "model": "SWMF",
@@ -72,7 +73,7 @@ limits = {
 # cuts specifies the three allowed cuts.  Cut1 sets a minimum value for the radial
 # component of current density (jr).  Cut2 sets a minimum value for the phi
 # component of current density (jphi) along with a maximum radius from earth 
-# (useful to select ring currents).  Cut2 sets a minimum value on jphi.
+# (useful to select ring currents).  Cut3 sets a minimum value on jphi.
  
 cuts = {
     'CUT1_JRMIN': 0.02,
@@ -85,12 +86,12 @@ cuts = {
 if __name__ == "__main__":
 
     # Point in GSM coordinates where delta B contributions will be calculated
-    XGSM=[1,0,0]
+    XGSM = np.array([1.,0.,0.])
    
     # Do we skip files to save time.  If None, do all files.  If not
     # None, then reduce is an integer that determines how many files are skipped
     # e.g., do every 10th file
-    reduce = 10
+    reduce = 20
     
     # If we make a cut on the data, which cut to make
     cut_selected = 3

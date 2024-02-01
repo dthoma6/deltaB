@@ -28,13 +28,15 @@ from .util import get_spherical_components, get_NED_components, ned, \
     date_timeISO, create_directory
 
 from .process_ms import calc_ms_b, calc_ms_b_paraperp, loop_ms_b
-from .process_gap import calc_gap_b, loop_gap_b
+from .process_gap import calc_gap_b_sub, calc_gap_b, loop_gap_b, \
+    calc_gap_b_rim_sub, calc_gap_b_rim
 from .process_iono import calc_iono_b, loop_iono_b
 
-from .coordinates import get_transform_matrix, iso2ints, GSMtoSM, SMtoGSM
+from .coordinates import get_transform_matrix, iso2ints, GSMtoSM, SMtoGSM, \
+    transform
 
 from .deltaB_by_region import write_extended_vtk, find_regions, \
-    calc_ms_b_region_to_files, calc_ms_b_region
+    calc_ms_b_region2D, calc_ms_b_region
 
 from .plots2D_Bn import loop_2D_ms, loop_2D_ms_point, plot_2D_ms, \
     loop_2D_gap_iono, loop_2D_gap_iono_point, plot_2D_gap_iono, \
@@ -46,7 +48,9 @@ from .plotsHeatmapWorld_Bn import loop_heatmapworld_ms, plot_heatmapworld_ms, \
     loop_heatmapworld_iono, plot_heatmapworld_iono, \
     loop_heatmapworld_gap, plot_heatmapworld_gap, \
     plot_heatmapworld_ms_by_region_grid, plot_heatmapworld_ms_by_currents_grid, \
-    plot_histogram_ms_by_region_grid, plot_histogram_ms_by_currents_grid
+    plot_heatmapworld_ms_by_currents_grid2, \
+    plot_histogram_ms_by_region_grid, plot_histogram_ms_by_currents_grid, \
+    earth_currents_heatmap, earth_region_heatmap
     
 from .plots2D_BATSRUS import loop_2D_BATSRUS, \
     loop_2D_BATSRUS_with_cuts, \
@@ -56,7 +60,7 @@ from .plots2D_BATSRUS import loop_2D_BATSRUS, \
     process_BATSRUS_with_cuts, \
     process_BATSRUS_3d_cut_plots
     
-from .plots2D_Bned import plot_Bned_ms_gap_iono
+from .plots2D_Bned import plot_Bned_ms_gap_iono, plot_Bn_ms_gap_iono
 
 from .plots2D_BATSRUSparams import loop_2D_BATSRUSparams
 

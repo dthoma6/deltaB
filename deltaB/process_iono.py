@@ -10,8 +10,9 @@ import logging
 import numpy as np
 import swmfio
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from spacepy.pybats.rim import Iono
+from spacepy.time import Ticktock
 import os.path
 
 # from deltaB.coordinates import get_NED_vector_components
@@ -230,7 +231,8 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
 #         }
 # }
 
-def loop_iono_b(info, point, reduce):
+
+def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20):
     """Use Biot-Savart in calc_iono_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Biot-Savart caclculation 
     uses ionosphere current density as defined in RIM files
@@ -244,56 +246,40 @@ def loop_iono_b(info, point, reduce):
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
+        deltahr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+            
+        maxcores = for parallel processing, the maximum number of cores to use
+        
     Outputs:
         time, Bn, Be, Bd = saved in pickle file
     """
-    import os.path
     
-    assert isinstance(point, str)
-
-    # Get a list of RIM files, if reduce is True we reduce the number of 
-    # files selected.  info parameters define location (dir_run) and file types
-    # from magnetopost import util as util
-    # util.setup(info)
-    
-    times = list(info['files']['ionosphere'].keys())
-    if reduce != None:
-        assert isinstance( reduce, int )
-        times = times[0:len(times):reduce]
-    n = len(times)
-
-    # Prepare storage of variables
-    Bnp = np.zeros(n)
-    Bep = np.zeros(n)
-    Bdp = np.zeros(n)
-    Bxp = np.zeros(n)
-    Byp = np.zeros(n)
-    Bzp = np.zeros(n)
-    
-    Bnh = np.zeros(n)
-    Beh = np.zeros(n)
-    Bdh = np.zeros(n)
-    Bxh = np.zeros(n)
-    Byh = np.zeros(n)
-    Bzh = np.zeros(n)
-
-    # Get the magnetometer location using list in magnetopost
-    from magnetopost.config import defined_magnetometers
-    from spacepy import coordinates as coord
-    from spacepy.time import Ticktock
-
-    pointX = defined_magnetometers[point]
-    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
-    
-    # Loop through each RIM file, storing the results along the way
-    for i in range(n):
+    # Wrapper function that contains the bulk of the routine, used
+    # for parallel processing of the data
+    def wrap_iono( i, times, deltahr, XGEO, info ):
+        time = times[i]
         
         # We need the filepath for RIM file
         filepath = info['files']['ionosphere'][times[i]]
+        base = os.path.basename(filepath)
+
+        logging.info(f'Calculate ionosphere dB for... {base}')
         
         # We need the ISO time to update the magnetometer position
-        timeISO = date_timeISO( times[i] )
-        
+        # Record time for plots
+        if deltahr is None:
+            h = time[3]
+            m = time[4]
+            Btime = h + m/60
+            timeISO = date_timeISO( time )
+        else:
+            dtime = datetime(*time) + timedelta(hours=deltahr)
+            timeISO = dtime.isoformat()
+            h = dtime.hour
+            m = dtime.minute
+            Btime = h + m/60
+
         # Get the magnetometer position, X, in SM coordinates for compatibility with
         # RIM data
         XGEO.ticks = Ticktock([timeISO], 'ISO')
@@ -302,17 +288,90 @@ def loop_iono_b(info, point, reduce):
             
         # Use Biot-Savart to calculate magnetic field, B, at magnetometer position
         # XSM.  Store the results, which are in SM coordinates, and the time
-        Bnp[i], Bep[i], Bdp[i], Bxp[i], Byp[i], Bzp[i], \
-                Bnh[i], Beh[i], Bdh[i], Bxh[i], Byh[i], Bzh[i],= calc_iono_b(X, filepath, \
-                timeISO, info['rCurrents'], info['rIonosphere'])
+        Bnp, Bep, Bdp, Bxp, Byp, Bzp, Bnh, Beh, Bdh, Bxh, Byh, Bzh= calc_iono_b(X, \
+                filepath, timeISO, info['rCurrents'], info['rIonosphere'])
+        
+        return Bnp, Bep, Bdp, Bxp, Byp, Bzp, Bnh, Beh, Bdh, Bxh, Byh, Bzh, Btime
+
+
+    # Verify input parameters
+    assert isinstance(point, str)
+
+    # Make sure delta_hr is float
+    if deltahr is not None:
+        assert( type(deltahr) == float )
+ 
+    # Get times for RIM files, if reduce is True we reduce the number of 
+    # files selected.  info parameters define location (dir_run) and file types    
+    times = list(info['files']['ionosphere'].keys())
+    if reduce != None:
+        assert isinstance( reduce, int )
+        times = times[0:len(times):reduce]
+    n = len(times)
+
+    # Get the magnetometer location using list in magnetopost
+    from magnetopost.config import defined_magnetometers
+    from spacepy import coordinates as coord
+    # from spacepy.time import Ticktock
+
+    pointX = defined_magnetometers[point]
+    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
     
-    dtimes = [datetime(*time) for time in times]
+    # Loop through the files using parallel processing
+    if maxcores > 1:
+        from joblib import Parallel, delayed
+        import multiprocessing
+        num_cores = multiprocessing.cpu_count()
+        num_cores = min(num_cores, len(times), maxcores)
+        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+        results = Parallel(n_jobs=num_cores)(delayed(wrap_iono)( p, times, deltahr, XGEO, info ) 
+                                   for p in range(len(times)))
+        
+        Bnp, Bep, Bdp, Bxp, Byp, Bzp, Bnh, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
+
+    # Loop through files if no parallel processing
+    else:
+        # Prepare storage of variables
+        Bnp = np.zeros(n)
+        Bep = np.zeros(n)
+        Bdp = np.zeros(n)
+        Bxp = np.zeros(n)
+        Byp = np.zeros(n)
+        Bzp = np.zeros(n)
+        
+        Bnh = np.zeros(n)
+        Beh = np.zeros(n)
+        Bdh = np.zeros(n)
+        Bxh = np.zeros(n)
+        Byh = np.zeros(n)
+        Bzh = np.zeros(n)
+        
+        Btimes = [None] * n
+
+        for p in range(len(times)):
+            Bnp[p], Bep[p], Bdp[p], Bxp[p], Byp[p], Bzp[p], Bnh[p], Beh[p], \
+                Bdh[p], Bxh[p], Byh[p], Bzh[p], Btimes[p] = \
+                wrap_iono( p, times, deltahr, XGEO, info ) 
+
+    # Create dataframe from results and save to disk
+    if deltahr is None:
+        dtimes = [datetime(*time) for time in times]
+    else:
+        dtimes = [datetime(*time) + timedelta(hours=deltahr) for time in times]
+        
+    dtimes_m = [dtime.month for dtime in dtimes]
+    dtimes_d = [dtime.day for dtime in dtimes]
+    dtimes_hh = [dtime.hour for dtime in dtimes]
+    dtimes_mm = [dtime.minute for dtime in dtimes]
 
     # Create a dataframe from the results and save it in a pickle file
     df = pd.DataFrame( data={'Bnp': Bnp, 'Bep': Bep, 'Bdp': Bdp,
                         'Bxp': Bxp, 'Byp': Byp, 'Bzp': Bzp,
                         'Bnh': Bnh, 'Beh': Beh, 'Bdh': Bdh,
-                        'Bxh': Bxh, 'Byh': Byh, 'Bzh': Bzh}, index=dtimes)
+                        'Bxh': Bxh, 'Byh': Byh, 'Bzh': Bzh, 
+                        r'Time (hr)': Btimes, r'Datetime': dtimes,
+                        r'Month': dtimes_m, r'Day': dtimes_d,
+                        r'Hour': dtimes_hh, r'Minute': dtimes_mm }, index=dtimes)
     create_directory(info['dir_derived'], 'timeseries')
     pklname = 'dB_bs_iono-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )

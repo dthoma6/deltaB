@@ -1,0 +1,77 @@
+
+Mean differences and standard deviations between methods.
+
+CCMC-deltaB examines differences between Bn, Bd, and Be for the results from CCMC and deltaB.
+
+Magnetopost-deltaB examines differences between Bn, Bd, and Be for the results from Magnetopost and deltaB.
+
+Below, results are divided into four groups: magnetosphere, gap region, Pedersen, and Hall currents.
+
+Mean CCMC-deltaB Magnetosphere Bn:  -2.5224230367307237
+Mean CCMC-deltaB Magnetosphere Be:  0.4562123760966083
+Mean CCMC-deltaB Magnetosphere Bd:  5.816605064621171
+Mean CCMC-deltaB Magnetosphere |B|:  5.816605064621171
+Std Dev CCMC-deltaB Magnetosphere Bn:  2.737048816480972
+Std Dev CCMC-deltaB Magnetosphere Be:  0.6163373737081246
+Std Dev CCMC-deltaB Magnetosphere Bd:  7.009538004389786
+Std Dev CCMC-deltaB Magnetosphere |B|:  7.4718068211480935
+Mean Magnetopost-deltaB Magnetosphere Bn:  0.022672078579396307
+Mean Magnetopost-deltaB Magnetosphere Be:  -0.012972450332218433
+Mean Magnetopost-deltaB Magnetosphere Bd:  -0.029782486043412507
+Mean Magnetopost-deltaB Magnetosphere |B|:  -0.029782486043412507
+Std Dev Magnetopost-deltaB Magnetosphere Bn:  0.12410954713117746
+Std Dev Magnetopost-deltaB Magnetosphere Be:  0.11363250389482717
+Std Dev Magnetopost-deltaB Magnetosphere Bd:  0.2255895907588622
+Std Dev Magnetopost-deltaB Magnetosphere |B|:  0.24202596888166433
+
+Mean CCMC-deltaB Gap Bn:  2.517886122868854
+Mean CCMC-deltaB Gap Be:  -0.11925621578358832
+Mean CCMC-deltaB Gap Bd:  0.7456317652476631
+Mean CCMC-deltaB Gap |B|:  0.7456317652476631
+Std Dev CCMC-deltaB Gap Bn:  4.585329653430961
+Std Dev CCMC-deltaB Gap Be:  13.35520300075121
+Std Dev CCMC-deltaB Gap Bd:  4.413446882068192
+Std Dev CCMC-deltaB Gap |B|:  8.728387904011923
+Mean Magnetopost-deltaB Gap Bn:  2.1083623765343487
+Mean Magnetopost-deltaB Gap Be:  1.4574027134684278
+Mean Magnetopost-deltaB Gap Bd:  -0.7827031444782111
+Mean Magnetopost-deltaB Gap |B|:  -0.7827031444782111
+Std Dev Magnetopost-deltaB Gap Bn:  19.49070577722648
+Std Dev Magnetopost-deltaB Gap Be:  5.475865692648578
+Std Dev Magnetopost-deltaB Gap Bd:  7.717932490107301
+Std Dev Magnetopost-deltaB Gap |B|:  14.142289202631515
+
+Mean CCMC-deltaB Pedersen Bn:  -0.190876289346325
+Mean CCMC-deltaB Pedersen Be:  -0.04774298569909158
+Mean CCMC-deltaB Pedersen Bd:  -0.5052706333447722
+Mean CCMC-deltaB Pedersen |B|:  -0.5052706333447722
+Std Dev CCMC-deltaB Pedersen Bn:  13.374648350912526
+Std Dev CCMC-deltaB Pedersen Be:  17.392700250045174
+Std Dev CCMC-deltaB Pedersen Bd:  5.053282735511763
+Std Dev CCMC-deltaB Pedersen |B|:  16.59591739984618
+Mean Magnetopost-deltaB Pedersen Bn:  -1.2968975218250086e-05
+Mean Magnetopost-deltaB Pedersen Be:  1.9874335831473717e-05
+Mean Magnetopost-deltaB Pedersen Bd:  6.1904209327685335e-06
+Mean Magnetopost-deltaB Pedersen |B|:  6.1904209327685335e-06
+Std Dev Magnetopost-deltaB Pedersen Bn:  0.00041958420531607266
+Std Dev Magnetopost-deltaB Pedersen Be:  0.00044450774745801065
+Std Dev Magnetopost-deltaB Pedersen Bd:  0.0004772622942360518
+Std Dev Magnetopost-deltaB Pedersen |B|:  0.0005686480938275682
+
+Mean CCMC-deltaB Hall Bn:  2.697476400376043
+Mean CCMC-deltaB Hall Be:  -0.038060056672052305
+Mean CCMC-deltaB Hall Bd:  -9.947047749435376
+Mean CCMC-deltaB Hall |B|:  -9.947047749435376
+Std Dev CCMC-deltaB Hall Bn:  18.58623619194825
+Std Dev CCMC-deltaB Hall Be:  7.7118213784652205
+Std Dev CCMC-deltaB Hall Bd:  28.603723903008348
+Std Dev CCMC-deltaB Hall |B|:  14.578802112813692
+Mean Magnetopost-deltaB Hall Bn:  5.57314310541005e-05
+Mean Magnetopost-deltaB Hall Be:  3.2961778989206536e-06
+Mean Magnetopost-deltaB Hall Bd:  -0.00012937102761275717
+Mean Magnetopost-deltaB Hall |B|:  -0.00012937102761275717
+Std Dev Magnetopost-deltaB Hall Bn:  0.0010291646370434507
+Std Dev Magnetopost-deltaB Hall Be:  0.00046419548361648994
+Std Dev Magnetopost-deltaB Hall Bd:  0.002243165395168135
+Std Dev Magnetopost-deltaB Hall |B|:  0.0022427848172552668
+

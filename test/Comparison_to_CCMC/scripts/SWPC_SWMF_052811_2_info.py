@@ -7,7 +7,7 @@ Created on Wed Jan 24 16:34:25 2024
 """
 import os.path
 
-data_dir = '/Volumes/Physics HD v2/runs/'
+data_dir = '/Volumes/PhysicsHDv2/runs/'
 
 info = {
         "model": "SWMF",

@@ -1,5 +1,8 @@
+
+This variant support GIC analysis.
+
 This repository includes tools to analyze $\delta B$ contributions from the magnetosphere, 
-ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.0, has 
+ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.1, has 
 the ability to determine contributions from Space Weather Modeling Framework
 (SWMF) current densities.
 

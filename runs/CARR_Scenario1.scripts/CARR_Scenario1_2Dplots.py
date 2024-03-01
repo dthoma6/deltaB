@@ -74,6 +74,7 @@ if __name__ == "__main__":
     plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
     plt.rcParams['font.size'] = 12
+    plt.rcParams['lines.linewidth'] = 3.0
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",

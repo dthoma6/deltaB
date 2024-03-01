@@ -49,12 +49,13 @@ plt.rcParams.update({
     "font.family": "sans-serif",
     "font.sans-serif": "Helvetica",
 })
+plt.rcParams['text.latex.preamble'] = r'\usepackage{cmbright}'
 
 fig, ax = plt.subplots(4, 1, sharex=True, sharey=False)
 
 df.plot( x='Datetime + Delta', y=[r'$N$ (${cm}^{-3}$)'], \
                 xlabel=r'Time (UTC)', \
-                ylabel=r'$N$ (${cm}^{-3}$)', \
+                ylabel=r'$N$ ({cm}\textsuperscript{-3})', \
                 style=['-','r:','--'], \
                 grid = False,\
                 legend=False,

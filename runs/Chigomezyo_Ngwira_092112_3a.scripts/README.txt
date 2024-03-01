@@ -17,3 +17,4 @@ Execute the files in the following order:
     4) Chigomezyo_Ngwira_092112_3a_deltaB_by_region.py
     5) Chigomezyo_Ngwira_092112_3a_heatmaps.py
     6) Chigomezyo_Ngwira_092112_3a_solar_wind.py
+

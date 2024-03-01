@@ -1,7 +1,46 @@
 This repository includes tools to analyze $\delta B$ contributions from the magnetosphere, 
-ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.0, has 
-the ability to determine contributions from Space Weather Modeling Framework
-(SWMF) current densities.
+ionosphere, and gap-region to the magnetic field measured on Earth.  That is, the change in
+the magnetic field observed on earth due to magnetospheric, gap-region and iononspheric 
+currents.  This version, 1.0.0, has the ability to determine contributions from Space Weather 
+Modeling Framework (SWMF) current densities.
+
+# Install
+
+```
+git clone https://github.com/dthoma6/deltaB/tree/Carrington-Event-Paper
+cd deltaB
+pip install --editable .
+```
+
+# Carrington Event Paper
+
+The scripts that generate the plots used in the Carrington Event paper
+are in the "runs" directory.  One directory for the Scenario 1 (CARR_Scenario1) and
+one directory for Scenario 2 (Chigomezyo_Ngwira_092112_3a).  **Each directory contains
+a README which tells the user how to download the data to be analyzed and how to 
+execute the scripts.**  
+
+The scripts will create new directories for the results.  The plots will stored 
+in two new directories, CARR_Scenario1.plots and Chigomezyo_Ngwira_092112_3a.plots. 
+Other data that the scripts generate will be stored in CARR_Scenario1.derived and 
+Chigomezyo_Ngwira_092112_3a.derived
+
+# Tests
+
+The "test" directory contains tests to execute on the installed package.
+
+1. Comparison_to_CCMC compares the results from the deltaB package to results
+   from CCMC and from magnetopost.  Results.txt provides the numeric test results
+   and result_plots are the plots.  Your results can be compared to these
+   results and the plots to ensure consistency.  The data directory contains
+   the CCMC and magnetopost results that deltaB is compared against.
+2. compare_Weigel_data.py compares a Paraview calculation of magnetosphere $\delta B$
+   to deltaB's calculation.
+3. calc_gap_b_test compares deltaB calculation of gap-region $\delta B$ to an
+   analytic solution for a simple scenario involving a line current through the
+   north pole. 
+
+# Description
 
 In processing SWMF results, it uses both the magnetosphere and ionosphere files 
 to determine $\delta B$ contributions to the magnetic field at a specified point. 

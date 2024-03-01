@@ -1,5 +1,5 @@
 
-This variant support GIC analysis.
+This variant support Geomagnetically Induced Current (GIC) analysis.
 
 This repository includes tools to analyze $\delta B$ contributions from the magnetosphere, 
 ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.1, has 

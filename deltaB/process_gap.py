@@ -65,8 +65,6 @@ def calc_gap_b_sub(XSM, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR,
     b_fac = np.zeros(3)
     B = np.zeros(3)
     
-    # i_tot = 0
-    
     # Start the loops for the Biot-Savart numerical integration. We use three 
     # loops - theta, phi and r.  theta and phi cover the inner boundary
     # where integration begins (the sphere at rIonosphere).  r integrates 
@@ -225,8 +223,7 @@ def calc_gap_b_sub(XSM, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR,
                     if k == 0:
                         jfactor = - jr/np.sin(I) 
                         i_fac = jfactor * np.cos(theta) * rIonosphere**2 * dTheta * dPhi
-                        # i_tot = i_tot - i_fac * np.sin(I) * 6371000.**2 * 10**-6
-              
+               
                     # Get length of field line element, see Chapman refereence abvoe
                     ds = r1 * (1 + 3*np.sin(theta0)**2)**(1/2) * np.cos(theta0) * dTheta0
                    
@@ -253,7 +250,6 @@ def calc_gap_b_sub(XSM, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR,
                     # In Biot-Savart, remember i_fac is in b_fac_hat direction
                     B[:] = B[:] + 637.1 * i_fac * np.cross( b_fac_hat, r_fac ) * ds / r_fac_mag**3
     
-    # print('i: ', i_tot)
     return B
 
 def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR):
@@ -433,8 +429,6 @@ def integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, dTheta, phi, dPhi,
     b_fac = np.zeros(3)
     B = np.zeros(3)
       
-    # i_tot = 0
-
     # Do integration along field line.
     for k in range(nR):
         # Find r at the middle of each integration volume element
@@ -523,7 +517,6 @@ def integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, dTheta, phi, dPhi,
             if k == 0:
                 jfactor = - jr/np.sin(I) 
                 i_fac = jfactor * np.cos(theta) * rIonosphere**2 * dTheta * dPhi
-                # i_tot = i_tot - i_fac * np.sin(I) * 6371000.**2 * 10**-6
       
             # Get length of field line element, see Chapman refereence abvoe
             ds = r1 * (1 + 3*np.sin(theta0)**2)**(1/2) * np.cos(theta0) * dTheta0
@@ -551,7 +544,6 @@ def integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, dTheta, phi, dPhi,
             # In Biot-Savart, remember i_fac is in b_fac_hat direction
             B[:] = B[:] + 637.1 * i_fac * np.cross( b_fac_hat, r_fac ) * ds / r_fac_mag**3
            
-    # return B, i_tot
     return B
 
 @jit(nopython=True)
@@ -600,16 +592,10 @@ def calc_gap_b_rim_sub(XSM, timeISO, rCurrents, rIonosphere, nR, dR,
     assert( np.abs(theta_array[0]) < 10**-5 ) # 
     assert( np.abs(theta_array[1] - np.pi) < 10**-5 )
     
- 
     # Set up some variables used below
-    # x_fac = np.zeros(3)
-    # b_fac = np.zeros(3)
     B = np.zeros(3)
     Bsub = np.zeros(3)
     
-    # i_tot = 0
-    # i_sub = 0
-
     # Start the loops for the Biot-Savart numerical integration. We use three 
     # loops - theta, phi and r.  theta and phi cover the inner boundary
     # where integration begins (the sphere at rIonosphere).  r integrates 
@@ -649,11 +635,7 @@ def calc_gap_b_rim_sub(XSM, timeISO, rCurrents, rIonosphere, nR, dR,
             Bsub = integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, 
                                        dTheta, phi, dPhi, jr, XSM)
             B[:] = B[:] + Bsub[:]
-            # i_tot = i_tot + i_sub
             
-    # print('i1: ', i_tot)
-    # print('B1: ', B)
-    
     # Integrate over the poles.  Above we integrated over latitudes in one degree
     # increments, plus or minus a half a degree.  This leaves end caps at the poles
     # that have not been integrated.  We set theta = 0.25 and 179.75 deg, and 
@@ -679,24 +661,15 @@ def calc_gap_b_rim_sub(XSM, timeISO, rCurrents, rIonosphere, nR, dR,
         r1N = rIonosphere / np.cos(thetaN)**2
         B[:] = B[:] + integrate_r_sub( nR, dR, rIonosphere, r1N, hemiN, thetaN, 
                                         dTheta, phi, dPhi, jrN, XSM)
-        # Bsub, i_sub = integrate_r_sub( nR, dR, rIonosphere, r1N, hemiN, thetaN, 
-        #                                 dTheta, phi, dPhi, jrN, XSM)
        
         B[:] = B[:] + Bsub[:]
-        # i_tot = i_tot + i_sub
         
         # South pole
         hemiS = -1       
         r1S = rIonosphere / np.cos(thetaS)**2
         B[:] = B[:] + integrate_r_sub( nR, dR, rIonosphere, r1S, hemiS, thetaS, 
                                         dTheta, phi, dPhi, jrS, XSM)
-        # Bsub, i_sub = integrate_r_sub( nR, dR, rIonosphere, r1S, hemiS, thetaS, 
-        #                                 dTheta, phi, dPhi, jrS, XSM)
         B[:] = B[:] + Bsub[:]
-        # i_tot = i_tot + i_sub
-
-    # print('i2: ', i_tot)
-    # print('B2: ', B)
     
     return B
   
@@ -778,7 +751,7 @@ def calc_gap_b_rim(XSM, filepath, timeISO, rCurrents, rIonosphere, nR):
 # }
 
 def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True, 
-               deltahr=None, maxcores=20):
+               deltahr=None, maxcores=20, deltaBlist=False):
     """Use Biot-Savart in calc_gap_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Biot-Savart caclculation 
     uses ionospheric current density as defined in BATSRUS files
@@ -801,6 +774,9 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
             many hours.  If value given, must be float.
             
         maxcores = for parallel processing, the maximum number of cores to use
+        
+        deltaBlist = Boolean.  False use magnetpost list of magnetometer sites.
+            True use deltaB list of magnetometer sites.
         
     Outputs:
         time, Bn, Be, Bd = saved in pickle file
@@ -860,7 +836,7 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
     else:
         logging.warning("Warning: Depreciated mode, useRIM=True is recommended")
 
-    # Get times for RIM files, if reduce is True we reduce the number of 
+    # Get times for RIM files, if reduce is a number we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
     times = list(info['files']['ionosphere'].keys())
     if reduce != None:
@@ -868,13 +844,19 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
         times = times[0:len(times):reduce]
     n = len(times)
 
-    # Get the magnetometer location using list in magnetopost
-    from magnetopost.config import defined_magnetometers
+    # We need the magnetometer coordinates at point.  Either look it up
+    # in the magnetopost list or in deltaB list
     from spacepy import coordinates as coord
-    # from spacepy.time import Ticktock
-
-    pointX = defined_magnetometers[point]
-    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
+    if deltaBlist == False:
+        # Get the magnetometer location using magnetopost list
+        from magnetopost.config import defined_magnetometers
+        pointX = defined_magnetometers[point]
+        XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
+    else:
+        # Get the magnetometer location from the deltaB list
+        from deltaB.magnetometers import specified_magnetometers
+        pointX = specified_magnetometers[point]
+        XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
     
     # Loop through the files using parallel processing
     if maxcores > 1:

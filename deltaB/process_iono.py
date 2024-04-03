@@ -232,7 +232,7 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
 # }
 
 
-def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20):
+def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False):
     """Use Biot-Savart in calc_iono_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Biot-Savart caclculation 
     uses ionosphere current density as defined in RIM files
@@ -250,6 +250,9 @@ def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20):
             many hours.  If value given, must be float.
             
         maxcores = for parallel processing, the maximum number of cores to use
+        
+        deltaBlist = Boolean.  False use magnetpost list of magnetometer sites.
+            True use deltaB list of magnetometer sites.
         
     Outputs:
         time, Bn, Be, Bd = saved in pickle file
@@ -309,14 +312,20 @@ def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20):
         times = times[0:len(times):reduce]
     n = len(times)
 
-    # Get the magnetometer location using list in magnetopost
-    from magnetopost.config import defined_magnetometers
+    # We need the magnetometer coordinates at point.  Either look it up
+    # in the magnetopost list or in deltaB list
     from spacepy import coordinates as coord
-    # from spacepy.time import Ticktock
-
-    pointX = defined_magnetometers[point]
-    XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
-    
+    if deltaBlist == False:
+        # Get the magnetometer location using magnetopost list
+        from magnetopost.config import defined_magnetometers
+        pointX = defined_magnetometers[point]
+        XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
+    else:
+        # Get the magnetometer location from the deltaB list
+        from deltaB.magnetometers import specified_magnetometers
+        pointX = specified_magnetometers[point]
+        XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
+   
     # Loop through the files using parallel processing
     if maxcores > 1:
         from joblib import Parallel, delayed

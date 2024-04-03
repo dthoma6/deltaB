@@ -13,21 +13,20 @@ install_requires = [
                         "numpy",
                         "scipy",
                         "joblib",
-                        "multiprocessing",
                         "matplotlib",
                         "numba",
-                        "logging",
                         "seaborn",
                         "cartopy",
                         "spacepy",
                         "swmfio @ git+https://github.com/GaryQ-physics/swmfio.git#egg=swmfio",
                         "magnetopost @ git+https://github.com/GaryQ-physics/magnetopost#egg=magnetopost",
+                        "kamodo_ccmc @ https://github.com/nasa/Kamodo",
                         "vtk"
                     ]
 
 setup(
     name='deltaB',
-    version='1.0.0',
+    version='1.0.1',
     author='Dean Thomas',
     author_email='dean.thomas@physics123.net',
     packages=find_packages(),

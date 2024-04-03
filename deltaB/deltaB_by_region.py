@@ -405,7 +405,7 @@ def find_regions( info, batsrus, deltamp, deltabs, thicknessns, nearradius,
     yns = np.nan_to_num( dfns['y'], nan=-10000.)
     zns = np.nan_to_num( dfns['z'], nan=-10000.)
     
-    # Set up 2D interpolation of magnetopause data
+    # Set up 2D interpolation of neutral sheet data
     # Note, neutral sheet uses x,y,z order
     if interpType == 'linear':
         interpns = LinearNDInterpolator(list(zip(xns, yns)), zns )

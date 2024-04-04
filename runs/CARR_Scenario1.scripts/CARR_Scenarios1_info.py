@@ -12,6 +12,7 @@ import os.path
 # Based on magnetopost info structure
 ###############################################
 
+# data_dir = r'/Users/Shared'
 data_dir = r'/Volumes/PhysicsHDv3'
 
 info = {

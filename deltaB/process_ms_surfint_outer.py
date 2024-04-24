@@ -24,11 +24,11 @@ from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
 KAMODO=True
 
 # @jit(nopython=True)
-def calc_ms_surfint_b_sub(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
+def calc_ms_surfint_outer_b_sub(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
     """ Subroutine for calc_ms_surfint_b that allows numba accelleration.  It  
     calculates total B field at point XGSM using data from a BATSRUS file and the
     Helmholtz decompostion theorem to replace Biot-Savart volume integral with  
-    a surface integral.
+    a surface integral on outer boundary of BATSRUS grid.
     
     Inputs:
         XGSM = GSM (cartesian) position where magnetic field will be measured.
@@ -37,11 +37,8 @@ def calc_ms_surfint_b_sub(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=18
               
         batsrus = BATSRUS data from swmfio
         
-        rCurrents = range from earth center below which results are not valid
-            measured in Re units.  Defines start of gap region.
-            
-        nTheta, nPhi = number of steps in numerical integration over theta
-            and phi in the surface integral over a sphere at rCurrents
+        nX, nY, nZ = number of steps in numerical integration over outer faces,
+            e.g., nX*nY points on outer surfaces parallel to X-Y plane
                 
     Outputs:
         B = total B due to magnetospheric currents (in GSM coordinates)
@@ -51,10 +48,7 @@ def calc_ms_surfint_b_sub(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=18
 
     # Set up some variables used below
     B      = np.zeros(3)
-    r      = np.zeros(3)
     Bpt    = np.zeros(3)
-    x      = np.zeros(3)
-    xhat   = np.zeros(3)
     Birr   = np.zeros(3)
     Bsol   = np.zeros(3)
     
@@ -65,77 +59,143 @@ def calc_ms_surfint_b_sub(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=18
         batsrus_interp.register_variable( 'by' )
         batsrus_interp.register_variable( 'bz' )
     
-    # Start the loops for surface numerical integration. We use two 
-    # loops, theta and phi, which cover the inner boundary of the
-    # magnetosphere (a sphere at rCurrents).
-    
-    # theta increments and phi increments (GSM coordinates)
-    dTheta = np.pi/nTheta
-    dPhi = 2. * np.pi/nPhi
-
-    # theta loop, theta pi/2 -> -pi/2
-    for i in range(nTheta):  
-        # Find theta at the middle of each differential surface element
-        # from theta - dTheta/2 to theta + dTheta/2
-        theta = np.pi/2 - (i + 0.5) * dTheta
-
-        # Differential surface area on sphere at rCurrents
-        dS = rCurrents**2 * np.cos( theta ) * dTheta * dPhi
-        
-        # phi loop, phi 0 -> 2pi 
-        for j in range(nPhi): 
-            # Find phi at the middle of each differential surface element
-            # from phi - dPhi/2 to phi + dPhi/2
-            phi = (j + 0.5) * dPhi
-        
-            # Normal unit vector on sphere at rCurrents (GSM coordinates)
-            # Unit vector points radially for gap region
-            xhat[0] = np.cos( theta ) * np.cos( phi )
-            xhat[1] = np.cos( theta ) * np.sin( phi )
-            xhat[2] = np.sin( theta )
-          
-            # Point on sphere at rCurrents (GSM coordinates)
-            x = xhat * rCurrents
+    # Local routine that is used in loops below to calculate contribution
+    # from each surface element.
+    def calc( xx, xxhat, dS ):
+        """ xx = point in space (GSM)
+            xxhat = unit vector for surface
+            dS = size of surface element
+        """
+        # Get B field at point x (in GSM coordinates)
+        if KAMODO:
+            # Kamodo linear interpolation (Preferred)
+            Bpt[0] = batsrus_interp.interp(xx, 'bx')[0]
+            Bpt[1] = batsrus_interp.interp(xx, 'by')[0]
+            Bpt[2] = batsrus_interp.interp(xx, 'bz')[0]
+        else:
+            # swmfio interpolation, which is simplistic
+            Bpt[0] = batsrus.interpolate(xx, 'bx')
+            Bpt[1] = batsrus.interpolate(xx, 'by')
+            Bpt[2] = batsrus.interpolate(xx, 'bz')
             
-            # Get B field at point x (in GSM coordinates)
-            if KAMODO:
-                # Kamodo linear interpolation (Preferred)
-                Bpt[0] = batsrus_interp.interp(x, 'bx')[0]
-                Bpt[1] = batsrus_interp.interp(x, 'by')[0]
-                Bpt[2] = batsrus_interp.interp(x, 'bz')[0]
-            else:
-                # swmfio interpolation, which is simplistic
-                Bpt[0] = batsrus.interpolate(x, 'bx')
-                Bpt[1] = batsrus.interpolate(x, 'by')
-                Bpt[2] = batsrus.interpolate(x, 'bz')
-
-            # Distance to point XGSM where we want to know the magnetic field
-            r = XGSM - x
-            rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
-            
-            ##########################################################
-            # Below we calculate the delta B in each differential surface 
-            # element in the integral.  We want the final result to be in nT.
-            # dB = 1/(4pi) B x r/r^3 dS
-            #    = 1/(4pi) [nT] [Re] / [Re^3] * [Re^2]
-            #    = 1/(4pi) with distances in Re, B in nT
-            ##########################################################
+        if( np.isnan(Bpt[0]) or np.isnan(Bpt[1]) or np.isnan(Bpt[2]) ):
+            print(xx, xxhat, Bpt)
+            assert(False)
+                    
+        # Distance to point XGSM where we want to know the magnetic field
+        r = XGSM - xx
+        rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
+        
+        ##########################################################
+        # Below we calculate the delta B in each differential surface 
+        # element in the integral.  We want the final result to be in nT.
+        # dB = 1/(4pi) B x r/r^3 dS
+        #    = 1/(4pi) [nT] [Re] / [Re^3] * [Re^2]
+        #    = 1/(4pi) with distances in Re, B in nT
+        ##########################################################
     
-            # Irrotational and solenodial contributions from Helmholtz decomposition
-            Birr[:] = Birr[:] - np.dot(Bpt,xhat) * r / rmag**3 * dS / 4 / np.pi
-            Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xhat) ) / rmag**3 * dS / 4 / np.pi
-                             
+        # Irrotational and solenodial contributions from Helmholtz decomposition
+        Birr[:] = Birr[:] - np.dot(Bpt,xxhat) * r / rmag**3 * dS / 4 / np.pi
+        Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xxhat) ) / rmag**3 * dS / 4 / np.pi
+        return
+
+    # Start the loops for surface numerical integration.  We will cover the 
+    # six faces of the rectangular prism representing the outer boundary
+    # of the BATSRUS grid
+    
+    # Extract data from BATSRUS
+    var_dict = dict(batsrus.varidx)
+    
+    minX = np.min(batsrus.data_arr[:, var_dict['x']][:])
+    maxX = np.max(batsrus.data_arr[:, var_dict['x']][:])
+    minY = np.min(batsrus.data_arr[:, var_dict['y']][:])
+    maxY = np.max(batsrus.data_arr[:, var_dict['y']][:])
+    minZ = np.min(batsrus.data_arr[:, var_dict['z']][:])
+    maxZ = np.max(batsrus.data_arr[:, var_dict['z']][:])
+    
+    # dX, dY, and dZ increments (GSM coordinates)
+    dX = (maxX - minX)/nX
+    dY = (maxY - minY)/nY
+    dZ = (maxZ - minZ)/nZ
+
+    # Differential surface area on each plane
+    dSxy = dX*dY
+    dSxz = dX*dZ
+    dSyz = dY*dZ
+
+    # loops for upper and lower faces (parallel to x-y plane)
+    for i in range(nX):  
+        # Find x at the middle of each differential surface element
+        # from x - dX/2 to x + dX/2
+        xloop = minX + (i + 0.5) * dX
+        
+        for j in range(nY):
+            # Find y at the middle of each differential surface element
+            # from y - dY/2 to y + dY/2
+            yloop = minY + (j + 0.5) * dY
+            
+            # top face
+            x = np.array([xloop, yloop, maxZ])
+            xhat = np.array([0.,0.,1.])
+            calc( x, xhat, dSxy )
+
+            # bottom face
+            x = np.array([xloop, yloop, minZ])
+            xhat = np.array([0.,0.,-1.])
+            calc( x, xhat, dSxy )
+            
+    # loops for left and right faces (parallel to x-z plane)
+    for i in range(nX):  
+        # Find x at the middle of each differential surface element
+        # from x - dX/2 to x + dX/2
+        xloop = minX + (i + 0.5) * dX
+        
+        for j in range(nZ):
+            # Find z at the middle of each differential surface element
+            # from z - dZ/2 to z + dZ/2
+            zloop = minZ + (j + 0.5) * dZ
+            
+            # left face
+            x = np.array([xloop, maxY, zloop])
+            xhat = np.array([0.,1.,0.])
+            calc( x, xhat, dSxz )
+
+            # right face
+            x = np.array([xloop, minY, zloop])
+            xhat = np.array([0.,-1.,0.])
+            calc( x, xhat, dSxz )
+
+    # loops for front and back faces (parallel to y-z plane)
+    for i in range(nY):  
+        # Find y at the middle of each differential surface element
+        # from y - dY/2 to y + dY/2
+        yloop = minY + (i + 0.5) * dY
+        
+        for j in range(nZ):
+            # Find z at the middle of each differential surface element
+            # from z - dZ/2 to z + dZ/2
+            zloop = minZ + (j + 0.5) * dZ
+            
+            # front face
+            x = np.array([maxX, yloop, zloop])
+            xhat = np.array([1.,0.,0.])
+            calc( x, xhat, dSyz )
+            
+            # back face
+            x = np.array([minX, yloop, zloop])
+            xhat = np.array([-1.,0.,0.])
+            calc( x, xhat, dSyz )
+            
     # Add irrotational and solenoidal contributions to get total B contribution
     B[:] = Birr[:] + Bsol[:]
     
     return B, Birr, Bsol
   
-def calc_ms_surfint_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
+def calc_ms_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
     """Process data in BATSRUS file to calculate the delta B at point XGSM.
     Helmholtz decomposition theorem used to convert Biot-Savart Law to a 
-    surface integral used for calculation.  We will integrate
-    across the surface of a sphere at rCurrents, the boundary between the
-    MHD calculation in the magnetosphere and the gap region.  
+    surface integral used for calculation.  We will integrate across the outer
+    boundary of the BATSRUS grid.  
     
     Inputs:
         XGSM = GSM (cartesian) position where magnetic field will be measured.
@@ -144,11 +204,8 @@ def calc_ms_surfint_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
         
         timeISO = ISO time for data in BATSRUS file
               
-        rCurrents = range from earth center below which results are not valid
-            measured in Re units.  Defines start of gap region.
-            
-        nTheta, nPhi = number of steps in numerical integration over theta
-            and phi
+        nX, nY, nZ = number of steps in numerical integration over outer faces,
+            e.g., nX*nY points on outer surfaces parallel to X-Y plane
 
     Outputs:
         Bn, Be, Bd = cumulative sum of dB data in north-east-down coordinates,
@@ -158,11 +215,10 @@ def calc_ms_surfint_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
         
     """
 
-    logging.info(r'Calculate magnetosphere surface integral dB...')
+    logging.info(r'Calculate magnetosphere outer surface integral dB...')
 
     # We need the time to switch from GSM to SM coordinates
     time = iso2ints( timeISO )
-    XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
 
     # Results in GSM coordinates
     BGSM = np.zeros(3)
@@ -170,13 +226,14 @@ def calc_ms_surfint_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
     BsolGSM = np.zeros(3)
 
     # Do surface integral
-    BGSM, BirrGSM, BsolGSM = calc_ms_surfint_b_sub(XSM, timeISO, batsrus, 
-                                                   rCurrents, nTheta, nPhi)
-
+    BGSM, BirrGSM, BsolGSM = calc_ms_surfint_outer_b_sub(XGSM, timeISO, batsrus, 
+                                                   nX, nY, nZ)
     # Convert to SM coordinates        
     B = np.zeros(3)
     Birr = np.zeros(3)
     Bsol = np.zeros(3)
+
+    XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
 
     B = GSMtoSM( BGSM, time, ctype_in='car', ctype_out='car')
     Birr = GSMtoSM( BirrGSM, time, ctype_in='car', ctype_out='car')
@@ -203,12 +260,12 @@ def calc_ms_surfint_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
 #         }
 # }
 
-def loop_ms_surfint_b(info, point, reduce, nTheta=180, nPhi=180, 
+def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100, 
                       deltahr=None, maxcores=20, deltaBlist=False):
-    """Use surface integral from Helmholtz Decomposition Theorem in calc_ms_surfint_b 
-    to determine the magnetic field (in North-East-Down coordinates) at magnetometer 
-    point.  Surface integral uses magnetosphere current density as defined in 
-    BATSRUS files
+    """Use surface integral at outer boundary from Helmholtz Decomposition Theorem 
+    in calc_ms_surfint_outer_b to determine the magnetic field (in 
+    North-East-Down coordinates) at magnetometer point.  Surface integral uses 
+    magnetosphere current density as defined in BATSRUS files
 
     Inputs:
         info = information on BATSRUS data, see example immediately above
@@ -219,8 +276,8 @@ def loop_ms_surfint_b(info, point, reduce, nTheta=180, nPhi=180,
         reduce = Do we skip files to save time.  If None, do all files.  If not
             None, then its a integer that determine how many files are skipped
         
-        nTheta, nPhi = number of steps in numerical integration over theta
-            and phi
+        nX, nY, nZ = number of steps in numerical integration over outer faces,
+            e.g., nX*nY points on outer surfaces parallel to X-Y plane
 
         deltahr = if None ignore, if number, shift ISO time by that 
             many hours.  If value given, must be float.
@@ -242,7 +299,7 @@ def loop_ms_surfint_b(info, point, reduce, nTheta=180, nPhi=180,
         filepath = info['files']['magnetosphere'][times[i]]
         base = os.path.basename(filepath)
 
-        logging.info(f'Calculate magnetosphere surface integral dB for... {base}')
+        logging.info(f'Calculate magnetosphere outer surface integral dB for... {base}')
         
         # We need the ISO time to update the magnetometer position
         # Record time for plots
@@ -271,8 +328,8 @@ def loop_ms_surfint_b(info, point, reduce, nTheta=180, nPhi=180,
         # field, B, at magnetometer position X (GSM).  Store the results, which 
         # are in SM coordinates, and the time
         Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
-                Bx, By, Bz = calc_ms_surfint_b(X, timeISO, batsrus, 
-                                               info['rCurrents'], nTheta, nPhi)
+                Bx, By, Bz = calc_ms_surfint_outer_b(X, timeISO, batsrus, 
+                                               nX, nY, nZ)
         
         return Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
                 Bx, By, Bz, Btime
@@ -365,8 +422,8 @@ def loop_ms_surfint_b(info, point, reduce, nTheta=180, nPhi=180,
                 r'Hour': dtimes_hh, r'Minute': dtimes_mm}, index=dtimes)
     create_directory(info['dir_derived'], 'timeseries')
     if KAMODO:
-        pklname = 'dB_si_msph-' + point + '.pkl'
+        pklname = 'dB_si_msph_outer-' + point + '.pkl'
     else:
-        pklname = 'dB_si_SWMFIO_msph-' + point + '.pkl'
+        pklname = 'dB_si_SWMFIO_msph_outer-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     

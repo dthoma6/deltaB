@@ -31,7 +31,11 @@ from .process_ms import calc_ms_b, calc_ms_b_paraperp, loop_ms_b
 from .process_gap import calc_gap_b_sub, calc_gap_b, loop_gap_b, \
     calc_gap_b_rim_sub, calc_gap_b_rim
 from .process_iono import calc_iono_b, loop_iono_b
-from .process_ms_surfint import calc_ms_surfint_b, loop_ms_surfint_b
+from .process_ms_surfint_rCurrents import calc_ms_surfint_rCurrents_b, \
+    loop_ms_surfint_rCurrents_b
+from .process_ms_surfint_outer import calc_ms_surfint_outer_b, \
+    loop_ms_surfint_outer_b
+from .process_ms_divBint import calc_ms_divBint_b, loop_ms_divBint_b
 
 from .coordinates import get_transform_matrix, iso2ints, GSMtoSM, SMtoGSM, \
     transform

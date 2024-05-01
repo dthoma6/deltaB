@@ -424,6 +424,6 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
     if KAMODO:
         pklname = 'dB_si_msph_outer-' + point + '.pkl'
     else:
-        pklname = 'dB_si_SWMFIO_msph_outer-' + point + '.pkl'
+        pklname = 'dB_si_msph_swmfio_outer-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     

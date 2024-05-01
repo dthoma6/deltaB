@@ -368,6 +368,6 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
     if KAMODO:
         pklname = 'dB_si_msph_rCurrents-' + point + '.pkl'
     else:
-        pklname = 'dB_si_SWMFIO_msph_rCurrents-' + point + '.pkl'
+        pklname = 'dB_si_msph_swmfio_rCurrents-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     

@@ -18,12 +18,12 @@ import os.path
 from deltaB.util import create_directory, get_NED_components, date_timeISO
 from deltaB.coordinates import GSMtoSM, iso2ints
 
-# If SECOND_ORDER is True, use 2nd order stencils for derivatives, otherwise
-# use swmfio get_native_partial_derivatives
+# If SECOND_ORDER is True, use 2nd order stencils for derivatives, otherwise use
+# mixed 2nd & 1st order swmfio get_native_partial_derivatives (2nd order preferred)
 SECOND_ORDER=True
 
 # If USE_B1 is True, use b1x, b1y, and b1z in BATSRUS data.  Otherwise use
-# bx, by, bz in BATSRUS
+# bx, by, bz in BATSRUS (option should not affect results, no preference)
 USE_B1=True
 
 @jit(nopython=True)

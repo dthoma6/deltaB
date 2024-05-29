@@ -38,24 +38,30 @@ df['Datetime'] = pd.to_datetime( df[['Year', 'Month', 'Day', 'Hour', 'Minute', '
 DELTAHR = 5.5
 df['Datetime + Delta'] = df['Datetime'] + timedelta(hours=DELTAHR)
 
+xlimits =( datetime(2003,9,2,4,30,0,0), datetime(2003,9,2,9,30,0,0) )
+
 # Set some plot configs
 plt.rcParams["figure.figsize"] = [12.0,12.0] #[12.8, 12.0]
 plt.rcParams["figure.autolayout"] = True
 plt.rcParams["figure.dpi"] = 600
 plt.rcParams['axes.grid'] = True
 plt.rcParams['font.size'] = 22
+plt.rcParams['lines.linewidth'] = 3.0
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "sans-serif",
     "font.sans-serif": "Helvetica",
 })
+plt.rcParams['text.latex.preamble'] = r'\usepackage{cmbright}'
 
 fig, ax = plt.subplots(4, 1, sharex=True, sharey=False)
 
 df.plot( x='Datetime + Delta', y=[r'$N$ (${cm}^{-3}$)'], \
                 xlabel=r'Time (UTC)', \
-                ylabel=r'$N$ (${cm}^{-3}$)', \
+                ylabel=r'$N$ ({cm}\textsuperscript{-3})', \
                 style=['-','r:','--'], \
+                xlim=xlimits, \
+                ylim=[0,450], \
                 grid = False,\
                 legend=False,
                 ax=ax[0])  
@@ -64,6 +70,8 @@ df.plot( x='Datetime + Delta', y=[r'$T$ (Kelvin)'], \
                 xlabel=r'Time (UTC)', \
                 ylabel=r'$T$ (Kelvin)', \
                 style=['-','r:','--'], \
+                xlim=xlimits, \
+                ylim=[0,7*10**6], \
                 grid = False,\
                 legend=False,
                 ax=ax[1])  
@@ -72,6 +80,8 @@ df.plot( x='Datetime + Delta', y=[r'$V_x$ (km/s)', r'$V_y$ (km/s)', r'$V_z$ (km/
                 xlabel=r'Time (UTC)', \
                 ylabel=r'$V$ (km/s)', \
                 style=['-','r:','--', '.'], \
+                xlim=xlimits, \
+                ylim=[-3000,100], \
                 grid = False,\
                 legend=True,
                 ax=ax[2])  
@@ -80,6 +90,8 @@ df.plot( x='Datetime + Delta', y=[r'$B_x$ (nT)', r'$B_y$ (nT)', r'$B_z$ (nT)'], 
                 xlabel=r'Time (UTC)', \
                 ylabel=r'$B$ (nT)', \
                 style=['-','r:','--', '.'], \
+                xlim=xlimits, \
+                ylim=[-250,50], \
                 grid = False,\
                 legend=True,
                 ax=ax[3])  

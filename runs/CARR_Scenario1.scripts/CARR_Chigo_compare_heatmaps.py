@@ -60,6 +60,9 @@ from cartopy.mpl.ticker import LatitudeFormatter, LongitudeFormatter
 # Colormap used in heatmaps below
 COLORMAP = 'coolwarm'
 
+# Plot residual in 3rd column
+RESIDUAL = False
+
 from deltaB import find_regions, calc_ms_b_paraperp, calc_ms_b_region,\
     calc_iono_b, calc_gap_b, calc_gap_b_rim, \
     convert_BATSRUS_to_dataframe, \
@@ -122,7 +125,10 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
         "font.sans-serif": "Helvetica",
     })
 
-    cols = 2
+    if RESIDUAL: 
+        cols = 3 
+    else:
+        cols = 2
     
     # Is our map 0->360 or -180->180
     if threesixty:
@@ -131,8 +137,12 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
         proj = ccrs.PlateCarree()
     
     # Create fig1 for magnetospheric currents and fig2 for gap & ionospheric currents
-    plt.rcParams["figure.figsize"] = [5.0, 4.0] #[7.0,6.1] #[7.0,8.0]
-    fig, ax = plt.subplots(3, cols, sharex=True, sharey=True, subplot_kw={'projection': proj})
+    if RESIDUAL:
+        plt.rcParams["figure.figsize"] = [7.0,5.0] 
+    else:
+        plt.rcParams["figure.figsize"] = [5.0, 5.0] #[7.0,6.1] #[7.0,8.0]
+    fig, ax = plt.subplots(4, cols, sharex=True, sharey=True, subplot_kw={'projection': proj},
+                           gridspec_kw = {'height_ratios':[1,1,1,0.2]})
         
     # We need the filepath for RIM file to find the pickle filename
     # We only search for the nearest minute, ignoring last entry in key
@@ -153,15 +163,24 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
 
     Chigobasename = os.path.basename(Chigofilepath)
     Chigopklname = Chigobasename + '.gap-heatmap-world.pkl'
-    Chigopklpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', Chigopklname) 
+    Chigopklpath = os.path.join( Chigoinfo['dir_derived'], 'heatmaps', Chigopklname) 
+
+    if RESIDUAL:
+        Residualname = 'Residual.gap-heatmap-world.pkl'
+        Residualpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', Residualname) 
 
     # Create heatmaps
-    earth_currents_heatmap( CARRinfo, CARRtime, CARRvmin, CARRvmax, nlat, nlong, ax[0,0], 
+    CARRim = earth_currents_heatmap( CARRinfo, CARRtime, CARRvmin, CARRvmax, nlat, nlong, ax[0,0], 
                            'Gap $j_\parallel$', CARRpklpath, threesixty, axisticks,
                            None)
     
-    earth_currents_heatmap( Chigoinfo, Chigotime, Chigovmin, Chigovmax, nlat, nlong, ax[0,1], 
-                           'Gap $j_\parallel$', CARRpklpath, threesixty, axisticks,
+    Chigoim = earth_currents_heatmap( Chigoinfo, Chigotime, Chigovmin, Chigovmax, nlat, nlong, ax[0,1], 
+                           'Gap $j_\parallel$', Chigopklpath, threesixty, axisticks,
+                           deltahr)
+   
+    if RESIDUAL:
+        Resim = earth_currents_heatmap( CARRinfo, Chigotime, Chigovmin, Chigovmax, nlat, nlong, ax[0,2], 
+                           'Gap $j_\parallel$', Residualpath, threesixty, axisticks,
                            deltahr)
    
     # Rinse and repeat for ionosphere
@@ -171,6 +190,9 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
     Chigopklname = Chigobasename + '.iono-heatmap-world.pkl'
     Chigopklpath = os.path.join( Chigoinfo['dir_derived'], 'heatmaps', Chigopklname) 
    
+    Residualname = 'Residual.iono-heatmap-world.pkl'
+    Residualpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', Residualname) 
+    
     earth_currents_heatmap( CARRinfo, CARRtime, CARRvmin, CARRvmax, nlat, nlong, ax[1,0], 
                            '$j_{Pederson}$', CARRpklpath, threesixty, axisticks,
                            None)
@@ -185,6 +207,14 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
                             '$j_{Hall}$', Chigopklpath, threesixty, axisticks,
                             deltahr)
 
+    if RESIDUAL:
+        earth_currents_heatmap( CARRinfo, Chigotime, Chigovmin, Chigovmax, nlat, nlong, ax[1,2], 
+                           '$j_{Pederson}$', Residualpath, threesixty, axisticks,
+                           deltahr)
+        earth_currents_heatmap( CARRinfo, Chigotime, Chigovmin, Chigovmax, nlat, nlong, ax[2,2], 
+                            '$j_{Hall}$', Residualpath, threesixty, axisticks,
+                            deltahr)
+
     # Set titles for each column
     dtime = datetime(*CARRtime)
     time_hhmm = dtime.strftime("%H:%M")
@@ -193,6 +223,9 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
     dtime = datetime(*Chigotime) + timedelta(hours=deltahr)
     time_hhmm = dtime.strftime("%H:%M")
     ax[0,1].set_title('Scenario 2: ' + time_hhmm)
+    
+    if RESIDUAL:
+        ax[0,2].set_title('Residual Difference')
 
     for axp, row in zip(ax[:,0], ['Gap $j_{\parallel}$', \
                                   '$j_{P}$', \
@@ -200,12 +233,16 @@ def compare_heatmaps(CARRinfo, Chigoinfo, CARRtime, Chigotime, CARRvmin, CARRvma
         axp.set_ylabel(row, rotation=90)
 
     # Add colorbar
-    # cbar1 = fig2.colorbar( CARRim, ax=ax2[3,0], orientation='horizontal' )
-    # cbar1.set_label(r'$B_{N}$ (nT)')
-    # cbar2 = fig2.colorbar( Chigoim, ax=ax2[3,1], orientation='horizontal' )
-    # cbar2.set_label(r'$B_{N}$ (nT)')
-    # for colp in range(cols): 
-    #     fig2.delaxes(ax=ax2[3,colp])
+    cbar1 = fig.colorbar( CARRim, ax=ax[3,0], orientation='horizontal', shrink=0.75, fraction=0.5, pad=0.02 )
+    cbar1.set_label(r'$B_{N}$ (nT)')
+    cbar2 = fig.colorbar( Chigoim, ax=ax[3,1], orientation='horizontal', shrink=0.75, fraction=0.5, pad=0.02 )
+    cbar2.set_label(r'$B_{N}$ (nT)')
+    if RESIDUAL:
+        cbar3 = fig.colorbar( Resim, ax=ax[3,2], orientation='horizontal', shrink=0.75, fraction=0.5, pad=0.02 )
+        cbar3.set_label(r'$B_{N}$ (nT)')
+        
+    for colp in range(cols): 
+        fig.delaxes(ax=ax[3,colp])
 
     # Set titles
     fig.suptitle(r'$B_{N}$ due to Gap and Ionospheric Currents')
@@ -359,6 +396,57 @@ def generate_filelist_txts(info):
 
 ###############
 
+def createResidual(CARRinfo, Chigoinfo, CARRtime, Chigotime):
+    # We need the filepath for RIM file to find the pickle filename
+    # We only search for the nearest minute, ignoring last entry in key
+    for key in CARRinfo['files']['ionosphere']:
+        if( key[0] == CARRtime[0] and key[1] == CARRtime[1] and key[2] == CARRtime[2] and \
+            key[3] == CARRtime[3] and key[4] == CARRtime[4] ):
+                CARRfilepath = CARRinfo['files']['ionosphere'][key]
+                
+    for key in Chigoinfo['files']['ionosphere']:
+        if( key[0] == Chigotime[0] and key[1] == Chigotime[1] and key[2] == Chigotime[2] and \
+            key[3] == Chigotime[3] and key[4] == Chigotime[4] ):
+                Chigofilepath = Chigoinfo['files']['ionosphere'][key]
+                
+     # filepath = info['files']['ionosphere'][time]
+    CARRbasename = os.path.basename(CARRfilepath)
+    CARRpklname = CARRbasename + '.gap-heatmap-world.pkl'
+    CARRpklpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', CARRpklname) 
+    CARRdf = pd.read_pickle(CARRpklpath)
+
+    Chigobasename = os.path.basename(Chigofilepath)
+    Chigopklname = Chigobasename + '.gap-heatmap-world.pkl'
+    Chigopklpath = os.path.join( Chigoinfo['dir_derived'], 'heatmaps', Chigopklname) 
+    Chigodf = pd.read_pickle(Chigopklpath)
+    
+    Chigodf['Total'] = Chigodf['Total'] - CARRdf['Total']
+    pklname = 'Residual.gap-heatmap-world.pkl'
+    Chigodf.to_pickle( os.path.join( CARRinfo['dir_derived'], 'heatmaps', pklname) )
+    
+    # Rinse and repeat for ionosphere
+    CARRpklname = CARRbasename + '.iono-heatmap-world.pkl'
+    CARRpklpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', CARRpklname) 
+   
+    Chigopklname = Chigobasename + '.iono-heatmap-world.pkl'
+    Chigopklpath = os.path.join( Chigoinfo['dir_derived'], 'heatmaps', Chigopklname) 
+
+    CARRbasename = os.path.basename(CARRfilepath)
+    CARRpklname = CARRbasename + '.iono-heatmap-world.pkl'
+    CARRpklpath = os.path.join( CARRinfo['dir_derived'], 'heatmaps', CARRpklname) 
+    CARRdf = pd.read_pickle(CARRpklpath)
+
+    Chigobasename = os.path.basename(Chigofilepath)
+    Chigopklname = Chigobasename + '.iono-heatmap-world.pkl'
+    Chigopklpath = os.path.join( Chigoinfo['dir_derived'], 'heatmaps', Chigopklname) 
+    Chigodf = pd.read_pickle(Chigopklpath)
+    
+    Chigodf['Total Pedersen'] = Chigodf['Total Pedersen'] - CARRdf['Total Pedersen']
+    Chigodf['Total Hall'] = Chigodf['Total Hall'] - CARRdf['Total Hall']
+    pklname = 'Residual.iono-heatmap-world.pkl'
+    Chigodf.to_pickle( os.path.join( CARRinfo['dir_derived'], 'heatmaps', pklname) )
+    return
+
 if __name__ == "__main__":
 
     # Get a list of BATSRUS and RIM files, info parameters define location 
@@ -366,6 +454,8 @@ if __name__ == "__main__":
     from magnetopost import util as util
     util.setup(CARR_info)
     Chigosetup(Chigo_info)
+    
+    createResidual(CARR_info, Chigo_info, CARRtime, Chigotime)
     
     compare_heatmaps(CARR_info, Chigo_info, CARRtime, Chigotime, CARRVMIN, CARRVMAX, 
                                               ChigoVMIN, ChigoVMAX, NLAT, NLONG, 

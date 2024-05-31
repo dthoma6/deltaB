@@ -189,7 +189,7 @@ if __name__ == "__main__":
     helm_rCurr.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bn-surfint-rCurrents-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     helm_rCurr.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_EG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Be-surfint-rCurrents-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     helm_rCurr.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bd-surfint-rCurrents-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     helm_outer.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bn-surfint-outer-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     helm_outer.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_EG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Be-surfint-outer-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     helm_outer.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bd-surfint-outer-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     cl_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bn-divB-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     cl_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_EG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Be-divB-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -349,7 +349,7 @@ if __name__ == "__main__":
     cl_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DG$'],\
                 style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bd-divB-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_N$ Biot Gary'],\
     #             style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bn-Test-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -395,7 +395,7 @@ if __name__ == "__main__":
     # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_E$ Biot Gary'],\
     #             style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Be-Test-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_D$ Biot Gary'],\
     #             style=['--'] )
     plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
+    # plt.show()
     pltname = 'tot-Bd-Test-' + point
     plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )

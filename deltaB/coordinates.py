@@ -220,13 +220,14 @@ def transform(v, time, csys_in, csys_out, ctype_in='car', ctype_out='car', lib='
     else:
         return v_outertype(map(v_innertype,vp))
 
-def get_spherical_vector_components(v_cart, x_cart):
-    x = x_cart[:,0]
-    y = x_cart[:,1]
-    z = x_cart[:,2]
-    vx = v_cart[:,0]
-    vy = v_cart[:,1]
-    vz = v_cart[:,2]
+# Modified version of get_spherical_vector_components
+def get_spherical_components(v_cart, x_cart):
+    x = x_cart[0]
+    y = x_cart[1]
+    z = x_cart[2]
+    vx = v_cart[0]
+    vy = v_cart[1]
+    vz = v_cart[2]
     
     r = np.sqrt(x**2 + y**2 + z**2)
     L = np.sqrt(x**2 + y**2)
@@ -235,14 +236,15 @@ def get_spherical_vector_components(v_cart, x_cart):
     v_theta = ((x*vx + y*vy)*z - (L**2)*vz)/(r*L)
     v_phi = (-y*vx + x*vy)/L
 
-    return np.column_stack([v_r, v_theta, v_phi])
+    return np.array([v_r, v_theta, v_phi])
 
-def get_NED_vector_components(v_cart, x_cart):
-    v_sph = get_spherical_vector_components(v_cart, x_cart)
-    v_north = -v_sph[:,1]
-    v_east  = +v_sph[:,2]
-    v_down  = -v_sph[:,0]
-    return np.column_stack([v_north, v_east, v_down])
+# Modified version of get_NED_vector_components
+def get_NED_components(v_cart, x_cart):
+    v_sph = get_spherical_components(v_cart, x_cart)
+    v_north = -v_sph[1]
+    v_east  = +v_sph[2]
+    v_down  = -v_sph[0]
+    return v_north, v_east, v_down
 
 # Changed from lib='geopack_08_dp' to lib='spacepy'
 def get_transform_matrix(time, csys_in, csys_out, lib='spacepy'):

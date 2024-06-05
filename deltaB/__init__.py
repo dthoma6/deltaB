@@ -24,8 +24,7 @@ from .BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
     create_jrtp_cdf_dataframes, \
     create_jpp_cdf_dataframes
 
-from .util import get_spherical_components, get_NED_components, ned, \
-    date_timeISO, create_directory
+from .util import date_timeISO, create_directory
 
 from .process_ms import calc_ms_b, calc_ms_b_paraperp, loop_ms_b
 from .process_gap import calc_gap_b_sub, calc_gap_b, loop_gap_b, \
@@ -38,7 +37,7 @@ from .process_ms_surfint_outer import calc_ms_surfint_outer_b, \
 from .process_ms_divBint import calc_ms_divBint_b, loop_ms_divBint_b
 
 from .coordinates import get_transform_matrix, iso2ints, GSMtoSM, SMtoGSM, \
-    transform
+    transform, get_spherical_components, get_NED_components
 
 from .deltaB_by_region import write_extended_vtk, find_regions, \
     calc_ms_b_region2D, calc_ms_b_region

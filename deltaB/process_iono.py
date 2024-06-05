@@ -15,7 +15,6 @@ from spacepy.pybats.rim import Iono
 from spacepy.time import Ticktock
 import os.path
 
-# from deltaB.coordinates import get_NED_vector_components
 from deltaB.util import create_directory, get_NED_components, date_timeISO
 
 # Setup logging
@@ -200,20 +199,10 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
     
     bSMp = [df['dBxpSum'].iloc[-1], df['dBypSum'].iloc[-1], df['dBzpSum'].iloc[-1]]
     Bnp, Bep, Bdp = get_NED_components( bSMp, XSM )
-    
-    # n_geo, e_geo, d_geo = ned(timeISO, XSM, 'SM')
-    
-    # Bnp = np.dot( bSMp, n_geo )
-    # Bep = np.dot( bSMp, e_geo )
-    # Bdp = np.dot( bSMp, d_geo )
-    
+        
     bSMh = [df['dBxhSum'].iloc[-1], df['dByhSum'].iloc[-1], df['dBzhSum'].iloc[-1]]
     Bnh, Beh, Bdh = get_NED_components( bSMh, XSM )
 
-    # Bnh = np.dot( bSMh, n_geo )
-    # Beh = np.dot( bSMh, e_geo )
-    # Bdh = np.dot( bSMh, d_geo )
-        
     return Bnp, Bep, Bdp, bSMp[0], bSMp[1], bSMp[2], Bnh, Beh, Bdh, bSMh[0], bSMh[1], bSMh[2]   
 
 # Example info.  Info is used below in call to loop_ms_b

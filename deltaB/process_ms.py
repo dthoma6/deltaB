@@ -18,8 +18,8 @@ from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
     create_cumulative_sum_dataframe, \
     create_deltaB_spherical_dataframe, \
     create_deltaB_rCurrents_spherical_dataframe
-from deltaB.util import create_directory, get_NED_components, date_timeISO
-from deltaB.coordinates import GSMtoSM, iso2ints
+from deltaB.util import create_directory, date_timeISO
+from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
 
 # Setup logging
 logging.basicConfig(

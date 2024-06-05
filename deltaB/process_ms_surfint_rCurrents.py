@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from spacepy.time import Ticktock
 import os.path
 
-from deltaB.util import create_directory, get_NED_components, date_timeISO
-from deltaB.coordinates import GSMtoSM, iso2ints
+from deltaB.util import create_directory, date_timeISO
+from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
 from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
 
 # Set to True to use Kamodo linear interpolation (preferred)

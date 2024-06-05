@@ -16,7 +16,8 @@ from spacepy.pybats.rim import Iono
 from spacepy.time import Ticktock
 import os.path
 
-from deltaB.util import create_directory, get_NED_components, date_timeISO
+from deltaB.util import create_directory, date_timeISO
+from deltaB.coordinates import get_NED_components
 
 # Setup logging
 logging.basicConfig(

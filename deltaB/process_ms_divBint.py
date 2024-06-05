@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from spacepy.time import Ticktock
 import os.path
 
-from deltaB.util import create_directory, get_NED_components, date_timeISO
-from deltaB.coordinates import GSMtoSM, iso2ints
+from deltaB.util import create_directory, date_timeISO
+from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
 
 # If SECOND_ORDER is True, use 2nd order stencils for derivatives, otherwise use
 # mixed 2nd & 1st order swmfio get_native_partial_derivatives (2nd order preferred)

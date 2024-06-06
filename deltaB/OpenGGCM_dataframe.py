@@ -8,10 +8,10 @@ Created on Sat Jun  1 15:27:27 2024
 
 import cdflib.cdfread as cdfread
 import numpy as np
-import pandas as pd
 import os.path
 import logging
-from deltaB import create_directory, get_transform_matrix, transform
+from deltaB import create_directory, get_transform_matrix
+from numba import jit, typeof
 
 class OpenGGCMClass:
     """Class to store OpenGGCM data, follows pattern of BatsrusClass in
@@ -28,12 +28,14 @@ class OpenGGCMClass:
                     xGlobalMax,
                     yGlobalMax,
                     zGlobalMax,
+                    rCurrents,
 
                     data_arr     ,
                     DataArray    ,
                     varidx       ,
 
                     units,
+                    time,
                     file):
 
         self.nI                = nI
@@ -45,12 +47,14 @@ class OpenGGCMClass:
         self.xGlobalMax        = xGlobalMax
         self.yGlobalMax        = yGlobalMax
         self.zGlobalMax        = zGlobalMax
+        self.rCurrents         =rCurrents
 
         self.data_arr          = data_arr
         self.DataArray         = DataArray
         self.varidx            = varidx
 
         self.units             = units
+        self.time              = time
         self.file              = file
         return
 
@@ -225,8 +229,8 @@ class OpenGGCM_to_VTK():
         return 0
 
 def get_openggcm_file_time(filepath):
-    """From the cdf file "*_GM_cdf_list" read the time associated with the
-    file, filepath.
+    """From the file "*_GM_cdf_list" read the time associated with the
+    file, filepath.  Its in the same directory as the CDF file.
      
     Inputs:
         filepath = path to CDF file that we're processing
@@ -235,6 +239,8 @@ def get_openggcm_file_time(filepath):
         Returns time associated with file as a tuple: YYYY, Month, Day, Hour,
             Minute, Second
     """
+    logging.info('Obtain time associated with OpenGGCM file')
+    
     dirname = os.path.dirname(filepath)
     base = os.path.basename(filepath)
     basesplit = base.split('.')
@@ -256,22 +262,140 @@ def get_openggcm_file_time(filepath):
 
         if base == linea[0]: return time
 
+@jit(nopython=True)
+def get_openggcm_grid_sub( data_arr, x_, y_, z_, nI, nJ, nK):
+    """ Subroutine for get_openggcm_class_from_cdf that allows numba accelleration.  
+    It determines the x,y,z cartesian grid and the associated measures
+    
+    Inputs:
+        data_arr: numpy array in which the openggcm data is stored
+        
+        x_, y_, z_: spacing between points on the cartesian axes
+        
+        nI, nJ, nK: number of points along x,y,z axes in cartesian grid
+        
+    Returns:
+        x,y,z,measure numpy arrays are returned
+    """
+    
+    npts = nI*nJ*nK
+    
+    x = np.zeros(npts)
+    y = np.zeros(npts)
+    z = np.zeros(npts)
+    measure = np.zeros(npts)
+    
+    # Differences used to determine cell measure
+    dx = x_[0:-1]-x_[1:]
+    dy = y_[0:-1]-y_[1:]
+    dz = z_[0:-1]-z_[1:]
+ 
+    # The OpenGGCM CDF doesn't contain the full grid, just the range of
+    # values for x,y,z.  We use that info to create an x,y,z grid.
+    #
+    # x_, y_, z_ are the ranges of values.  We loop thru them, x first,
+    # then y, and finally z to fill out grid
+    
+    # NOTE, https://openggcm.sr.unh.edu/?n=Main.Outputs
+    # states "Note that the vector quantities are in "MHD" coordinates, 
+    # i.e., MHD_x = - GSE_x and MHD_y = - GSE_y, MHD_z = + GSE_z." 
+    # Hence minus signs below
+
+    # We use the same loops to determine dx, dy, dz.  Multiply dx,dy,dz to 
+    # determine the measure for grid cell.  If-thens handle special cases 
+    # for end points. 
+    
+    for n in range(nK):
+        if n == 0: 
+            ddz = dz[0]
+        elif n == nK-1:
+            ddz = dz[nK-2]
+        else:
+            ddz = 0.5*(dz[n] + dz[n-1])
+    
+        for m in range(nJ):
+            if m == 0: 
+                ddy = dy[0]
+            elif m == nJ-1:
+                ddy = dy[nJ-2]
+            else:
+                ddy = 0.5*(dy[m] + dy[m-1])
+                
+            for l in range(nI):
+                if l == 0: 
+                    ddx = dx[0]
+                elif l == nI-1:
+                    ddx = dx[nI-2]
+                else:
+                    ddx = 0.5*(dx[l] + dx[l-1])
+                   
+                idx = n*nI*nJ + m*nI + l        # index current point
+                x[idx] = -x_[l]                 # x,y,z of grid pt
+                y[idx] = -y_[m]                 
+                z[idx] = z_[n]   
+                measure[idx] = ddx * ddy * ddz  # grid cell measure 
+    
+    return x, y, z, measure
+
+@jit(nopython=True)
+def matmul( A, B ):
+    """Matrix multiplication of A (3x3) matrix with B (3) vector to give C (3)
+    vector, allows numba accelleration
+    """
+    C = np.zeros(3)
+    C[0] = A[0,0]*B[0] + A[0,1]*B[1] + A[0,2]*B[2]
+    C[1] = A[1,0]*B[0] + A[1,1]*B[1] + A[1,2]*B[2]
+    C[2] = A[2,0]*B[0] + A[2,1]*B[1] + A[2,2]*B[2]
+    return C
+    
+@jit(nopython=True)
+def transform_openggcm_variables_sub( data_arr, xidx, zidx, 
+                                     bxidx, bzidx, 
+                                     jxidx, jzidx, 
+                                     uxidx, uzidx, trans_mat, npts):
+    """Subroutine for get_openggcm_class_from_cdf that allows numba accelleration.  
+    It determines the x,y,z cartesian grid and the associated measures
+    
+    Inputs:
+        data_arr: numpy array in which the openggcm data is stored
+        
+        xidx, zidx, bxidx, bzidx, jxidx, jzidx, uxidx, uzidx,: data_arr indices
+            that tell use where x,y,z; bx,by,bz; jx,jy,jz; and ux,uy,uz are in
+            data_arr
+        
+        trans_mat: GSE to GSM transformation matrix
+        
+        npts: total number of points in cartesian grid
+        
+    Returns:
+        results stored in data_arr
+    """
+    
+    for i in range(npts):
+        data_arr[i, xidx:zidx+1]   = matmul( trans_mat, data_arr[i, xidx:zidx+1] )
+        data_arr[i, bxidx:bzidx+1] = matmul( trans_mat, data_arr[i, bxidx:bzidx+1] )
+        data_arr[i, jxidx:jzidx+1] = matmul( trans_mat, data_arr[i, jxidx:jzidx+1] )
+        data_arr[i, uxidx:uzidx+1] = matmul( trans_mat, data_arr[i, uxidx:uzidx+1] )
+            
+    return
+
 def get_openggcm_class_from_cdf(file):
     """Read OpenGGCM data from CDF file.  Store the data in OpenGGCMClass
     following the pattern used by swmfio for BATSRUS
      
     Inputs:
         file = path to CDF file
-        
          
     Outputs:
         Returns OpenGGCMClass with data
     """
+    logging.info('Read OpenGGCM file and convert to OpenGGCMClass')
+    
     # Read the file
     cdf = cdfread.CDF(file)
     globatts = cdf.globalattsget()
-    
-    
+    time = get_openggcm_file_time(file)
+
     # The CDF file contain four grids...
     #
     # grid_system_1 is the grid for the things that we care about.
@@ -290,12 +414,14 @@ def get_openggcm_class_from_cdf(file):
     iVar = 0
     nVar = 0
     for cdfvar in cdf.cdf_info()['zVariables']:
-        if cdf.varget(cdfvar).shape == (1, npts):
-            nVar += 1
+        # Skip bx1, by1, bz1 because they are on a different grid
+        if cdfvar != 'bx1' and cdfvar != 'by1' and cdfvar != 'bz1': 
+            if cdf.varget(cdfvar).shape == (1, npts):
+                nVar += 1
     # add nVars for x,y,z,measure
     nVar += 4
     
-    # Setup dicts that will conttain the list of variables and associated units
+    # Setup dicts that will contain the list of variables and associated units
     varidx = {}
     units = {}
     
@@ -304,24 +430,21 @@ def get_openggcm_class_from_cdf(file):
     data_arr[:,:] = np.nan
     
     # The OpenGGCM CDF doesn't contain the full grid, just the range of
-    # values for x,y,z.  We use that info to create an x,y,z grid
+    # values for x,y,z.  We use that info to create an x,y,z grid.
+    #
     # x_, y_, z_ are the ranges of values.  We loop thru them, x first,
     # then y, and finally z to fill out grid
+    
+    # NOTE, https://openggcm.sr.unh.edu/?n=Main.Outputs
+    # states "Note that the vector quantities are in "MHD" coordinates, 
+    # i.e., MHD_x = - GSE_x and MHD_y = - GSE_y, MHD_z = + GSE_z." 
+    # Hence minus signs below
+    logging.info('Create OpenGGCM x,y,z grid')
+ 
     x_ = cdf.varget('x')[0,:]
     y_ = cdf.varget('y')[0,:]
     z_ = cdf.varget('z')[0,:]
     
-    x = np.zeros(npts)
-    y = np.zeros(npts)
-    z = np.zeros(npts)
-    for n in range(nK):
-        for m in range(nJ):
-            for l in range(nI):
-                idx = n*nI*nJ + m*nI + l  # index current point
-                x[idx] = x_[l]   
-                y[idx] = y_[m]   
-                z[idx] = z_[n]   
-
     # Get limits of grid
     xGlobalMin  = np.min(x_)
     yGlobalMin  = np.min(y_)
@@ -329,8 +452,11 @@ def get_openggcm_class_from_cdf(file):
     xGlobalMax  = np.max(x_)
     yGlobalMax  = np.max(y_)
     zGlobalMax  = np.max(z_)
+    rCurrents   = str(globatts['r_currents'])
 
-    # Store the x,y,z grid points.
+    # Get the x,y,z grid points and associated measures
+    x, y, z, measure = get_openggcm_grid_sub( data_arr, x_, y_, z_, nI, nJ, nK )
+
     cdfvar = 'x'
     data_arr[:, iVar] = x
     units[cdfvar] = cdf.varattsget(cdfvar)['units']
@@ -349,46 +475,14 @@ def get_openggcm_class_from_cdf(file):
     varidx[cdfvar] = iVar
     iVar += 1
     
-    # Calculate the measure
     cdfvar='measure'
-    # Difference between consecutive points along x,y,z axes
-    dx = x_[0:-1]-x_[1:]
-    dy = y_[0:-1]-y_[1:]
-    dz = z_[0:-1]-z_[1:]
-    
-    # As with filling out the xyz grid, loop through the points - x first, y second,
-    # z third - to get dx, dy, dz.  Multiply to get measure for grid rectangle
-    # End points are treated separately.  
-    for n in range(nK):
-        if n == 0: 
-            ddz = dz[0]
-        elif n == nK-1:
-            ddz = dz[nK-2]
-        else:
-            ddz = 0.5*(dz[n] + dz[n-1])
-
-        for m in range(nJ):
-            if m == 0: 
-                ddy = dy[0]
-            elif m == nJ-1:
-                ddy = dy[nJ-2]
-            else:
-                ddy = 0.5*(dy[m] + dy[m-1])
-                
-            for l in range(nI):
-                if l == 0: 
-                    ddx = dx[0]
-                elif l == nI-1:
-                    ddx = dx[nI-2]
-                else:
-                    ddx = 0.5*(dx[l] + dx[l-1])
-                    
-                idx = n*nI*nJ + m*nI + l               # index current point
-                data_arr[idx, iVar] = ddx * ddy * ddz  # calc measure 
+    data_arr[:, iVar] = measure
+    units[cdfvar] = cdf.varattsget('x')['units'] + '^3'
     varidx[cdfvar] = iVar
     iVar += 1
     
     # Store the other variables stored in the CDF file
+    logging.info('Store OpenGGCM variables')
     for cdfvar in cdf.cdf_info()['zVariables']:
         # Skip bx1, by1, bz1 because they are on a different grid
         if cdfvar != 'bx1' and cdfvar != 'by1' and cdfvar != 'bz1': 
@@ -398,12 +492,10 @@ def get_openggcm_class_from_cdf(file):
                 varidx[cdfvar] = iVar
                 iVar += 1
 
-    # NOTE, https://openggcm.sr.unh.edu/?n=Main.Outputs
+    # NOTE: https://openggcm.sr.unh.edu/?n=Main.Outputs
     # states "Note that the vector quantities are in "MHD" coordinates, 
     # i.e., MHD_x = - GSE_x and MHD_y = - GSE_y, MHD_z = + GSE_z." 
-    data_arr[:, varidx['x']] = - data_arr[:, varidx['x']]
-    data_arr[:, varidx['y']] = - data_arr[:, varidx['y']]
-
+    # We want GSE coordinates
     data_arr[:, varidx['bx']] = - data_arr[:, varidx['bx']]
     data_arr[:, varidx['by']] = - data_arr[:, varidx['by']]
 
@@ -412,14 +504,28 @@ def get_openggcm_class_from_cdf(file):
 
     data_arr[:, varidx['ux']] = - data_arr[:, varidx['ux']]
     data_arr[:, varidx['uy']] = - data_arr[:, varidx['uy']]
+
+    # Convert to GSM coordiantes
+    logging.info('Convert OpenGGCM vectors from GSE to GSM coordinates')
     
-    # # Convert from GSE to GSM coordinates which is used elsewhere in delltaB
-    # time = get_openggcm_file_time(file)
-    # transmat = get_transform_matrix(time, "GSE", "GSM")
+    xidx = varidx['x']  # We pass these indices to numba routine 
+    zidx = varidx['z']  # for the coordinate transformation
+    bxidx = varidx['bx']
+    bzidx = varidx['bz']
+    jxidx = varidx['jx']
+    jzidx = varidx['jz']
+    uxidx = varidx['ux']
+    uzidx = varidx['uz']
     
-    # for i in range(npts):
-    #     data_arr[i, varidx['x']:varidx['z']] = transform(data_arr[i, varidx['x']:varidx['z']].T, time, 'GSE', 'GSM')
-    
+    # Transformation matrix to change from GSE to GSM coordinates 
+    transform_matrix = get_transform_matrix(time, "GSE", "GSM", ) 
+    transform_openggcm_variables_sub( data_arr, 
+                                      xidx, zidx, 
+                                      bxidx, bzidx, 
+                                      jxidx, jzidx, 
+                                      uxidx, uzidx, transform_matrix, npts)
+
+    # Reshape the data array     
     DataArray = data_arr.reshape((nVar, nI, nJ, nK), order='F')
     
     # Create an OpenGGCMClass to store the data, following the process
@@ -434,12 +540,14 @@ def get_openggcm_class_from_cdf(file):
                     xGlobalMax  = xGlobalMax,
                     yGlobalMax  = yGlobalMax,
                     zGlobalMax  = zGlobalMax,
+                    rCurrents   = rCurrents,
 
                     data_arr    = data_arr,
                     DataArray   = DataArray,
                     varidx      = varidx,
 
                     units       = units,
+                    time        = time,
                     file        = file)    
     
     return openggcmClass
@@ -448,14 +556,21 @@ if __name__ == "__main__":
     file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
     dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_052924_1.derived'
     
+    from datetime import datetime
+    now = datetime.now()
+    print('Start: ', now.time())
+    
     oggcmclass = get_openggcm_class_from_cdf(file)
+    
+    end = datetime.now()
+    print('Finish: ', end.time())
     
     tovtk = OpenGGCM_to_VTK(oggcmclass)
     tovtk.convert_to_vtk()
     
-    import os.path
     basename = os.path.basename(file)
     
     tovtk.write_vtk_to_file( dir_derived, basename, 'openggcm')
     
-    print('Complete')
+    complete = datetime.now()
+    print('Complete: ', complete.time())

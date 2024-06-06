@@ -15,10 +15,11 @@ logging.basicConfig(
 from .plotting import plotargs, plotargs_multiy, \
     plot_NxM, plot_NxM_multiy, pointcloud, sqwireframe
 
-from .BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
-    create_deltaB_spherical_dataframe, \
-    create_deltaB_rCurrents_dataframe, \
-    create_deltaB_rCurrents_spherical_dataframe, \
+from .BATSRUS_dataframe import convert_BATSRUS_to_dataframe
+
+from ms_dataframe import  create_deltaB_spherical_dataframe, \
+    create_deltaB_biotsavart_dataframe, \
+    create_deltaB_biotsavart_spherical_dataframe, \
     create_cumulative_sum_dataframe, \
     create_cumulative_sum_spherical_dataframe, \
     create_jrtp_cdf_dataframes, \

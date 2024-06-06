@@ -11,10 +11,10 @@ import numpy as np
 
 from deltaB.plotting import plotargs, plotargs_multiy, \
     plot_NxM, plot_NxM_multiy, pointcloud
-from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe, \
-    create_deltaB_spherical_dataframe, \
-    create_deltaB_rCurrents_spherical_dataframe, \
-    create_deltaB_rCurrents_dataframe, \
+from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe
+from ms_dataframe import create_deltaB_spherical_dataframe, \
+    create_deltaB_biotsavart_spherical_dataframe, \
+    create_deltaB_biotsavart_dataframe, \
     create_cumulative_sum_dataframe, \
     create_cumulative_sum_spherical_dataframe, \
     create_jrtp_cdf_dataframes, \
@@ -657,8 +657,8 @@ def process_BATSRUS(XGSM, filepath, time, info, limits):
 
     df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     df = create_deltaB_spherical_dataframe(df)
-    df = create_deltaB_rCurrents_dataframe(df, XGSM)
-    df = create_deltaB_rCurrents_spherical_dataframe(df, XGSM)
+    df = create_deltaB_biotsavart_dataframe(df, XGSM)
+    df = create_deltaB_biotsavart_spherical_dataframe(df, XGSM)
     
 
     logging.info('Creating cumulative sum dB dataframe...')
@@ -865,8 +865,8 @@ def process_BATSRUS_with_cuts(XGSM, filepath, time, info, limits, cuts, cut_sele
 
     df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
-    df1 = create_deltaB_rCurrents_dataframe(df1, XGSM)
-    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)
     
     # Perform cuts on BATSRUS data
     df2, title2, cutname = perform_cuts(df1, title1, cuts, cut_selected=cut_selected)
@@ -920,8 +920,8 @@ def process_BATSRUS_3d_cut_vtk(XGSM, filepath, time, info, limits, cuts):
 
     df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
-    df1 = create_deltaB_rCurrents_dataframe(df1, XGSM)
-    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)
 
     logging.info('Creating dataframes with extracted cuts...')
 
@@ -985,8 +985,8 @@ def process_BATSRUS_3d_cut_plots(XGSM, filepath, time, info, limits, cuts):
 
     df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
-    df1 = create_deltaB_rCurrents_dataframe(df1, XGSM)
-    df1 = create_deltaB_rCurrents_spherical_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
+    df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)
 
     #################################
     #################################

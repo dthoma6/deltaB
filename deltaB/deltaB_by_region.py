@@ -24,9 +24,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from deltaB import convert_BATSRUS_to_dataframe, \
-    create_deltaB_rCurrents_dataframe, \
+    create_deltaB_biotsavart_dataframe, \
     create_deltaB_spherical_dataframe, \
-    create_deltaB_rCurrents_spherical_dataframe, \
+    create_deltaB_biotsavart_spherical_dataframe, \
     GSMtoSM, get_NED_components, date_timeISO, \
     create_directory
 
@@ -568,9 +568,9 @@ def calc_ms_b_region( XGSM, timeISO, df, fullB=False ):
     logging.info('Calculating delta B contributions from each region...')
 
     # Convert BATSRUS data to dataframes for each region
-    df = create_deltaB_rCurrents_dataframe( df, XGSM )
+    df = create_deltaB_biotsavart_dataframe( df, XGSM )
     df = create_deltaB_spherical_dataframe( df )
-    df = create_deltaB_rCurrents_spherical_dataframe( df, XGSM )
+    df = create_deltaB_biotsavart_spherical_dataframe( df, XGSM )
     
     dBx = df['dBx'].to_numpy()
     dBy = df['dBy'].to_numpy()
@@ -816,7 +816,7 @@ def calc_ms_b_region2D( info, deltamp, deltabs, thicknessns, nearradius,
         X = XGEO.convert( 'GSM', 'car' )
         XGSM = X.data[0]
 
-        # Convert XSM to GSM coordinates, which is what create_deltaB_rCurrents_dataframe needs
+        # Convert XSM to GSM coordinates, which is what create_deltaB_biotsavart_dataframe needs
         # XGSM = SMtoGSM(XSM, time, ctype_in='car', ctype_out='car')
 
         # Convert BATSRUS data to dataframe, using appropriate rCurrents this time

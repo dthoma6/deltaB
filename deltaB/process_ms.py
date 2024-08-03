@@ -13,13 +13,15 @@ from datetime import datetime, timedelta
 from spacepy.time import Ticktock
 import os.path
 
-from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe
-from deltaB.ms_dataframe import create_deltaB_biotsavart_dataframe, \
+from deltaB.ms_dataframe import convert_mhd_to_dataframe, \
+    create_deltaB_biotsavart_dataframe, \
     create_cumulative_sum_dataframe, \
     create_deltaB_spherical_dataframe, \
     create_deltaB_biotsavart_spherical_dataframe
 from deltaB.util import create_directory, date_timeISO
 from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
+from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
+from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
 
 # Setup logging
 logging.basicConfig(
@@ -214,7 +216,6 @@ def calc_ms_b_paraperp(XGSM, timeISO, df, northonly=True):
 # info = {
 #         "model": "SWMF",
 #         "run_name": "SWPC_SWMF_052811_2",
-#         "rCurrents": 4.0,
 #         "file_type": "cdf",
 #         "dir_run": os.path.join(data_dir, "SWPC_SWMF_052811_2"),
 #         "dir_plots": os.path.join(data_dir, "SWPC_SWMF_052811_2.plots"),
@@ -280,8 +281,16 @@ def loop_ms_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False):
         XGSM = XGEO.convert( 'GSM', 'car' )
         X = XGSM.data[0]
     
-        # Read in the BATSRUS file 
-        df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+        # Read in the MHD file 
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+
+        df = convert_mhd_to_dataframe(mhd)
     
         # Use Biot-Savart to calculate magnetic field, B, at magnetometer position
         # X (GSM).  Store the results, which are in SM coordinates, and the time
@@ -326,53 +335,19 @@ def loop_ms_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False):
         XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
         
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
-                                   for p in range(len(times)))
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
+                               for p in range(len(times)))
+    
+    Bn, Be, Bd, Bparan, Bparae, Bparad, \
+            Bperpn, Bperpe, Bperpd, \
+            Bperpphin, Bperpphie, Bperpphid, \
+            Bperpresn, Bperprese, Bperpresd, Bx, By, Bz, Btimes = zip(*results)
         
-        Bn, Be, Bd, Bparan, Bparae, Bparad, \
-                Bperpn, Bperpe, Bperpd, \
-                Bperpphin, Bperpphie, Bperpphid, \
-                Bperpresn, Bperprese, Bperpresd, Bx, By, Bz, Btimes = zip(*results)
-        
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bn = np.zeros(n)
-        Be = np.zeros(n)
-        Bd = np.zeros(n)
-        Bparan = np.zeros(n)
-        Bparae = np.zeros(n)
-        Bparad = np.zeros(n)
-        Bperpn = np.zeros(n)
-        Bperpe = np.zeros(n)
-        Bperpd = np.zeros(n)
-        Bperpphin = np.zeros(n)
-        Bperpphie = np.zeros(n)
-        Bperpphid = np.zeros(n)
-        Bperpresn = np.zeros(n)
-        Bperprese = np.zeros(n)
-        Bperpresd = np.zeros(n)
-        Bx = np.zeros(n)
-        By = np.zeros(n)
-        Bz = np.zeros(n)
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bn[p], Be[p], Bd[p], \
-                Bparan[p], Bparae[p], Bparad[p], \
-                Bperpn[p], Bperpe[p], Bperpd[p], \
-                Bperpphin[p], Bperpphie[p], Bperpphid[p], \
-                Bperpresn[p], Bperprese[p], Bperpresd[p], \
-                Bx[p], By[p], Bz[p], Btimes[p] = \
-                wrap_ms( p, times, deltahr, XGEO, info ) 
-
     # Create dataframe from results and save to disk
     if deltahr is None:
         dtimes = [datetime(*time) for time in times]

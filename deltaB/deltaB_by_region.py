@@ -23,7 +23,7 @@ import logging
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-from deltaB import convert_BATSRUS_to_dataframe, \
+from deltaB import convert_mhd_to_dataframe, \
     create_deltaB_biotsavart_dataframe, \
     create_deltaB_spherical_dataframe, \
     create_deltaB_biotsavart_spherical_dataframe, \

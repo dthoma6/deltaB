@@ -14,7 +14,7 @@ from spacepy.time import Ticktock
 
 from deltaB import calc_ms_b_paraperp, \
     calc_gap_b, calc_gap_b_rim, calc_iono_b, \
-    convert_BATSRUS_to_dataframe, \
+    convert_mhd_to_dataframe, \
     date_timeISO, create_directory, \
     plotargs_multiy, plot_NxM_multiy, \
     SMtoGSM
@@ -73,8 +73,8 @@ def loop_2D_ms(XSM, info, reduce, deltahr=None, maxcores=20):
     
         logging.info(f'Calculate magnetosphere dB for 2D... {base}')
     
-        # Read in the BATSRUS file 
-        df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+        # Read in the MHD file 
+        df = convert_mhd_to_dataframe(filepath, info['rCurrents'])
     
         # Record time and index for plots
         if deltahr is None:
@@ -109,34 +109,18 @@ def loop_2D_ms(XSM, info, reduce, deltahr=None, maxcores=20):
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XSM, info ) 
-                                   for p in range(len(times)))
-        
-        Bms, Bms_parallel, Bms_perp, Bms_perpphi, Bms_perpphires, Btimes = zip(*results)
-        
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bms = [None] * n
-        Bms_parallel = [None] * n
-        Bms_perp = [None] * n
-        Bms_perpphi = [None] * n
-        Bms_perpphires = [None] * n
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bms[p], Bms_parallel[p], Bms_perp[p], Bms_perpphi[p], \
-                Bms_perpphires[p], Btimes[p] =  wrap_ms( p, times, deltahr, XSM, info ) 
-
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XSM, info ) 
+                               for p in range(len(times)))
+    
+    Bms, Bms_parallel, Bms_perp, Bms_perpphi, Bms_perpphires, Btimes = zip(*results)
+ 
     # Create dataframe from results and save to disk
     if deltahr is None:
         dtimes = [datetime(*time) for time in times]
@@ -201,8 +185,8 @@ def loop_2D_ms_point(point, info, reduce, deltahr=None, maxcores=20 ):
 
         logging.info(f'Calculate magnetosphere dB for 2D... {base}')
 
-        # Read in the BATSRUS file 
-        df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+        # Read in the MHD file 
+        df = convert_mhd_to_dataframe(filepath, info['rCurrents'])
 
         # Record time and index for plots
         if deltahr is None:
@@ -241,7 +225,6 @@ def loop_2D_ms_point(point, info, reduce, deltahr=None, maxcores=20 ):
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # Get the magnetometer location using list in magnetopost
     from magnetopost.config import defined_magnetometers
@@ -251,30 +234,15 @@ def loop_2D_ms_point(point, info, reduce, deltahr=None, maxcores=20 ):
     XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
 
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
-                                   for p in range(len(times)))
-        
-        Bms, Bms_parallel, Bms_perp, Bms_perpphi, Bms_perpphires, Btimes = zip(*results)
-        
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bms = [None] * n
-        Bms_parallel = [None] * n
-        Bms_perp = [None] * n
-        Bms_perpphi = [None] * n
-        Bms_perpphires = [None] * n
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bms[p], Bms_parallel[p], Bms_perp[p], Bms_perpphi[p], \
-                Bms_perpphires[p], Btimes[p] =  wrap_ms( p, times, deltahr, XGEO, info ) 
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
+                               for p in range(len(times)))
+    
+    Bms, Bms_parallel, Bms_perp, Bms_perpphi, Bms_perpphires, Btimes = zip(*results)
 
     # Create dataframe from results and save to disk
     if deltahr is None:
@@ -446,51 +414,19 @@ def loop_2D_gap_iono(XSM, info, reduce, nTheta=180, nPhi=180, nR=800, deltahr=No
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_gap_iono)( p, times, deltahr, \
-                                                    XSM, info, nTheta, nPhi, nR, useRIM )
-                                   for p in range(len(times)))
-        
-        Bgap, Beg, Bdg, Bxg, Byg, Bzg, Bpedersen, Bep, Bdp, Bxp, Byp, Bzp, \
-            Bhall, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
-
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bgap = [None] * n
-        Beg = [None] * n
-        Bdg = [None] * n
-        Bxg = [None] * n
-        Byg = [None] * n
-        Bzg = [None] * n
-        Bpedersen = [None] * n
-        Bep = [None] * n
-        Bdp = [None] * n
-        Bxp = [None] * n
-        Byp = [None] * n
-        Bzp = [None] * n
-        Bhall = [None] * n
-        Beh = [None] * n
-        Bdh = [None] * n
-        Bxh = [None] * n
-        Byh = [None] * n
-        Bzh = [None] * n
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bgap[p], Beg[p], Bdg[p], Bxg[p], Byg[p], Bzg[p], Bpedersen[p], \
-                Bep[p], Bdp[p], Bxp[p], Byp[p], Bzp[p], \
-                Bhall[p], Beh[p], Bdh[p], Bxh[p], Byh[p], Bzh[p], Btimes[p] = \
-                wrap_gap_iono( p, times, deltahr, XSM, info, nTheta, nPhi, nR, useRIM )
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_gap_iono)( p, times, deltahr, \
+                                                XSM, info, nTheta, nPhi, nR, useRIM )
+                               for p in range(len(times)))
+    
+    Bgap, Beg, Bdg, Bxg, Byg, Bzg, Bpedersen, Bep, Bdp, Bxp, Byp, Bzp, \
+        Bhall, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
 
     # Create dataframe from results and save to disk
     if deltahr is None:
@@ -619,7 +555,6 @@ def loop_2D_gap_iono_point(point, info, reduce, nTheta=180, nPhi=180, nR=800,
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # Get the magnetometer location using list in magnetopost
     from magnetopost.config import defined_magnetometers
@@ -630,49 +565,18 @@ def loop_2D_gap_iono_point(point, info, reduce, nTheta=180, nPhi=180, nR=800,
     XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
 
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_gap_iono)( p, times, deltahr, \
-                                                    XGEO, info, nTheta, nPhi, nR, useRIM )
-                                   for p in range(len(times)))
-        
-        Bgap, Beg, Bdg, Bxg, Byg, Bzg, Bpedersen, Bep, Bdp, Bxp, Byp, Bzp, \
-            Bhall, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
-
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bgap = [None] * n
-        Beg = [None] * n
-        Bdg = [None] * n
-        Bxg = [None] * n
-        Byg = [None] * n
-        Bzg = [None] * n
-        Bpedersen = [None] * n
-        Bep = [None] * n
-        Bdp = [None] * n
-        Bxp = [None] * n
-        Byp = [None] * n
-        Bzp = [None] * n
-        Bhall = [None] * n
-        Beh = [None] * n
-        Bdh = [None] * n
-        Bxh = [None] * n
-        Byh = [None] * n
-        Bzh = [None] * n
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bgap[p], Beg[p], Bdg[p], Bxg[p], Byg[p], Bzg[p], Bpedersen[p], \
-                Bep[p], Bdp[p], Bxp[p], Byp[p], Bzp[p], \
-                Bhall[p], Beh[p], Bdh[p], Bxh[p], Byh[p], Bzh[p], Btimes[p] = \
-                wrap_gap_iono( p, times, deltahr, XGEO, info, nTheta, nPhi, nR, useRIM )
-                
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_gap_iono)( p, times, deltahr, \
+                                                XGEO, info, nTheta, nPhi, nR, useRIM )
+                               for p in range(len(times)))
+    
+    Bgap, Beg, Bdg, Bxg, Byg, Bzg, Bpedersen, Bep, Bdp, Bxp, Byp, Bzp, \
+        Bhall, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
+            
     # Create dataframe from results and save to disk
     if deltahr is None:
         dtimes = [datetime(*time) for time in times]

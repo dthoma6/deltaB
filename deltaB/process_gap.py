@@ -859,33 +859,16 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
         XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
     
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_gap)( p, times, deltahr, \
-                                   XGEO, info, nTheta, nPhi, nR, useRIM )
-                                   for p in range(len(times)))
-        
-        Bn, Be, Bd, Bx, By, Bz, Btimes = zip(*results)
-
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bn = np.zeros(n)
-        Be = np.zeros(n)
-        Bd = np.zeros(n)
-        Bx = np.zeros(n)
-        By = np.zeros(n)
-        Bz = np.zeros(n)
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bn[p], Be[p], Bd[p], Bx[p], By[p], Bz[p], Btimes[p] = \
-                wrap_gap( p, times, deltahr, XGEO, info, nTheta, nPhi, nR, useRIM )
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_gap)( p, times, deltahr, \
+                               XGEO, info, nTheta, nPhi, nR, useRIM )
+                               for p in range(len(times)))
+    
+    Bn, Be, Bd, Bx, By, Bz, Btimes = zip(*results)
 
     # Create dataframe from results and save to disk
     if deltahr is None:

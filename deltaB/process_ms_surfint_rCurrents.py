@@ -6,8 +6,8 @@ Created on Mon Mar 11 13:14:44 2024
 @author: Dean Thomas
 """
 
-# from numba import jit
-import swmfio
+# from numba import njit
+# import swmfio
 import logging
 import numpy as np
 import pandas as pd
@@ -17,120 +17,12 @@ import os.path
 
 from deltaB.util import create_directory, date_timeISO
 from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
-from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
+from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
+from deltaB.BATSRUS_surfint_rCurrents_b import BATSRUS_surfint_rCurrents_b
+from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
+from deltaB.OpenGGCM_surfint_rCurrents_b import OpenGGCM_surfint_rCurrents_b
 
-# Set to True to use Kamodo linear interpolation (preferred)
-# Set False for swmfio interpolation
-KAMODO=True
-
-# @jit(nopython=True)
-def calc_ms_surfint_rCurrents_b_sub(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
-    """ Subroutine for calc_ms_surfint_rCurrents_b that allows numba accelleration.
-    It calculates total B field at point XGSM using data from a BATSRUS file 
-    and the Helmholtz decompostion theorem to replace Biot-Savart volume integral 
-    with a surface integral at rCurrents.
-    
-    Inputs:
-        XGSM = GSM (cartesian) position where magnetic field will be measured.
-        
-        timeISO = ISO time for data in BATSRUS file
-              
-        batsrus = BATSRUS data from swmfio
-        
-        rCurrents = range from earth center below which results are not valid
-            measured in Re units.  Defines start of gap region.
-            
-        nTheta, nPhi = number of steps in numerical integration over theta
-            and phi in the surface integral over a sphere at rCurrents
-                
-    Outputs:
-        B = total B due to magnetospheric currents (in GSM coordinates)
-        
-        Birr, Bsol = irrotational and solenoidal components of B (GSM coordinates)
-    """
-
-    # Set up some variables used below
-    B      = np.zeros(3)
-    r      = np.zeros(3)
-    Bpt    = np.zeros(3)
-    x      = np.zeros(3)
-    xhat   = np.zeros(3)
-    Birr   = np.zeros(3)
-    Bsol   = np.zeros(3)
-    
-    # Create Kamodo BATSRUS interpolators, see BATSRUS_interpolator.py
-    if KAMODO:
-        batsrus_interp = BATSRUS_interpolator(batsrus)
-        batsrus_interp.register_variable( 'bx' )
-        batsrus_interp.register_variable( 'by' )
-        batsrus_interp.register_variable( 'bz' )
-    
-    # Start the loops for surface numerical integration. We use two 
-    # loops, theta and phi, which cover the inner boundary of the
-    # magnetosphere (a sphere at rCurrents).
-    
-    # theta increments and phi increments (GSM coordinates)
-    dTheta = np.pi/nTheta
-    dPhi = 2. * np.pi/nPhi
-
-    # theta loop, theta pi/2 -> -pi/2
-    for i in range(nTheta):  
-        # Find theta at the middle of each differential surface element
-        # from theta - dTheta/2 to theta + dTheta/2
-        theta = np.pi/2 - (i + 0.5) * dTheta
-
-        # Differential surface area on sphere at rCurrents
-        dS = rCurrents**2 * np.cos( theta ) * dTheta * dPhi
-        
-        # phi loop, phi 0 -> 2pi 
-        for j in range(nPhi): 
-            # Find phi at the middle of each differential surface element
-            # from phi - dPhi/2 to phi + dPhi/2
-            phi = (j + 0.5) * dPhi
-        
-            # Normal unit vector on sphere at rCurrents (GSM coordinates)
-            # Unit vector points radially for gap region
-            xhat[0] = np.cos( theta ) * np.cos( phi )
-            xhat[1] = np.cos( theta ) * np.sin( phi )
-            xhat[2] = np.sin( theta )
-          
-            # Point on sphere at rCurrents (GSM coordinates)
-            x = xhat * rCurrents
-            
-            # Get B field at point x (in GSM coordinates)
-            if KAMODO:
-                # Kamodo linear interpolation (Preferred)
-                Bpt[0] = batsrus_interp.interp(x, 'bx')[0]
-                Bpt[1] = batsrus_interp.interp(x, 'by')[0]
-                Bpt[2] = batsrus_interp.interp(x, 'bz')[0]
-            else:
-                # swmfio interpolation, which is simplistic
-                Bpt[0] = batsrus.interpolate(x, 'bx')
-                Bpt[1] = batsrus.interpolate(x, 'by')
-                Bpt[2] = batsrus.interpolate(x, 'bz')
-
-            # Distance to point XGSM where we want to know the magnetic field
-            r = XGSM - x
-            rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
-            
-            ##########################################################
-            # Below we calculate the delta B in each differential surface 
-            # element in the integral.  We want the final result to be in nT.
-            # dB = 1/(4pi) B x r/r^3 dS
-            #    = 1/(4pi) [nT] [Re] / [Re^3] * [Re^2]
-            #    = 1/(4pi) with distances in Re, B in nT
-            ##########################################################
-    
-            # Irrotational and solenodial contributions from Helmholtz decomposition
-            Birr[:] = Birr[:] - np.dot(Bpt,xhat) * r / rmag**3 * dS / 4 / np.pi
-            Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xhat) ) / rmag**3 * dS / 4 / np.pi
-                             
-    # Add irrotational and solenoidal contributions to get total B contribution
-    B[:] = Birr[:] + Bsol[:]
-    
-    return B, Birr, Bsol
-  
-def calc_ms_surfint_rCurrents_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, nPhi=180):
+def calc_ms_surfint_rCurrents_b(XGSM, timeISO, mhd, nTheta=180, nPhi=180):
     """Process data in BATSRUS file to calculate the delta B at point XGSM.
     Helmholtz decomposition theorem used to convert Biot-Savart Law to a 
     surface integral at rCurrents used for calculation.  We will integrate
@@ -140,13 +32,10 @@ def calc_ms_surfint_rCurrents_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, n
     Inputs:
         XGSM = GSM (cartesian) position where magnetic field will be measured.
         
-        batsrus = BATSRUS data from swmfio
+        mhd = MHD data from BATSRUS, OpenGGCM, etc.
         
-        timeISO = ISO time for data in BATSRUS file
+        timeISO = ISO time for data in MHD file
               
-        rCurrents = range from earth center below which results are not valid
-            measured in Re units.  Defines start of gap region.
-            
         nTheta, nPhi = number of steps in numerical integration over theta
             and phi
 
@@ -169,8 +58,12 @@ def calc_ms_surfint_rCurrents_b(XGSM, timeISO, batsrus, rCurrents, nTheta=180, n
     BsolGSM = np.zeros(3)
 
     # Do surface integral
-    BGSM, BirrGSM, BsolGSM = calc_ms_surfint_rCurrents_b_sub(XGSM, timeISO, batsrus, 
-                                                   rCurrents, nTheta, nPhi)
+    if mhd.model == 'BATSRUS':
+        BGSM, BirrGSM, BsolGSM = BATSRUS_surfint_rCurrents_b(XGSM, timeISO, mhd, 
+                                                         nTheta, nPhi)
+    elif mhd.model == 'OpenGGCM':
+        BGSM, BirrGSM, BsolGSM = OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, mhd, 
+                                                          nTheta, nPhi)
 
     # Convert to SM coordinates        
     XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
@@ -209,10 +102,10 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
     """Use surface integral at rCurrents from Helmholtz Decomposition Theorem 
     in calc_ms_surfint_rCurrents_b to determine the magnetic field (in 
     North-East-Down coordinates) at magnetometer point.  Surface integral uses 
-    magnetosphere current density as defined in BATSRUS files
+    magnetosphere current density as defined in MHD files
 
     Inputs:
-        info = information on BATSRUS data, see example immediately above
+        info = information on MHD data, see example immediately above
         
         point = string identifying magnetometer location.  The actual location
             is pulled from a list
@@ -236,10 +129,10 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
     """
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_ms( i, times, deltahr, XGEO, info ):
+    def wrap_ms( i, times, deltahr, XGEO, info, nTheta, nPhi ):
         time = times[i]
         
-        # We need the filepath for BATSRUS file
+        # We need the filepath for MHD file
         filepath = info['files']['magnetosphere'][times[i]]
         base = os.path.basename(filepath)
 
@@ -260,20 +153,26 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
             Btime = h + m/60
         
         # Get the magnetometer position, X, in GSM coordinates for compatibility with
-        # BATSRUS data
+        # MHD data
         XGEO.ticks = Ticktock([timeISO], 'ISO')
         XGSM = XGEO.convert( 'GSM', 'car' )
         X = XGSM.data[0]
     
-        # Read in the BATSRUS file 
-        batsrus = swmfio.read_batsrus(filepath)
-    
+        # Read in the MHD file 
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+     
         # Use Helmholtz decomposition surface integral to calculate magnetic 
         # field, B, at magnetometer position X (GSM).  Store the results, which 
         # are in SM coordinates, and the time
         Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
-                Bx, By, Bz = calc_ms_surfint_rCurrents_b(X, timeISO, batsrus, 
-                                               info['rCurrents'], nTheta, nPhi)
+                Bx, By, Bz = calc_ms_surfint_rCurrents_b(X, timeISO, mhd, 
+                                               nTheta, nPhi)
         
         return Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
                 Bx, By, Bz, Btime
@@ -291,7 +190,6 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # We need the magnetometer coordinates at point.  Either look it up
     # in the magnetopost list or in deltaB list
@@ -308,43 +206,18 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
         XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
         
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
-                                   for p in range(len(times)))
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, 
+                                                          XGEO, info, nTheta, nPhi ) 
+                               for p in range(len(times)))
+    
+    Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
+            Bx, By, Bz, Btimes = zip(*results)
         
-        Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
-                Bx, By, Bz, Btimes = zip(*results)
-        
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bn = np.zeros(n)
-        Be = np.zeros(n)
-        Bd = np.zeros(n)
-        Birrn = np.zeros(n)
-        Birre = np.zeros(n)
-        Birrd = np.zeros(n)
-        Bsoln = np.zeros(n)
-        Bsole = np.zeros(n)
-        Bsold = np.zeros(n)
-        Bx = np.zeros(n)
-        By = np.zeros(n)
-        Bz = np.zeros(n)
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bn[p], Be[p], Bd[p], \
-                Birrn[p], Birre[p], Birrd[p], \
-                Bsoln[p], Bsole[p], Bsold[p], \
-                Bx[p], By[p], Bz[p], Btimes[p] = \
-                wrap_ms( p, times, deltahr, XGEO, info ) 
-
     # Create dataframe from results and save to disk
     if deltahr is None:
         dtimes = [datetime(*time) for time in times]
@@ -365,9 +238,6 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
                 r'Month': dtimes_m, r'Day': dtimes_d,
                 r'Hour': dtimes_hh, r'Minute': dtimes_mm}, index=dtimes)
     create_directory(info['dir_derived'], 'timeseries')
-    if KAMODO:
-        pklname = 'dB_si_msph_rCurrents-' + point + '.pkl'
-    else:
-        pklname = 'dB_si_msph_swmfio_rCurrents-' + point + '.pkl'
+    pklname = 'dB_si_msph_rCurrents-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     

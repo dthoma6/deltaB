@@ -24,7 +24,7 @@ class BATSRUS_interpolator():
         """Initialize batsrus_interpolator class
             
         Inputs:
-            batsrus = class swmfio reading of BATSRUS file, contains SWMF results
+            batsrus = BATSRUS_dataframe reading of BATSRUS file, contains SWMF results
                  
         Outputs:
             None
@@ -150,7 +150,7 @@ class BATSRUS_interpolator():
         return (self.octree)
 
     def register_variable(self, varname):
-        '''Creates interpolator for the indicated dataset.'''
+        '''Creates interpolator for the varname dataset.'''
 
         # logging.info('Initializing batsrus interpolator variable') 
              
@@ -171,7 +171,8 @@ class BATSRUS_interpolator():
         return
 
     # assign custom interpolator: Lutz Rastaetter 2021
-    def interp(self, xvec, varname):
+    def interpolator(self, xvec, varname):
+        '''Interpolator for the varname dataset.'''
         if not isinstance(xvec, np.ndarray):
             xvec = np.array(xvec)
 

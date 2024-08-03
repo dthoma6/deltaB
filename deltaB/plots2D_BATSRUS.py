@@ -11,8 +11,8 @@ import numpy as np
 
 from deltaB.plotting import plotargs, plotargs_multiy, \
     plot_NxM, plot_NxM_multiy, pointcloud
-from deltaB.BATSRUS_dataframe import convert_BATSRUS_to_dataframe
-from ms_dataframe import create_deltaB_spherical_dataframe, \
+from deltaB.ms_dataframe import convert_mhd_to_dataframe
+from deltaB.ms_dataframe import create_deltaB_spherical_dataframe, \
     create_deltaB_biotsavart_spherical_dataframe, \
     create_deltaB_biotsavart_dataframe, \
     create_cumulative_sum_dataframe, \
@@ -655,7 +655,7 @@ def process_BATSRUS(XGSM, filepath, time, info, limits):
     title = str(time[0]) + '-' + str(time[1]).zfill(2) + '-' + str(time[2]).zfill(2) + 'T' + \
             str(time[3]).zfill(2) +':' + str(time[4]).zfill(2) + ':' + str(time[5]).zfill(2)
 
-    df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+    df = convert_mhd_to_dataframe(filepath, info['rCurrents'])
     df = create_deltaB_spherical_dataframe(df)
     df = create_deltaB_biotsavart_dataframe(df, XGSM)
     df = create_deltaB_biotsavart_spherical_dataframe(df, XGSM)
@@ -863,7 +863,7 @@ def process_BATSRUS_with_cuts(XGSM, filepath, time, info, limits, cuts, cut_sele
     title1 = str(time[0]) + '-' + str(time[1]).zfill(2) + '-' + str(time[2]).zfill(2) + 'T' + \
             str(time[3]).zfill(2) +':' + str(time[4]).zfill(2) + ':' + str(time[5]).zfill(2)
 
-    df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+    df1 = convert_mhd_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
     df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)
@@ -918,7 +918,7 @@ def process_BATSRUS_3d_cut_vtk(XGSM, filepath, time, info, limits, cuts):
     title1 = str(time[0]) + '-' + str(time[1]).zfill(2) + '-' + str(time[2]).zfill(2) + 'T' + \
             str(time[3]).zfill(2) +':' + str(time[4]).zfill(2) + ':' + str(time[5]).zfill(2)
 
-    df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+    df1 = convert_mhd_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
     df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)
@@ -983,7 +983,7 @@ def process_BATSRUS_3d_cut_plots(XGSM, filepath, time, info, limits, cuts):
     title1 = str(time[0]) + '-' + str(time[1]).zfill(2) + '-' + str(time[2]).zfill(2) + 'T' + \
             str(time[3]).zfill(2) +':' + str(time[4]).zfill(2) + ':' + str(time[5]).zfill(2)
 
-    df1 = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+    df1 = convert_mhd_to_dataframe(filepath, info['rCurrents'])
     df1 = create_deltaB_spherical_dataframe(df1)
     df1 = create_deltaB_biotsavart_dataframe(df1, XGSM)
     df1 = create_deltaB_biotsavart_spherical_dataframe(df1, XGSM)

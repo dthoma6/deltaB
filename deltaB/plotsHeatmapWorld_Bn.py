@@ -24,7 +24,7 @@ import swmfio
 
 from deltaB import find_regions, calc_ms_b_paraperp, calc_ms_b_region,\
     calc_iono_b, calc_gap_b, calc_gap_b_rim, \
-    convert_BATSRUS_to_dataframe, \
+    convert_mhd_to_dataframe, \
     date_timeISO, create_directory
 
 # Colormap used in heatmaps below
@@ -222,8 +222,8 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
     
         logging.info(f'Calculate magnetosphere dB heatmap for... {basename}')
 
-        # Read in the BATSRUS file 
-        df = convert_BATSRUS_to_dataframe(filepath, info['rCurrents'])
+        # Read in the MHD file 
+        df = convert_mhd_to_dataframe(filepath, info['rCurrents'])
         
         # Get the ISO time
         if deltahr is None:
@@ -294,16 +294,12 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
         assert( type(deltahr) == float )
  
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_ms)(p, times, deltahr) for p in range(len(times)))
-    else:
-        for p in range(len(times)):
-            wrap_ms(p, times, deltahr)
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_ms)(p, times, deltahr) for p in range(len(times)))
 
     return
 
@@ -401,8 +397,8 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs,
             
         logging.info('Calculating delta B contributions...')
 
-        # Convert BATSRUS data to dataframes for each region
-        df = convert_BATSRUS_to_dataframe(batsrus, info['rCurrents'], region=region)
+        # Convert MHD data to dataframes for each region
+        df = convert_mhd_to_dataframe(batsrus, info['rCurrents'], region=region)
         
         # Loop through the lat and long points on the earth's surface.
         # We will determine the B field at each pont
@@ -468,23 +464,16 @@ def loop_heatmapworld_ms_by_region(info, times, nlat, nlong, deltamp, deltabs,
         + ',' + str(nearradius) + ']'        
     
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_by_region)(p, times, deltahr,\
-                                    deltamp, deltabs, \
-                                    thicknessns, nearradius, \
-                                    mpfiles, bsfiles, \
-                                    nsfiles, params) for p in range(len(times)))
-    else:
-        for p in range(len(times)):
-            wrap_by_region(p, times, deltahr,\
-                        deltamp, deltabs, \
-                        thicknessns, nearradius, \
-                        mpfiles, bsfiles, nsfiles, params)
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_by_region)(p, times, deltahr,\
+                                deltamp, deltabs, \
+                                thicknessns, nearradius, \
+                                mpfiles, bsfiles, \
+                                nsfiles, params) for p in range(len(times)))
     return
 
 def plot_heatmapworld_ms_total( info, times, vmin, vmax, nlat, nlong, csys='GEO', 
@@ -967,17 +956,13 @@ def loop_heatmapworld_iono(info, times, nlat, nlong, deltahr=None, maxcores=20):
         assert( type(deltahr) == float )
  
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_iono)(p, times, deltahr) \
-                                   for p in range(len(times)))
-    else:
-        for p in range(len(times)):
-            wrap_iono(p, times, deltahr)
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_iono)(p, times, deltahr) \
+                               for p in range(len(times)))
 
     return
 
@@ -1163,17 +1148,13 @@ def loop_heatmapworld_gap(info, times, nlat, nlong, nTheta=30, nPhi=30, nR=30,
         assert( type(deltahr) == float )
  
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        Parallel(n_jobs=num_cores)(delayed(wrap_gap)(p, times, deltahr, nTheta, nPhi, nR) 
-                                   for p in range(len(times)))
-    else:
-        for p in range(len(times)):
-            wrap_gap(p, times, deltahr, nTheta, nPhi, nR)
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_gap)(p, times, deltahr, nTheta, nPhi, nR) 
+                               for p in range(len(times)))
 
     return
 

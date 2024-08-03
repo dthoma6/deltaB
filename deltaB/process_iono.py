@@ -317,40 +317,15 @@ def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False
         XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
    
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_iono)( p, times, deltahr, XGEO, info ) 
-                                   for p in range(len(times)))
-        
-        Bnp, Bep, Bdp, Bxp, Byp, Bzp, Bnh, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
-
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bnp = np.zeros(n)
-        Bep = np.zeros(n)
-        Bdp = np.zeros(n)
-        Bxp = np.zeros(n)
-        Byp = np.zeros(n)
-        Bzp = np.zeros(n)
-        
-        Bnh = np.zeros(n)
-        Beh = np.zeros(n)
-        Bdh = np.zeros(n)
-        Bxh = np.zeros(n)
-        Byh = np.zeros(n)
-        Bzh = np.zeros(n)
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bnp[p], Bep[p], Bdp[p], Bxp[p], Byp[p], Bzp[p], Bnh[p], Beh[p], \
-                Bdh[p], Bxh[p], Byh[p], Bzh[p], Btimes[p] = \
-                wrap_iono( p, times, deltahr, XGEO, info ) 
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_iono)( p, times, deltahr, XGEO, info ) 
+                               for p in range(len(times)))
+    
+    Bnp, Bep, Bdp, Bxp, Byp, Bzp, Bnh, Beh, Bdh, Bxh, Byh, Bzh, Btimes = zip(*results)
 
     # Create dataframe from results and save to disk
     if deltahr is None:

@@ -6,8 +6,7 @@ Created on Mon Mar 11 13:14:44 2024
 @author: Dean Thomas
 """
 
-# from numba import jit
-import swmfio
+# from numba import njit
 import logging
 import numpy as np
 import pandas as pd
@@ -17,192 +16,23 @@ import os.path
 
 from deltaB.util import create_directory, date_timeISO
 from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
-from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
+from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
+from deltaB.BATSRUS_surfint_outer_b import BATSRUS_surfint_outer_b
+from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
+from deltaB.OpenGGCM_surfint_outer_b import OpenGGCM_surfint_outer_b
 
-# Set to True to use Kamodo linear interpolation (preferred)
-# Set False for swmfio interpolation
-KAMODO=True
-
-# @jit(nopython=True)
-def calc_ms_surfint_outer_b_sub(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
-    """ Subroutine for calc_ms_surfint_b that allows numba accelleration.  It  
-    calculates total B field at point XGSM using data from a BATSRUS file and the
-    Helmholtz decompostion theorem to replace Biot-Savart volume integral with  
-    a surface integral on outer boundary of BATSRUS grid.
-    
-    Inputs:
-        XGSM = GSM (cartesian) position where magnetic field will be measured.
-        
-        timeISO = ISO time for data in BATSRUS file
-              
-        batsrus = BATSRUS data from swmfio
-        
-        nX, nY, nZ = number of steps in numerical integration over outer faces,
-            e.g., nX*nY points on outer surfaces parallel to X-Y plane
-                
-    Outputs:
-        B = total B due to magnetospheric currents (in GSM coordinates)
-        
-        Birr, Bsol = irrotational and solenoidal components of B (GSM coordinates)
-    """
-
-    # Set up some variables used below
-    B      = np.zeros(3)
-    Bpt    = np.zeros(3)
-    Birr   = np.zeros(3)
-    Bsol   = np.zeros(3)
-    
-    # Create Kamodo BATSRUS interpolators, see BATSRUS_interpolator.py
-    if KAMODO:
-        batsrus_interp = BATSRUS_interpolator(batsrus)
-        batsrus_interp.register_variable( 'bx' )
-        batsrus_interp.register_variable( 'by' )
-        batsrus_interp.register_variable( 'bz' )
-    
-    # Local routine that is used in loops below to calculate contribution
-    # from each surface element.
-    def calc( xx, xxhat, dS ):
-        """ xx = point in space (GSM)
-            xxhat = unit vector for surface
-            dS = size of surface element
-        """
-        # Get B field at point x (in GSM coordinates)
-        if KAMODO:
-            # Kamodo linear interpolation (Preferred)
-            Bpt[0] = batsrus_interp.interp(xx, 'bx')[0]
-            Bpt[1] = batsrus_interp.interp(xx, 'by')[0]
-            Bpt[2] = batsrus_interp.interp(xx, 'bz')[0]
-        else:
-            # swmfio interpolation, which is simplistic
-            Bpt[0] = batsrus.interpolate(xx, 'bx')
-            Bpt[1] = batsrus.interpolate(xx, 'by')
-            Bpt[2] = batsrus.interpolate(xx, 'bz')
-            
-        if( np.isnan(Bpt[0]) or np.isnan(Bpt[1]) or np.isnan(Bpt[2]) ):
-            print(xx, xxhat, Bpt)
-            assert(False)
-                    
-        # Distance to point XGSM where we want to know the magnetic field
-        r = XGSM - xx
-        rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
-        
-        ##########################################################
-        # Below we calculate the delta B in each differential surface 
-        # element in the integral.  We want the final result to be in nT.
-        # dB = 1/(4pi) B x r/r^3 dS
-        #    = 1/(4pi) [nT] [Re] / [Re^3] * [Re^2]
-        #    = 1/(4pi) with distances in Re, B in nT
-        ##########################################################
-    
-        # Irrotational and solenodial contributions from Helmholtz decomposition
-        Birr[:] = Birr[:] - np.dot(Bpt,xxhat) * r / rmag**3 * dS / 4 / np.pi
-        Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xxhat) ) / rmag**3 * dS / 4 / np.pi
-        return
-
-    # Start the loops for surface numerical integration.  We will cover the 
-    # six faces of the rectangular prism representing the outer boundary
-    # of the BATSRUS grid
-    
-    # Extract data from BATSRUS
-    var_dict = dict(batsrus.varidx)
-    
-    minX = np.min(batsrus.data_arr[:, var_dict['x']][:])
-    maxX = np.max(batsrus.data_arr[:, var_dict['x']][:])
-    minY = np.min(batsrus.data_arr[:, var_dict['y']][:])
-    maxY = np.max(batsrus.data_arr[:, var_dict['y']][:])
-    minZ = np.min(batsrus.data_arr[:, var_dict['z']][:])
-    maxZ = np.max(batsrus.data_arr[:, var_dict['z']][:])
-    
-    # dX, dY, and dZ increments (GSM coordinates)
-    dX = (maxX - minX)/nX
-    dY = (maxY - minY)/nY
-    dZ = (maxZ - minZ)/nZ
-
-    # Differential surface area on each plane
-    dSxy = dX*dY
-    dSxz = dX*dZ
-    dSyz = dY*dZ
-
-    # loops for upper and lower faces (parallel to x-y plane)
-    for i in range(nX):  
-        # Find x at the middle of each differential surface element
-        # from x - dX/2 to x + dX/2
-        xloop = minX + (i + 0.5) * dX
-        
-        for j in range(nY):
-            # Find y at the middle of each differential surface element
-            # from y - dY/2 to y + dY/2
-            yloop = minY + (j + 0.5) * dY
-            
-            # top face
-            x = np.array([xloop, yloop, maxZ])
-            xhat = np.array([0.,0.,1.])
-            calc( x, xhat, dSxy )
-
-            # bottom face
-            x = np.array([xloop, yloop, minZ])
-            xhat = np.array([0.,0.,-1.])
-            calc( x, xhat, dSxy )
-            
-    # loops for left and right faces (parallel to x-z plane)
-    for i in range(nX):  
-        # Find x at the middle of each differential surface element
-        # from x - dX/2 to x + dX/2
-        xloop = minX + (i + 0.5) * dX
-        
-        for j in range(nZ):
-            # Find z at the middle of each differential surface element
-            # from z - dZ/2 to z + dZ/2
-            zloop = minZ + (j + 0.5) * dZ
-            
-            # left face
-            x = np.array([xloop, maxY, zloop])
-            xhat = np.array([0.,1.,0.])
-            calc( x, xhat, dSxz )
-
-            # right face
-            x = np.array([xloop, minY, zloop])
-            xhat = np.array([0.,-1.,0.])
-            calc( x, xhat, dSxz )
-
-    # loops for front and back faces (parallel to y-z plane)
-    for i in range(nY):  
-        # Find y at the middle of each differential surface element
-        # from y - dY/2 to y + dY/2
-        yloop = minY + (i + 0.5) * dY
-        
-        for j in range(nZ):
-            # Find z at the middle of each differential surface element
-            # from z - dZ/2 to z + dZ/2
-            zloop = minZ + (j + 0.5) * dZ
-            
-            # front face
-            x = np.array([maxX, yloop, zloop])
-            xhat = np.array([1.,0.,0.])
-            calc( x, xhat, dSyz )
-            
-            # back face
-            x = np.array([minX, yloop, zloop])
-            xhat = np.array([-1.,0.,0.])
-            calc( x, xhat, dSyz )
-            
-    # Add irrotational and solenoidal contributions to get total B contribution
-    B[:] = Birr[:] + Bsol[:]
-    
-    return B, Birr, Bsol
-  
-def calc_ms_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
-    """Process data in BATSRUS file to calculate the delta B at point XGSM.
+def calc_ms_surfint_outer_b(XGSM, timeISO, mhd, nX=100, nY=100, nZ=100):
+    """Process data in MHD file to calculate the delta B at point XGSM.
     Helmholtz decomposition theorem used to convert Biot-Savart Law to a 
     surface integral used for calculation.  We will integrate across the outer
-    boundary of the BATSRUS grid.  
+    boundary of the MHD grid.  
     
     Inputs:
         XGSM = GSM (cartesian) position where magnetic field will be measured.
         
-        batsrus = BATSRUS data from swmfio
+        mhd = MHD data from BATSRUS, OpenGGCM, etc.
         
-        timeISO = ISO time for data in BATSRUS file
+        timeISO = ISO time for data in MHD file
               
         nX, nY, nZ = number of steps in numerical integration over outer faces,
             e.g., nX*nY points on outer surfaces parallel to X-Y plane
@@ -226,8 +56,13 @@ def calc_ms_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
     BsolGSM = np.zeros(3)
 
     # Do surface integral
-    BGSM, BirrGSM, BsolGSM = calc_ms_surfint_outer_b_sub(XGSM, timeISO, batsrus, 
-                                                   nX, nY, nZ)
+    if mhd.model == 'BATSRUS':
+        BGSM, BirrGSM, BsolGSM = BATSRUS_surfint_outer_b(XGSM, timeISO, mhd, 
+                                                         nX, nY, nZ)
+    elif mhd.model == 'OpenGGCM':
+        BGSM, BirrGSM, BsolGSM = OpenGGCM_surfint_outer_b(XGSM, timeISO, mhd, 
+                                                          nX, nY, nZ)
+   
     # Convert to SM coordinates        
     B = np.zeros(3)
     Birr = np.zeros(3)
@@ -250,7 +85,6 @@ def calc_ms_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
 # info = {
 #         "model": "SWMF",
 #         "run_name": "SWPC_SWMF_052811_2",
-#         "rCurrents": 4.0,
 #         "file_type": "cdf",
 #         "dir_run": os.path.join(data_dir, "SWPC_SWMF_052811_2"),
 #         "dir_plots": os.path.join(data_dir, "SWPC_SWMF_052811_2.plots"),
@@ -292,10 +126,10 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
     """
     # Wrapper function that contains the bulk of the routine, used
     # for parallel processing of the data
-    def wrap_ms( i, times, deltahr, XGEO, info ):
+    def wrap_ms( i, times, deltahr, XGEO, info, nX, nY, nZ ):
         time = times[i]
         
-        # We need the filepath for BATSRUS file
+        # We need the filepath for MHD file
         filepath = info['files']['magnetosphere'][times[i]]
         base = os.path.basename(filepath)
 
@@ -316,19 +150,25 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
             Btime = h + m/60
         
         # Get the magnetometer position, X, in GSM coordinates for compatibility with
-        # BATSRUS data
+        # MHD data
         XGEO.ticks = Ticktock([timeISO], 'ISO')
         XGSM = XGEO.convert( 'GSM', 'car' )
         X = XGSM.data[0]
     
-        # Read in the BATSRUS file 
-        batsrus = swmfio.read_batsrus(filepath)
-    
+        # Read in the MHD file 
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+ 
         # Use Helmholtz decomposition surface integral to calculate magnetic 
         # field, B, at magnetometer position X (GSM).  Store the results, which 
         # are in SM coordinates, and the time
         Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
-                Bx, By, Bz = calc_ms_surfint_outer_b(X, timeISO, batsrus, 
+                Bx, By, Bz = calc_ms_surfint_outer_b(X, timeISO, mhd, 
                                                nX, nY, nZ)
         
         return Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
@@ -341,13 +181,12 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
     if deltahr is not None:
         assert( type(deltahr) == float )
  
-    # Get times for BATSRUS files, if reduce is True we reduce the number of 
+    # Get times for MHD files, if reduce is True we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types    
     times = list(info['files']['magnetosphere'].keys())
     if reduce != None:
         assert isinstance( reduce, int )
         times = times[0:len(times):reduce]
-    n = len(times)
 
     # We need the magnetometer coordinates at point.  Either look it up
     # in the magnetopost list or in deltaB list
@@ -364,43 +203,18 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
         XGEO = coord.Coords(pointX.coords, pointX.csys, pointX.ctype, use_irbem=False)
         
     # Loop through the files using parallel processing
-    if maxcores > 1:
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        num_cores = min(num_cores, len(times), maxcores)
-        logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
-        results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, XGEO, info ) 
-                                   for p in range(len(times)))
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    results = Parallel(n_jobs=num_cores)(delayed(wrap_ms)( p, times, deltahr, 
+                                                          XGEO, info, nX, nY, nZ ) 
+                               for p in range(len(times)))
+    
+    Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
+            Bx, By, Bz, Btimes = zip(*results)
         
-        Bn, Be, Bd, Birrn, Birre, Birrd, Bsoln, Bsole, Bsold, \
-                Bx, By, Bz, Btimes = zip(*results)
-        
-    # Loop through files if no parallel processing
-    else:
-        # Prepare storage of variables
-        Bn = np.zeros(n)
-        Be = np.zeros(n)
-        Bd = np.zeros(n)
-        Birrn = np.zeros(n)
-        Birre = np.zeros(n)
-        Birrd = np.zeros(n)
-        Bsoln = np.zeros(n)
-        Bsole = np.zeros(n)
-        Bsold = np.zeros(n)
-        Bx = np.zeros(n)
-        By = np.zeros(n)
-        Bz = np.zeros(n)
-        
-        Btimes = [None] * n
-
-        for p in range(len(times)):
-            Bn[p], Be[p], Bd[p], \
-                Birrn[p], Birre[p], Birrd[p], \
-                Bsoln[p], Bsole[p], Bsold[p], \
-                Bx[p], By[p], Bz[p], Btimes[p] = \
-                wrap_ms( p, times, deltahr, XGEO, info ) 
-
     # Create dataframe from results and save to disk
     if deltahr is None:
         dtimes = [datetime(*time) for time in times]
@@ -421,9 +235,6 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
                 r'Month': dtimes_m, r'Day': dtimes_d,
                 r'Hour': dtimes_hh, r'Minute': dtimes_mm}, index=dtimes)
     create_directory(info['dir_derived'], 'timeseries')
-    if KAMODO:
-        pklname = 'dB_si_msph_outer-' + point + '.pkl'
-    else:
-        pklname = 'dB_si_msph_swmfio_outer-' + point + '.pkl'
+    pklname = 'dB_si_msph_outer-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     

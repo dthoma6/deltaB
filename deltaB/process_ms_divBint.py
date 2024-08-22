@@ -20,6 +20,8 @@ from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
 from deltaB.BATSRUS_divBint_b import BATSRUS_divBint_b
 from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
 from deltaB.OpenGGCM_divBint_b import OpenGGCM_divBint_b
+from deltaB.LFM_dataframe import get_lfm_data_from_cdf
+from deltaB.LFM_divBint_b import LFM_divBint_b
   
 def calc_ms_divBint_b(XGSM, timeISO, mhd):
     """Process data in MHD file to calculate the delta B at point XGSM.
@@ -55,6 +57,8 @@ def calc_ms_divBint_b(XGSM, timeISO, mhd):
         BGSM = BATSRUS_divBint_b(XGSM, timeISO, mhd)
     elif mhd.model == 'OpenGGCM':
         BGSM = OpenGGCM_divBint_b(XGSM, timeISO, mhd)
+    elif mhd.model == 'LFM':
+        BGSM = LFM_divBint_b(XGSM, timeISO, mhd)
 
     # Convert to SM coordinates        
     B = np.zeros(3)
@@ -143,6 +147,8 @@ def loop_ms_divBint_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist
             mhd = get_batsrus_data_from_cdf(filepath)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
         else:
             import sys
             sys.exit(f'Unknown model type: {info["model"]}')

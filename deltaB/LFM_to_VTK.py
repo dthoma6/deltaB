@@ -59,8 +59,8 @@ class LFM_to_VTK(MHD_to_VTK):
         nI = self.mhd.nI
         nJ = self.mhd.nJ
         nK = self.mhd.nK
-        # npts = (nI+1) * (nJ+1) * (nK+1)      # each cell has a pt at the center
-        nverts = (nI+2) * (nJ+2) * (nK+2)    # num of cell vertices
+        npts = nI * nJ * nK                  # each cell has a pt at the center
+        # nverts = (nI+1) * (nJ+1) * (nK+1)    # num of cell vertices
                 
         # Convert xyz vertices that define cell vertices to VTK format
         cell_pts = ns.numpy_to_vtk( self.mhd.cellverticesGSM )
@@ -75,25 +75,25 @@ class LFM_to_VTK(MHD_to_VTK):
 
         # Include grid structure, a stretched Cartesian grid
         # See https://examples.vtk.org/site/Python/ExplicitStructuredGrid/CreateESGrid/
-        self.vtk_grid.Allocate(nverts)
-        for k in range(nK+1):
-            for j in range(nJ+1):
-                for i in range(nI+1):
+        self.vtk_grid.Allocate(npts)
+        for k in range(nK):
+            for j in range(nJ):
+                for i in range(nI):
                     multi_index = ([i, i + 1, i + 1, i, i, i + 1, i + 1, i],
                                     [j, j, j + 1, j + 1, j, j, j + 1, j + 1],
                                     [k, k, k, k, k + 1, k + 1, k + 1, k + 1])
-                    pts = ravel_multi_index(multi_index, (nI+2,nJ+2,nK+2), order='F')
+                    pts = ravel_multi_index(multi_index, (nI+1,nJ+1,nK+1), order='F')
                     self.vtk_grid.InsertNextCell(VTK_HEXAHEDRON, 8, pts)
                  
         # Add attributes to grid, start with vectors, then scalars 
         # We use these for plotting in Paraview.  
         
         # Add vectors. '' adds cell centers, the xyz points at centers of cell
-        for vv in ['b','u','']:
+        for vv in ['b','u','j','']:
             self.add_vector_cell_attribute( vv )
        
         # Add scalars
-        for sv in ['rho','V_th','measure']:
+        for sv in ['rho','V_th','p','measure']:
             self.add_scalar_cell_attribute( sv )
  
         self.vtk_grid.Modified()

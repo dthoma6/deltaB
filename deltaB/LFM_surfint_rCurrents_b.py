@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jul 11 13:14:30 2024
+Created on Wed Aug 14 09:07:58 2024
 
 @author: Dean Thomas
 """
 
 import numpy as np 
 
-KAMODO=False  # Use Kamodo interpolator or swmfio interpolator, swmfio preferred
-if KAMODO:
-    from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
+# Boolean to determine which interpolator is used
+if True:
+    from deltaB.LFM_interpolator import LFM_interpolator
 else:
-    from deltaB.BATSRUS_interpolator2 import BATSRUS_interpolator2
+    from deltaB.LFM_interpolator2 import LFM_interpolator2 as LFM_interpolator
 
-def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
+def LFM_surfint_rCurrents_b(XGSM, timeISO, lfm, nTheta=180, nPhi=180):
     """ Subroutine for calc_ms_surfint_rCurrents_b.
-    It calculates total B field at point XGSM using data from a BATSRUS file 
+    It calculates total B field at point XGSM using data from a LFM file 
     and the Helmholtz decompostion theorem to replace Biot-Savart volume integral 
     with a surface integral at rCurrents.
     
@@ -25,7 +25,7 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
         
         timeISO = ISO time for data in BATSRUS file
               
-        batsrus = BATSRUS data from swmfio
+        lfm = LFM data
         
         nTheta, nPhi = number of steps in numerical integration over theta
             and phi in the surface integral over a sphere at rCurrents
@@ -45,18 +45,11 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
     Birr   = np.zeros(3)
     Bsol   = np.zeros(3)
     
-    if KAMODO:
-        # Create Kamodo BATSRUS interpolators, see BATSRUS_interpolator.py
-        batsrus_interp = BATSRUS_interpolator(batsrus)
-        batsrus_interp.register_variable( 'bx' )
-        batsrus_interp.register_variable( 'by' )
-        batsrus_interp.register_variable( 'bz' )
-    else:
-        # Create swmfio-based BATSRUS interpolators, see BATSRUS_interpolator2.py
-        batsrus_interp = BATSRUS_interpolator2(batsrus)
-        batsrus_interp.register_variable( 'bx' )
-        batsrus_interp.register_variable( 'by' )
-        batsrus_interp.register_variable( 'bz' )
+    # Create LFM interpolators, see LFM_interpolator.py
+    LFM_interp = LFM_interpolator(lfm)
+    LFM_interp.register_variable( 'bx' )
+    LFM_interp.register_variable( 'by' )
+    LFM_interp.register_variable( 'bz' )
     
     # Start the loops for surface numerical integration. We use two 
     # loops, theta and phi, which cover the inner boundary of the
@@ -65,6 +58,8 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
     # theta increments and phi increments (GSM coordinates)
     dTheta = np.pi/nTheta
     dPhi = 2. * np.pi/nPhi
+    
+    rCurrents = lfm.rCurrents
 
     # theta loop, theta pi/2 -> -pi/2
     for i in range(nTheta):  
@@ -73,7 +68,7 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
         theta = np.pi/2 - (i + 0.5) * dTheta
 
         # Differential surface area on sphere at rCurrents
-        dS = batsrus.rCurrents**2 * np.cos( theta ) * dTheta * dPhi
+        dS = rCurrents**2 * np.cos( theta ) * dTheta * dPhi
         
         # phi loop, phi 0 -> 2pi 
         for j in range(nPhi): 
@@ -88,17 +83,12 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
             xhat[2] = np.sin( theta )
           
             # Point on sphere at rCurrents (GSM coordinates)
-            x = xhat * batsrus.rCurrents
+            x = xhat * rCurrents 
             
             # Get B field at point x (in GSM coordinates)
-            if KAMODO:
-                Bpt[0] = batsrus_interp.interpolator(x, 'bx')[0]
-                Bpt[1] = batsrus_interp.interpolator(x, 'by')[0]
-                Bpt[2] = batsrus_interp.interpolator(x, 'bz')[0]
-            else:
-                Bpt[0] = batsrus_interp.interpolator(x, 'bx')
-                Bpt[1] = batsrus_interp.interpolator(x, 'by')
-                Bpt[2] = batsrus_interp.interpolator(x, 'bz')
+            Bpt[0] = LFM_interp.interpolator(x, 'bx')[0]
+            Bpt[1] = LFM_interp.interpolator(x, 'by')[0]
+            Bpt[2] = LFM_interp.interpolator(x, 'bz')[0]
 
             # Distance to point XGSM where we want to know the magnetic field
             r = XGSM - x
@@ -119,7 +109,4 @@ def BATSRUS_surfint_rCurrents_b(XGSM, timeISO, batsrus, nTheta=180, nPhi=180):
     # Add irrotational and solenoidal contributions to get total B contribution
     B[:] = Birr[:] + Bsol[:]
     
-    # We no longer need the interpolator, and deleting it avoids memory error
-    del batsrus_interp
-
     return B, Birr, Bsol

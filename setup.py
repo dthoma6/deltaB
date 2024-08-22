@@ -20,7 +20,7 @@ install_requires = [
                         "spacepy",
                         "swmfio @ git+https://github.com/GaryQ-physics/swmfio.git#egg=swmfio",
                         "magnetopost @ git+https://github.com/GaryQ-physics/magnetopost#egg=magnetopost",
-                        "kamodo_ccmc @ https://github.com/nasa/Kamodo",
+                       # "kamodo_ccmc @ https://github.com/nasa/Kamodo",
                         "vtk"
                     ]
 

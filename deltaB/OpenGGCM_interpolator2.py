@@ -11,7 +11,7 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 class OpenGGCM_interpolator2():
-    """Class to interpolate OpenGGCM results.  Uses SciPy interpolator.
+    """Class to interpolate OpenGGCM results.  Uses SciPy linear interpolator.
     '''
 
     """

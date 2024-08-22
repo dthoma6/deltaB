@@ -27,18 +27,18 @@ LFMdata = namedtuple('LFMdata',
                     'DataArray' ,      # data in GSM coordinates
                     'varidx'    ,
 
-                    'cellcentersSM'   , # cell center coordinates in SM
-                    'cellcentersGSM'  , # cell center coordinates in GSM
+                    'cellcentersSM'  , # cell center coordinates in SM
+                    'cellcentersGSM' , # cell center coordinates in GSM
 
-                    'cellverticesSM' ,  # vertices in SM coordinates
-                    'cellverticesGSM',  # vertices in GSE coordinates
+                    'cellverticesSM' , # vertices in SM coordinates
+                    'cellverticesGSM', # vertices in GSE coordinates
 
-                    'xcenterSM'    ,    # cylindrical coordinates SM
-                    'rcenterSM'    ,    # x, r, and az of cell centers
-                    'acenterSM'    ,
+                    'xsliceSM'    ,    # cylindrical coordinates SM
+                    'rsliceSM'    ,    # x, r, and az of cell centers
+                    'asliceSM'    ,    # x,r identical on each az slice
 
-                    'SM_to_GSM' ,       # Transformation matrices to and from
-                    'GSM_to_SM' ,       # SM and GSM
+                    'SM_to_GSM' ,      # Transformation matrices to and from
+                    'GSM_to_SM' ,      # SM and GSM
 
                     'units'     ,
                     'time'      ,

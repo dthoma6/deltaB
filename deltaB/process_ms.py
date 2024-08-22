@@ -22,6 +22,7 @@ from deltaB.util import create_directory, date_timeISO
 from deltaB.coordinates import GSMtoSM, iso2ints, get_NED_components
 from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
 from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
+from deltaB.LFM_dataframe import get_lfm_data_from_cdf
 
 # Setup logging
 logging.basicConfig(
@@ -286,6 +287,8 @@ def loop_ms_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False):
             mhd = get_batsrus_data_from_cdf(filepath)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
         else:
             import sys
             sys.exit(f'Unknown model type: {info["model"]}')

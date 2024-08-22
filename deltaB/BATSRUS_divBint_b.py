@@ -66,7 +66,7 @@ def calcDivB(batsrus, i, j, k, n, nI, nJ, nK, dX, dY, dZ, _bx, _by, _bz):
     elif k == 0: # on face
         divBz = (-3*batsrus.DataArray[_bz, i, j, 0, n] + 4*batsrus.DataArray[_bz, i, j, 1, n]
                 - batsrus.DataArray[_bz, i, j, 2, n])/(2*dZ)
-    else: # k == ni-1: on face
+    else: # k == nK-1: on face
         divBz = (3*batsrus.DataArray[_bz, i, j, nK-1, n] - 4*batsrus.DataArray[_bz, i, j, nK-2, n]
                 + batsrus.DataArray[_bz, i, j, nK-3, n])/(2*dZ)        
     

@@ -8,11 +8,10 @@ Created on Sat Mar 23 07:21:06 2024
 
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
                 
 class LFM_interpolator():
-    """Class to create baryocentric interpolator for LFM results.
-
+    """Class to create baryocentric interpolator for LFM results.  Defaults to
+    nearest neighbor interpolation outside volume of data points.
     """
     def __init__(self, lfm):
         """Initialize lfm_interpolator class
@@ -37,9 +36,9 @@ class LFM_interpolator():
         
         self.DataArray = self.lfm.DataArray  # data in GSM
         
-        self.xcenterSM  = self.lfm.xcenterSM # cell centers SM cylindrical coordinates
-        self.rcenterSM  = self.lfm.rcenterSM   
-        self.acenterSM  = self.lfm.acenterSM   
+        self.xsliceSM  = self.lfm.xsliceSM   # cell centers SM cylindrical coordinates
+        self.rsliceSM  = self.lfm.rsliceSM   
+        self.asliceSM  = self.lfm.asliceSM   
         
         return
     
@@ -66,7 +65,7 @@ class LFM_interpolator():
         C[2] = A[2,0]*B[0] + A[2,1]*B[1] + A[2,2]*B[2]
         return C
 
-    def check_triangle(self, i1, i2, data0, data1, xcenterSM, rcenterSM, xSM, rSM, x1, r1):
+    def check_triangle(self, i1, i2, data0, data1, xsliceSM, rsliceSM, xSM, rSM, x1, r1):
         """Function used by interpolator.  Contains code to check whether
         point is inside triangle defined by grid points.  Uses baryocentric
         grid for interpolation.  If l1, l2, l3 >=0 and sum to one, (xSM[0],rSM) 
@@ -78,13 +77,13 @@ class LFM_interpolator():
         
         v20 = data0[i1]
         v21 = data1[i1]
-        x2  = xcenterSM[i1]
-        r2  = rcenterSM[i1]
+        x2  = xsliceSM[i1]
+        r2  = rsliceSM[i1]
 
         v30 = data0[i2]
         v31 = data1[i2]
-        x3  = xcenterSM[i2]
-        r3  = rcenterSM[i2]
+        x3  = xsliceSM[i2]
+        r3  = rsliceSM[i2]
         
         # See https://en.wikipedia.org/wiki/Barycentric_coordinate_system
         # for discussion of baryocentric interpolation and calculation of
@@ -137,21 +136,26 @@ class LFM_interpolator():
             # Find index (i,j) of the nearest neighbor on slice
             # We then look at triangles of points around (i,j) to find
             # which triangle contains xSM
-            dist = (self.xcenterSM - xSM[0])**2 + (self.rcenterSM - rSM)**2
+            dist = (self.xsliceSM - xSM[0])**2 + (self.rsliceSM - rSM)**2
             idx = np.unravel_index(np.argsort(dist, axis=None), dist.shape)
             i = idx[0][0]
             j = idx[1][0]
             
             # Find which azimuth sheets the point xSM lies between
-            for k in range( len(self.acenterSM) ):
-                if self.acenterSM[k] > azSM: break
-            assert k > 0
+            for k in range( len(self.asliceSM) ):
+                if self.asliceSM[k] > azSM: break
+            
+            # Worry about wrap around in azimuth
+            if k > 0:
+                k2 = k - 1
+            else:
+                k2 = self.asliceSM.shape[0] - 1
     
-            # Data in GSM coordinates, used repeatedly below
+            # Data in SM coordinates, used repeatedly below
             data0 = self.data[varname][:,:,k  ]      
-            data1 = self.data[varname][:,:,k-1]    
-            xcenterSM = self.xcenterSM
-            rcenterSM = self.rcenterSM
+            data1 = self.data[varname][:,:,k2 ]    
+            xsliceSM = self.xsliceSM
+            rsliceSM = self.rsliceSM
             
             # Get data for nearest neighbor. v00 and v01 are data for
             # the azimuth slices bracketing the point xSM. We'll 
@@ -159,16 +163,20 @@ class LFM_interpolator():
             idx1 = (i, j)
             v10 = data0[idx1]
             v11 = data1[idx1]
-            x1  = self.xcenterSM[idx1]
-            r1  = self.rcenterSM[idx1]
+            x1  = self.xsliceSM[idx1]
+            r1  = self.rsliceSM[idx1]
             d1  = np.sqrt( (xSM[0]-x1)**2 + (rSM-r1)**2 )
             
             # Stop here if the point XGSM in SM is on a grid point
             # No interpolation needed
             if np.isclose( d1, 0., atol=1e-5 ): 
                # Interpolate between azimuth slices
-               daz = self.acenterSM[k] - self.acenterSM[k-1]
-               dazSM = azSM - self.acenterSM[k-1]
+               if k > 0:  # Worry about wrap around in azimuth
+                   daz = self.asliceSM[k] - self.asliceSM[k2]
+                   dazSM = azSM - self.asliceSM[k2]
+               else:
+                   daz = 2*np.pi + self.asliceSM[k] - self.asliceSM[k2]
+                   dazSM = 2*np.pi + azSM - self.asliceSM[k2]                   
                resultsGSM[m] = v11 + (v10-v11)*dazSM/daz
                
             # If not on a grid point, we interpolate
@@ -207,161 +215,161 @@ class LFM_interpolator():
                 idx25 = (i - 2, j - 1)
                 idx26 = (i - 2, j    )
                 idx27 = (i - 2, j + 1)
-
+                    
                 # True when we have found which triangle that contains xSM
                 found = False
                 
                 # Triangles immediately around nearest neighbor in i,j plane
-                
+                                    
                 # Triangle A
-                if not found and i < self.nI and j < self.nJ:
+                if not found and i < self.nI-1 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx2, idx3, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx2, idx3, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle B
-                if not found and i < self.nI and j < self.nJ:
+                if not found and i < self.nI-1 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx3, idx4, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx3, idx4, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle C
-                if not found and i < self.nI and j > 0:
+                if not found and i < self.nI-1 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx4, idx5, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx4, idx5, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle D
-                if not found and i < self.nI and j > 0:
+                if not found and i < self.nI-1 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx5, idx6, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx5, idx6, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle E
                 if not found and i > 0 and j > 0 :
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx6, idx7, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx6, idx7, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
  
                 # Triangle F
                 if not found and i > 0 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx7, idx8, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx7, idx8, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
  
                 # Triangle G
-                if not found and i > 0 and j < self.nJ:
+                if not found and i > 0 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx8, idx9, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx8, idx9, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
   
                 # Triangle H
-                if not found and i > 0 and j < self.nJ:
+                if not found and i > 0 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx9, idx2, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx9, idx2, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangles further out along j, needed because of asymmetry
                 # in distorted spherical coordinate grid spacing
                         
                 # Triangle I
-                if not found and i < self.nI and j < self.nJ - 1:
+                if not found and i < self.nI-1 and j < self.nJ-2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx10, idx11, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx10, idx11, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle J
-                if not found and i < self.nI and j < self.nJ - 1:
+                if not found and i < self.nI-1 and j < self.nJ-2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx11, idx3, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx11, idx3, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle K
-                if not found and i < self.nI and j > 1:
+                if not found and i < self.nI-1 and j > 1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx5, idx12, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx5, idx12, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
      
                 # Triangle L
-                if not found and i < self.nI and j > 1:
+                if not found and i < self.nI-1 and j > 1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx12, idx13, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx12, idx13, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
    
                 # Triangle M
                 if not found and i > 0 and j > 1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx13, idx14, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx13, idx14, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
    
                 # Triangle N
                 if not found and i > 0 and j > 1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx14, idx7, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx14, idx7, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle O
-                if not found and i < self.nI and j < self.nJ - 1:
+                if not found and i < self.nI-1 and j < self.nJ-2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx9, idx15, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx9, idx15, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                         
                 # Triangle P
-                if not found and i < self.nI and j < self.nJ - 1:
+                if not found and i < self.nI-1 and j < self.nJ-2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx15, idx10, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx15, idx10, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangles even further out along j, needed because of asymmetry
                 # in distorted spherical coordinate grid spacing
 
                 # Triangle Q
-                if not found and i < self.nI and j < self.nJ - 2:
+                if not found and i < self.nI-1 and j < self.nJ-3:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx16, idx17, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx16, idx17, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle R
-                if not found and i < self.nI and j < self.nJ - 2:
+                if not found and i < self.nI-1 and j < self.nJ-3:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx17, idx11, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx17, idx11, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle S
-                if not found and i < self.nI and j > 2:
+                if not found and i < self.nI-1 and j > 2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx12, idx18, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx12, idx18, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
      
                 # Triangle T
-                if not found and i < self.nI and j > 2:
+                if not found and i < self.nI-1 and j > 2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx18, idx19, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx18, idx19, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
    
                 # Triangle U
                 if not found and i > 0 and j > 2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx19, idx20, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx19, idx20, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
    
                 # Triangle V
                 if not found and i > 0 and j > 2:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx20, idx14, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx20, idx14, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Triangle W
-                if not found and i < self.nI and j < self.nJ - 2:
+                if not found and i < self.nI-1 and j < self.nJ-3:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx15, idx21, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx15, idx21, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                         
                 # Triangle X
-                if not found and i < self.nI and j < self.nJ - 2:
+                if not found and i < self.nI-1 and j < self.nJ-3:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx21, idx16, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx21, idx16, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                         
                 # No triangles Y or Z
 
@@ -369,101 +377,66 @@ class LFM_interpolator():
                 # in distorted spherical coordinate grid spacing
 
                 # Triangle AA
-                if not found and i < self.nI - 2 and j < self.nJ:
+                if not found and i < self.nI-3 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx3, idx22, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx3, idx22, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle BB
-                if not found and i < self.nI - 2 and j < self.nJ:
+                if not found and i < self.nI-3 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx22, idx23, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx22, idx23, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle CC
-                if not found and i < self.nI - 2 and j > 0:
+                if not found and i < self.nI-3 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx23, idx24, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx23, idx24, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle DD
-                if not found and i < self.nI - 2 and j > 0:
+                if not found and i < self.nI-3 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx24, idx5, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx24, idx5, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle EE
                 if not found and i > 1 and j > 0 :
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx7, idx25, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx7, idx25, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle FF
                 if not found and i > 1 and j > 0:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx25, idx26, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx25, idx26, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 
                 # Triangle GG
-                if not found and i > 1 and j < self.nJ:
+                if not found and i > 1 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx26, idx27, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
+                        self.check_triangle(idx26, idx27, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
                 # Triangle HH
-                if not found and i > 1 and j < self.nJ:
+                if not found and i > 1 and j < self.nJ-1:
                     v20, v21, x2, r2, v30, v31, x3, r3, l1, l2, l3, found = \
-                        self.check_triangle(idx27, idx9, data0, data1, xcenterSM, 
-                                            rcenterSM, xSM, rSM, x1, r1)
-
-                # Plot triangles to show their locations with respect to xSM
-                # if not found:
-                #     xc  = xcenterSM
-                #     rc  = rcenterSM
-                #     plt.plot( xSM[0], rSM, 'b+')
-                #     plt.plot( (xc[idx1], xc[idx2], xc[idx3], xc[idx1]), (rc[idx1], rc[idx2], rc[idx3], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx3], xc[idx4], xc[idx1]), (rc[idx1], rc[idx3], rc[idx4], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx4], xc[idx5], xc[idx1]), (rc[idx1], rc[idx4], rc[idx5], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx5], xc[idx6], xc[idx1]), (rc[idx1], rc[idx5], rc[idx6], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx6], xc[idx7], xc[idx1]), (rc[idx1], rc[idx6], rc[idx7], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx7], xc[idx8], xc[idx1]), (rc[idx1], rc[idx7], rc[idx8], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx8], xc[idx9], xc[idx1]), (rc[idx1], rc[idx8], rc[idx9], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx9], xc[idx2], xc[idx1]), (rc[idx1], rc[idx9], rc[idx2], rc[idx1]), 'r-')
-  
-                #     plt.plot( (xc[idx1], xc[idx10], xc[idx11], xc[idx1]), (rc[idx1], rc[idx10], rc[idx11], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx11], xc[idx3], xc[idx1]),  (rc[idx1], rc[idx11], rc[idx3], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx5],  xc[idx12], xc[idx1]), (rc[idx1], rc[idx5],  rc[idx12], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx12], xc[idx13], xc[idx1]), (rc[idx1], rc[idx12], rc[idx13], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx13], xc[idx14], xc[idx1]), (rc[idx1], rc[idx13], rc[idx14], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx14], xc[idx7],  xc[idx1]), (rc[idx1], rc[idx14], rc[idx7], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx9],  xc[idx15], xc[idx1]), (rc[idx1], rc[idx9],  rc[idx15], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx15], xc[idx10], xc[idx1]), (rc[idx1], rc[idx15], rc[idx10], rc[idx1]), 'r-')
-                  
-                #     plt.plot( (xc[idx1], xc[idx16], xc[idx17], xc[idx1]), (rc[idx1], rc[idx16], rc[idx17], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx17], xc[idx11], xc[idx1]), (rc[idx1], rc[idx17], rc[idx11], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx12], xc[idx18], xc[idx1]), (rc[idx1], rc[idx12], rc[idx18], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx18], xc[idx19], xc[idx1]), (rc[idx1], rc[idx18], rc[idx19], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx19], xc[idx20], xc[idx1]), (rc[idx1], rc[idx19], rc[idx20], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx20], xc[idx14], xc[idx1]), (rc[idx1], rc[idx20], rc[idx14], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx15], xc[idx21], xc[idx1]), (rc[idx1], rc[idx15], rc[idx21], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx21], xc[idx16], xc[idx1]), (rc[idx1], rc[idx21], rc[idx16], rc[idx1]), 'r-')
-                  
-                #     plt.plot( (xc[idx1], xc[idx3],  xc[idx22], xc[idx1]), (rc[idx1], rc[idx3],  rc[idx22], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx22], xc[idx23], xc[idx1]), (rc[idx1], rc[idx22], rc[idx23], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx23], xc[idx24], xc[idx1]), (rc[idx1], rc[idx23], rc[idx24], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx24], xc[idx5],  xc[idx1]), (rc[idx1], rc[idx24], rc[idx5],  rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx7],  xc[idx25], xc[idx1]), (rc[idx1], rc[idx7],  rc[idx25], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx25], xc[idx26], xc[idx1]), (rc[idx1], rc[idx25], rc[idx26], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx26], xc[idx27], xc[idx1]), (rc[idx1], rc[idx26], rc[idx27], rc[idx1]), 'r-')
-                #     plt.plot( (xc[idx1], xc[idx27], xc[idx9],  xc[idx1]), (rc[idx1], rc[idx27], rc[idx9],  rc[idx1]), 'r-')
-                  
-                #     plt.show()
+                        self.check_triangle(idx27, idx9, data0, data1, xsliceSM, 
+                                            rsliceSM, xSM, rSM, x1, r1)
 
                 # Warn if we could not find triangle
-                if not found: 
-                    logging.warning(f'Default to nearest neighbor interpolation, triangle not found at {xSM} {i} {j} {k}')
-                    # Interpolate between azimuth slices
-                    daz = self.acenterSM[k] - self.acenterSM[k-1]
-                    dazSM = azSM - self.acenterSM[k-1]
+                if not found:
+                    # We ignore warning for common edge cases
+                    # These are outside the volume of grid points
+                    if j!= 0 and j != self.nJ-1 and i != 0 and i!= self.nI-1:
+                        logging.warning(f'Default to nearest neighbor interpolation, triangle not found at {xSM} {i} {j} {k}')
+
+                    # Interpolate between nearest neighbors on azimuth sheets 
+                    if k > 0:  # Worry about wrap around in azimuth
+                        daz = self.asliceSM[k] - self.asliceSM[k2]
+                        dazSM = azSM - self.asliceSM[k2]
+                    else:
+                        daz = 2*np.pi + self.asliceSM[k] - self.asliceSM[k2]
+                        dazSM = 2*np.pi + azSM - self.asliceSM[k2]                   
                     resultsGSM[m] = v11 + (v10-v11)*dazSM/daz
                 else:    
                     # Otherwise finish baryocentric interpolation
@@ -471,8 +444,12 @@ class LFM_interpolator():
                     vv1 = v11 * l1 + v21 * l2 + v31 * l3
                     
                     # Linear interpolation between azimuth slices
-                    daz = self.acenterSM[k] - self.acenterSM[k-1]
-                    dazSM = azSM - self.acenterSM[k-1]
+                    if k > 0: # Worry about wrap around in azimuth
+                        daz = self.asliceSM[k] - self.asliceSM[k2]
+                        dazSM = azSM - self.asliceSM[k2]
+                    else:
+                        daz = 2*np.pi + self.asliceSM[k] - self.asliceSM[k2]
+                        dazSM = 2*np.pi + azSM - self.asliceSM[k2]                   
                     resultsGSM[m] = vv1 + (vv0-vv1)*dazSM/daz
                 
         return list(resultsGSM)
@@ -511,15 +488,15 @@ if __name__ == "__main__":
         
     import random
     
-    random.seed(210) #(15)
+    random.seed(21) #(15)
     
     for i in range(10000):
-        i1 = randint(1,nI-1)
-        j1 = randint(1,nJ-1)
-        k1 = randint(1,nK-1)
-        i2 = randint(1,nI-1)
-        j2 = randint(1,nJ-1)
-        k2 = randint(1,nK-1)
+        i1 = randint(0,nI-1)        
+        j1 = randint(0,nJ-1)
+        k1 = randint(0,nK-1)
+        i2 = randint(0,nI-1)
+        j2 = randint(0,nJ-1)
+        k2 = randint(0,nK-1)
 
         x1 = lfmdata.DataArray[ x_,i1,j1,k1 ]
         y1 = lfmdata.DataArray[ y_,i1,j1,k1 ]
@@ -538,9 +515,9 @@ if __name__ == "__main__":
             bx = lfm_interp.interpolator( (x0,y0,z0), 'bx')[0]
             # print( 'Test at pt: ', x0,y0,z0, ' bx: ', bx )
    
-    i = randint(0,nI)
-    j = randint(0,nJ)
-    k = randint(0,nK)
+    i = randint(0,nI-1)
+    j = randint(0,nJ-1)
+    k = randint(0,nK-1)
     
     # Interpolate at the point on the grid.  Difference should be zero.
     x0 = lfmdata.DataArray[ x_,i,j,k ]

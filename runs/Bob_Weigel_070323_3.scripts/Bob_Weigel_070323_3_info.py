@@ -12,13 +12,13 @@ import os.path
 # Based on magnetopost info structure
 ###############################################
 
-data_dir = r'/Users/Shared'
-# data_dir = r'/Volumes/PhysicsHDv3'
+# data_dir = r'/Users/Shared'
+data_dir = r'/Volumes/PhysicsHD'
 
 info = {
         "model": "SWMF",
         "run_name": "Bob_Weigel_070323_3",
-        "rCurrents": 3.0,
+        # "rCurrents": 3.0,
         "rIonosphere": 1.01725,
         "file_type": "cdf",
         "method": "method1",

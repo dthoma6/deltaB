@@ -54,8 +54,12 @@ from .plotsHeatmapWorld_Bn import loop_heatmapworld_ms, plot_heatmapworld_ms, \
     plot_heatmapworld_ms_by_region_grid, plot_heatmapworld_ms_by_currents_grid, \
     plot_heatmapworld_ms_by_currents_grid2, \
     plot_histogram_ms_by_region_grid, plot_histogram_ms_by_currents_grid, \
-    earth_currents_heatmap, earth_region_heatmap
+    earth_currents_heatmap, earth_region_heatmap, \
+    loop_heatmapworld_divB
     
+from .plotsHeatmapWorld_Bned import loop_heatmapworldned_ms, loop_heatmapworldned_divB, \
+    loop_heatmapworldned_inner, loop_heatmapworldned_outer, plot_heatmapworld_helmholtz_grid
+
 from .plots2D_BATSRUS import loop_2D_BATSRUS, \
     loop_2D_BATSRUS_with_cuts, \
     loop_2D_BATSRUS_3d_cut_vtk, \
@@ -92,8 +96,13 @@ from .OpenGGCM_divBint_b import OpenGGCM_divBint_b
 
 from .LFM_data import LFMdata
 from .LFM_dataframe import get_lfm_data_from_cdf
+# from .LFM_dataframe import get_lfm_data_from_hdf
 from .LFM_interpolator import LFM_interpolator
 from .LFM_interpolator2 import LFM_interpolator2
 from .LFM_to_VTK import LFM_to_VTK
+from .LFM_curl import lfm_curl
+from .LFM_surfint_outer_b import LFM_surfint_outer_b
+from .LFM_surfint_rCurrents_b import LFM_surfint_rCurrents_b
+from .LFM_divBint_b import LFM_divBint_b
 
 from .MHD_to_VTK import MHD_to_VTK

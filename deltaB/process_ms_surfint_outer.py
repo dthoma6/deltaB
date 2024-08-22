@@ -20,6 +20,8 @@ from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
 from deltaB.BATSRUS_surfint_outer_b import BATSRUS_surfint_outer_b
 from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
 from deltaB.OpenGGCM_surfint_outer_b import OpenGGCM_surfint_outer_b
+from deltaB.LFM_dataframe import get_lfm_data_from_cdf
+from deltaB.LFM_surfint_outer_b import LFM_surfint_outer_b
 
 def calc_ms_surfint_outer_b(XGSM, timeISO, mhd, nX=100, nY=100, nZ=100):
     """Process data in MHD file to calculate the delta B at point XGSM.
@@ -36,6 +38,7 @@ def calc_ms_surfint_outer_b(XGSM, timeISO, mhd, nX=100, nY=100, nZ=100):
               
         nX, nY, nZ = number of steps in numerical integration over outer faces,
             e.g., nX*nY points on outer surfaces parallel to X-Y plane
+            Or for LFM its nX, nR, nTheta
 
     Outputs:
         Bn, Be, Bd = cumulative sum of dB data in north-east-down coordinates,
@@ -61,6 +64,9 @@ def calc_ms_surfint_outer_b(XGSM, timeISO, mhd, nX=100, nY=100, nZ=100):
                                                          nX, nY, nZ)
     elif mhd.model == 'OpenGGCM':
         BGSM, BirrGSM, BsolGSM = OpenGGCM_surfint_outer_b(XGSM, timeISO, mhd, 
+                                                          nX, nY, nZ)
+    elif mhd.model == 'LFM':
+        BGSM, BirrGSM, BsolGSM = LFM_surfint_outer_b(XGSM, timeISO, mhd, 
                                                           nX, nY, nZ)
    
     # Convert to SM coordinates        
@@ -160,6 +166,8 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
             mhd = get_batsrus_data_from_cdf(filepath)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
         else:
             import sys
             sys.exit(f'Unknown model type: {info["model"]}')

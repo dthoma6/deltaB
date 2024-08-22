@@ -25,7 +25,11 @@ import swmfio
 from deltaB import find_regions, calc_ms_b_paraperp, calc_ms_b_region,\
     calc_iono_b, calc_gap_b, calc_gap_b_rim, \
     convert_mhd_to_dataframe, \
-    date_timeISO, create_directory
+    date_timeISO, create_directory, calc_ms_divBint_b
+
+from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
+from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
+from deltaB.LFM_dataframe import get_lfm_data_from_cdf
 
 # Colormap used in heatmaps below
 COLORMAP = 'coolwarm'
@@ -223,7 +227,17 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
         logging.info(f'Calculate magnetosphere dB heatmap for... {basename}')
 
         # Read in the MHD file 
-        df = convert_mhd_to_dataframe(filepath, info['rCurrents'])
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+
+        df = convert_mhd_to_dataframe(mhd)
         
         # Get the ISO time
         if deltahr is None:
@@ -588,8 +602,7 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         fig = plt.gcf()
         df1 = df.pivot(index='Latitude', columns='Longitude', values='Total' )
         df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", 
-                         annot_kws={"size":6})
+        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         # ax.set_xticks([0,3,6,9,12])
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
@@ -604,10 +617,9 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
        
         fig = plt.gcf()
-        df1 = df.pivot('Latitude', 'Longitude', 'Parallel' )
+        df1 = df.pivot(index='Latitude', columns='Longitude', values='Parallel' )
         df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", 
-                         annot_kws={"size":6})
+        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         # ax.set_xticks([0,3,6,9,12])
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
@@ -621,10 +633,9 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
         
         fig = plt.gcf()
-        df1 = df.pivot('Latitude', 'Longitude', r'Perpendicular' )
+        df1 = df.pivot(index='Latitude', columns='Longitude', values=r'Perpendicular' )
         df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", 
-                         annot_kws={"size":6})
+        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         # ax.set_xticks([0,3,6,9,12])
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
@@ -638,10 +649,9 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
        
         fig = plt.gcf()
-        df1 = df.pivot('Latitude', 'Longitude', r'Perpendicular $\phi$' )
+        df1 = df.pivot(index='Latitude', columns='Longitude', values=r'Perpendicular $\phi$' )
         df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", 
-                         annot_kws={"size":6})
+        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         # ax.set_xticks([0,3,6,9,12])
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
@@ -655,10 +665,9 @@ def plot_heatmapworld_ms( info, times, vmin, vmax, nlat, nlong ):
         fig.savefig( os.path.join( info['dir_plots'], 'heatmaps', pltname ) )
         
         fig = plt.gcf()
-        df1 = df.pivot('Latitude', 'Longitude', r'Perpendicular Residual' )
+        df1 = df.pivot(index='Latitude', columns='Longitude', values=r'Perpendicular Residual' )
         df1 = df1.sort_values('Latitude',ascending=False)
-        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax, annot=True, fmt=".0f", 
-                         annot_kws={"size":6})
+        ax = sns.heatmap(df1, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.scatter( colabaxy[0], colabaxy[1], marker='+', color='black')
         # ax.set_xticks([0,3,6,9,12])
         # ax.set_xticklabels(['24:00','06:00','12:00','18:00','24:00'])
@@ -2076,6 +2085,276 @@ def plot_histogram_ms_by_currents_grid(info, times, vmin, vmax, binwidth, sharex
     # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.tif" ) )
     # fig.savefig( os.path.join( info['dir_plots'], 'histograms', "histogram-currents-grid.svg" ) )
     return
+
+######################
+
+def loop_heatmapworld_divB(info, times, nlat, nlong, deltahr=None, maxcores=20):
+    """Loop thru data in BATSRUS files to create data for heat maps showing the 
+    breakdown of Bn due to currents parallel and perpendicular to B field.  
+    Results will be used to generate heatmaps of Bn from these currents over 
+    surface of earth.
+
+    Inputs:
+        
+        info = locations of key directories and other info on data 
+        
+        times = the times associated with the files for which we will create
+            heatmaps. The filepath is info['files']['magnetosphere'][bases[i]]
+
+        nlat, nlong = number of latitude and longitude samples
+                    
+        deltahr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
+        maxcores = for parallel processing, the maximum number of cores to use
+        
+    Outputs:
+        None - other than the pickle file that is saved
+    """
+
+    # Wrapper function that contains the bulk of the routine, used
+    # for parallel processing of the data
+    def wrap_ms( p, times, deltahr ):
+        # We will walk around the globe collecting B field estimates,
+        # the spacing of lat and long samples
+        dlat = 180. / nlat
+        dlong = 360. / nlong
+    
+        n = nlat * nlong
+    
+        # Storage for results
+        Bn = [None] * n
+        Bparan = [None] * n
+        Bperpn = [None] * n
+        Bperpphin = [None] * n
+        Bperpphiresn = [None] * n
+        B_lat = [None] * n
+        B_long = [None] * n
+        B_time = [None] * n
+
+        # We need the filepath for BATSRUS file
+        filepath = info['files']['magnetosphere'][times[p]]
+        basename = os.path.basename(filepath)
+    
+        logging.info(f'Calculate magnetosphere dB heatmap for... {basename}')
+
+        # Read in the MHD file 
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+
+        df = convert_mhd_to_dataframe(mhd)
+        
+        # Get the ISO time
+        if deltahr is None:
+            timeISO = date_timeISO( times[p] )
+        else:
+            dtime = datetime(*times[p]) + timedelta(hours=deltahr)
+            timeISO = dtime.isoformat()
+
+        # Loop through the lat and long points on the earth's surface.
+        # We will determine the B field at each point
+        for i in range(nlat):
+            for j in range(nlong):
+    
+                logging.info(f'======== Examining {i} of {nlat}, {j} of {nlong} for {basename}')
+    
+                # k is counter to keep track of where to store results
+                k = i*nlong + j
+    
+                # Store the lat and long, which is at the center of each cell
+                # Remember, we must have -180 < longitude < +180            
+                B_lat[k] = 90. - (i + 0.5)*dlat
+                B_long[k] = 180. - (j + 0.5)*dlong
+                B_time[k] = (j + 0.5) * 24. / nlong
+                
+                # We need to convert the lat-long into GSM coordiantes for use
+                # with BATSRUS data.  Our point is on the earth's surface, so the
+                # first entry (radius) is 1.
+                Xlatlong=[1., B_lat[i*nlong + j], B_long[i*nlong + j]]
+                Xgeo = coord.Coords([Xlatlong], 'GEO', 'sph', use_irbem=False)
+                Xgeo.ticks = Ticktock([timeISO], 'ISO')
+                Xgsm = Xgeo.convert('GSM', 'car')
+                X = Xgsm.data[0]
+    
+                # Get the B field at the point X and ISO time using the BATSRUS data
+                # results are in SM coordinates
+                Bn[k], Bparan[k], Bperpn[k], Bperpphin[k], Bperpphiresn[k] = \
+                    calc_ms_b_paraperp(X, timeISO, df)
+        
+        # Determine the fraction of the B field due to various currents - those
+        # parallell to the B field, perpendicular to B field and in the phi-hat
+        # direction (jperpenddicular dot phi-hat), and the remaining perpendicular 
+        # current (jperpendicular - jperpendicular dot phi-hat).
+        B_fraction_parallel = [m/n for m, n in zip(Bparan, Bn)]
+        B_fraction_perp = [m/n for m, n in zip(Bperpn, Bn)]
+        B_fraction_perpphi = [m/n for m, n in zip(Bperpphin, Bn)]
+        B_fraction_perpphires = [m/n for m, n in zip(Bperpphiresn, Bn)]
+    
+        # Put the results in a dataframe and save it.
+        df = pd.DataFrame( { r'Total': Bn, 
+                            r'Parallel': Bparan, 
+                            r'Perpendicular': Bperpn, 
+                            r'Perpendicular $\phi$': Bperpphin, 
+                            r'Perpendicular Residual': Bperpphiresn,
+                            r'Latitude': B_lat,
+                            r'Longitude': B_long, 
+                            r'Time': B_time,
+                            r'Fraction Parallel': B_fraction_parallel, 
+                            r'Fraction Perpendicular': B_fraction_perp, 
+                            r'Fraction Perpendicular $\phi$': B_fraction_perpphi, 
+                            r'Fraction Perpendicular Residual': B_fraction_perpphires } )
+        
+        create_directory(info['dir_derived'], 'heatmaps')
+        pklname = basename + '.ms-heatmap-world.pkl'
+        df.to_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
+
+    # Make sure deltahr is float
+    if deltahr is not None:
+        assert( type(deltahr) == float )
+ 
+    # Loop through the files using parallel processing
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_ms)(p, times, deltahr) for p in range(len(times)))
+
+    return
+
+
+def loop_heatmapworld_divB(info, times, nlat, nlong, deltahr=None, maxcores=20):
+    """Loop thru data in MHD files to create data for heat maps showing the 
+    breakdown of Bn due to divB.  Results will be used to generate heatmaps of 
+    Bn from these currents over surface of earth.
+
+    Inputs:
+        
+        info = locations of key directories and other info on data 
+        
+        times = the times associated with the files for which we will create
+            heatmaps. The filepath is info['files']['magnetosphere'][bases[i]]
+
+        nlat, nlong = number of latitude and longitude samples
+                    
+        deltahr = if None ignore, if number, shift ISO time by that 
+            many hours.  If value given, must be float.
+
+        maxcores = for parallel processing, the maximum number of cores to use
+        
+    Outputs:
+        None - other than the pickle file that is saved
+    """
+
+    # Wrapper function that contains the bulk of the routine, used
+    # for parallel processing of the data
+    def wrap_divB( p, times, deltahr ):
+        # We will walk around the globe collecting B field estimates,
+        # the spacing of lat and long samples
+        dlat = 180. / nlat
+        dlong = 360. / nlong
+    
+        n = nlat * nlong
+    
+        # Storage for results
+        Bn = [None] * n
+        Be = [None] * n
+        Bd = [None] * n
+        Bx = [None] * n
+        By = [None] * n
+        Bz = [None] * n
+        B_lat = [None] * n
+        B_long = [None] * n
+        B_time = [None] * n
+
+        # We need the filepath for BATSRUS file
+        filepath = info['files']['magnetosphere'][times[p]]
+        basename = os.path.basename(filepath)
+    
+        logging.info(f'Calculate magnetosphere dB heatmap for... {basename}')
+
+        # Read in the MHD file 
+        if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
+            mhd = get_batsrus_data_from_cdf(filepath)
+        elif info['model'] == 'OpenGGCM':
+            mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
+        else:
+            import sys
+            sys.exit(f'Unknown model type: {info["model"]}')
+
+        df = convert_mhd_to_dataframe(mhd)
+        
+        # Get the ISO time
+        if deltahr is None:
+            timeISO = date_timeISO( times[p] )
+        else:
+            dtime = datetime(*times[p]) + timedelta(hours=deltahr)
+            timeISO = dtime.isoformat()
+
+        # Loop through the lat and long points on the earth's surface.
+        # We will determine the B field at each point
+        for i in range(nlat):
+            for j in range(nlong):
+    
+                logging.info(f'======== Examining {i} of {nlat}, {j} of {nlong} for {basename}')
+    
+                # k is counter to keep track of where to store results
+                k = i*nlong + j
+    
+                # Store the lat and long, which is at the center of each cell
+                # Remember, we must have -180 < longitude < +180            
+                B_lat[k] = 90. - (i + 0.5)*dlat
+                B_long[k] = 180. - (j + 0.5)*dlong
+                B_time[k] = (j + 0.5) * 24. / nlong
+                
+                # We need to convert the lat-long into GSM coordiantes for use
+                # with BATSRUS data.  Our point is on the earth's surface, so the
+                # first entry (radius) is 1.
+                Xlatlong=[1., B_lat[i*nlong + j], B_long[i*nlong + j]]
+                Xgeo = coord.Coords([Xlatlong], 'GEO', 'sph', use_irbem=False)
+                Xgeo.ticks = Ticktock([timeISO], 'ISO')
+                Xgsm = Xgeo.convert('GSM', 'car')
+                X = Xgsm.data[0]
+    
+                # Get the B field at the point X and ISO time using the MHD data
+                # results are in SM coordinates
+                Bn[k], Be[k], Bd[k], Bx[k], By[k], Bz[k] = calc_ms_divBint_b(X, timeISO, mhd)
+            
+        # Put the results in a dataframe and save it.
+        df = pd.DataFrame( { r'Bn': Bn, 
+                            r'Be': Be, 
+                            r'Bd': Bd, 
+                            r'Latitude': B_lat,
+                            r'Longitude': B_long, 
+                            r'Time': B_time} )
+        
+        create_directory(info['dir_derived'], 'heatmaps')
+        pklname = basename + '.divB-heatmap-world.pkl'
+        df.to_pickle( os.path.join( info['dir_derived'], 'heatmaps', pklname) )
+
+    # Make sure deltahr is float
+    if deltahr is not None:
+        assert( type(deltahr) == float )
+ 
+    # Loop through the files using parallel processing
+    from joblib import Parallel, delayed
+    import multiprocessing
+    num_cores = multiprocessing.cpu_count()
+    num_cores = min(num_cores, len(times), maxcores)
+    logging.info(f'Parallel processing {len(times)} timesteps using {num_cores} cores')
+    Parallel(n_jobs=num_cores)(delayed(wrap_divB)(p, times, deltahr) for p in range(len(times)))
+
+    return
+
 
 
 

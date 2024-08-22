@@ -10,7 +10,7 @@ import logging
 import numpy as np
 
 # Number of nearest neighbors to include in interpolation
-NEIGHBORS = 8
+NEIGHBORS = 4
 
 # Power used in inverse distance weighting interpolation
 # Default is 2
@@ -39,9 +39,9 @@ class LFM_interpolator2():
         
         self.DataArray = self.lfm.DataArray  # data in GSM
         
-        self.xcenterSM  = self.lfm.xcenterSM # cell centers SM cylindrical coordinates
-        self.rcenterSM  = self.lfm.rcenterSM   
-        self.acenterSM  = self.lfm.acenterSM   
+        self.xsliceSM  = self.lfm.xsliceSM   # cell centers SM cylindrical coordinates
+        self.rsliceSM  = self.lfm.rsliceSM   
+        self.asliceSM  = self.lfm.asliceSM   
         
         return
     
@@ -100,32 +100,41 @@ class LFM_interpolator2():
             if azSM < 0: azSM = 2*np.pi + azSM
 
             # Find index of nearest neighbors on slice
-            d2 = (self.xcenterSM - xSM[0])**2 + (self.rcenterSM - rSM)**2
+            d2 = (self.xsliceSM - xSM[0])**2 + (self.rsliceSM - rSM)**2
             idx = np.unravel_index(np.argsort(d2, axis=None), d2.shape)
             
             # Find which azimuth sheets the point xSM lies between
-            for k in range( len(self.acenterSM) ):
-                if self.acenterSM[k] > azSM: break
-            assert k > 0
+            for k in range( len(self.asliceSM) ):
+                if self.asliceSM[k] > azSM: break
+
+            # Worry about wrap around in azimuth
+            if k > 0: 
+                k2 = k - 1
+            else:
+                k2 = self.asliceSM.shape[0] - 1
     
             # Data in GSM coordinates
             data0 = self.data[varname][:,:,k  ]      
-            data1 = self.data[varname][:,:,k-1]     
+            data1 = self.data[varname][:,:,k2]     
             
             # Get data for nearest neighbor. v0 and v1 are for
             # the azimuth slices bracketing the point XGSM in SM
             v0 = data0[idx[0][0], idx[1][0]]
             v1 = data1[idx[0][0], idx[1][0]]
-            x0 = self.xcenterSM[idx[0][0], idx[1][0]]
-            r0 = self.rcenterSM[idx[0][0], idx[1][0]]
+            x0 = self.xsliceSM[idx[0][0], idx[1][0]]
+            r0 = self.rsliceSM[idx[0][0], idx[1][0]]
             d0 = np.sqrt( (xSM[0]-x0)**2 + (rSM-r0)**2 )
             
             # Stop here if the point XGSM in SM is on a grid point
             # No interpolation needed
             if np.isclose( d0, 0., atol=1e-5 ): 
                # Interpolate between azimuth slices
-               daz = self.acenterSM[k] - self.acenterSM[k-1]
-               dazSM = azSM - self.acenterSM[k-1]
+               if k > 0: # Worry about wrap around in azimuth
+                   daz = self.asliceSM[k] - self.asliceSM[k2]
+                   dazSM = azSM - self.asliceSM[k2]
+               else:
+                   daz = 2*np.pi + self.asliceSM[k] - self.asliceSM[k2]
+                   dazSM = 2*np.pi + azSM - self.asliceSM[k2]                   
                resultsGSM[m] = v1 + (v0-v1)*dazSM/daz
                
             # If not on a grid point, we interpolate
@@ -144,8 +153,8 @@ class LFM_interpolator2():
                     v0 = data0[idx[0][i], idx[1][i]]
                     v1 = data1[idx[0][i], idx[1][i]]
                     
-                    x0 = self.xcenterSM[idx[0][i], idx[1][i]]
-                    r0 = self.rcenterSM[idx[0][i], idx[1][i]]
+                    x0 = self.xsliceSM[idx[0][i], idx[1][i]]
+                    r0 = self.rsliceSM[idx[0][i], idx[1][i]]
                     
                     d0 = np.sqrt( (xSM[0]-x0)**2 + (rSM-r0)**2 )
 
@@ -158,8 +167,12 @@ class LFM_interpolator2():
                 vv1 = vv1/w
                 
                 # Linear interpolation between azimuth slices
-                daz = self.acenterSM[k] - self.acenterSM[k-1]
-                dazSM = azSM - self.acenterSM[k-1]
+                if k > 0:  # Worry about wrap around in azimuth
+                    daz = self.asliceSM[k] - self.asliceSM[k2]
+                    dazSM = azSM - self.asliceSM[k2]
+                else:
+                    daz = 2*np.pi + self.asliceSM[k] - self.asliceSM[k2]
+                    dazSM = 2*np.pi + azSM - self.asliceSM[k2]                   
                 resultsGSM[m] = vv1 + (vv0-vv1)*dazSM/daz
                 
         return list(resultsGSM)
@@ -188,45 +201,38 @@ if __name__ == "__main__":
     lfm_interp2 = LFM_interpolator2(lfmdata)
     lfm_interp2.register_variable( 'bx' )
     
-    # Pick a random point on simulation grid
+    # Compare results to baryocentric interpolator in LFM_interpolator        
+
+    # Pick a random points
     from random import randint
     
     nI = lfmdata.nI
     nJ = lfmdata.nJ
     nK = lfmdata.nK
     
-    i = randint(1,nI-1)
-    j = randint(1,nJ-1)
-    k = randint(1,nK-1)
+    i = randint(1,nI-2)
+    j = randint(1,nJ-2)
+    k = randint(1,nK-2)
         
     # Get LFM x,y,z data   
     x_ = lfmdata.varidx['x']
     y_ = lfmdata.varidx['y']
     z_ = lfmdata.varidx['z']
     
-    # Interpolate at the point on the grid.  Difference should be zero.
-    x0 = lfmdata.DataArray[ x_,i,j,k ]
-    y0 = lfmdata.DataArray[ y_,i,j,k ]
-    z0 = lfmdata.DataArray[ z_,i,j,k ]
-    print( 'Test at sim grid pt: ', x0,y0,z0 )
-    bx0 = lfmdata.DataArray[ lfmdata.varidx['bx'], i,j,k ]
-    bx = lfm_interp2.interpolator( (x0,y0,z0), 'bx')[0]
-    bx1 = lfm_interp.interpolator( (x0,y0,z0), 'bx')[0]
-    print( 'bx: ', bx0, bx1, 'bx frac diff: ', (bx0-bx)/bx0 )
-    
-    # Compare results to baryocentric interpolator in LFM_interpolator        
-     
+    # import random
+    # random.seed(21) #(15)
+
     NUM = 10000
     bx1 = np.zeros(NUM)
     bx2 = np.zeros(NUM)
     
     for i in range(NUM):
-        i1 = randint(0,nI)
-        j1 = randint(0,nJ)
-        k1 = randint(0,nK)
-        i2 = randint(0,nI)
-        j2 = randint(0,nJ)
-        k2 = randint(0,nK)
+        i1 = randint(0,nI-1)
+        j1 = randint(0,nJ-1)
+        k1 = randint(0,nK-1)
+        i2 = randint(0,nI-1)
+        j2 = randint(0,nJ-1)
+        k2 = randint(0,nK-1)
 
         x1 = lfmdata.DataArray[ x_,i1,j1,k1 ]
         y1 = lfmdata.DataArray[ y_,i1,j1,k1 ]

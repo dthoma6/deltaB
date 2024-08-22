@@ -12,14 +12,14 @@ from deltaB.OpenGGCM_interpolator import OpenGGCM_interpolator
 
 def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     """ Subroutine for calc_ms_surfint_rCurrents_b.
-    It calculates total B field at point XGSM using data from a BATSRUS file 
+    It calculates total B field at point XGSM using data from a OpenGGCM file 
     and the Helmholtz decompostion theorem to replace Biot-Savart volume integral 
     with a surface integral at rCurrents.
     
     Inputs:
         XGSM = GSM (cartesian) position where magnetic field will be measured.
         
-        timeISO = ISO time for data in BATSRUS file
+        timeISO = ISO time for data in OpenGGCM file
               
         openggcm = OpenGGCM data
         

@@ -8,7 +8,7 @@ Created on Wed Jul 10 15:06:14 2024
 
 import numpy as np
 
-KAMODO=False # Use Kamodo interpolator or swmfio interpolator
+KAMODO=False # Use Kamodo interpolator or swmfio interpolator, swmfio preferred
 if KAMODO:
     from deltaB.BATSRUS_interpolator import BATSRUS_interpolator
 else:

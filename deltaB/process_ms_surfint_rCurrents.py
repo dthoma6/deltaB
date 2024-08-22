@@ -21,6 +21,8 @@ from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
 from deltaB.BATSRUS_surfint_rCurrents_b import BATSRUS_surfint_rCurrents_b
 from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
 from deltaB.OpenGGCM_surfint_rCurrents_b import OpenGGCM_surfint_rCurrents_b
+from deltaB.LFM_dataframe import get_lfm_data_from_cdf
+from deltaB.LFM_surfint_rCurrents_b import LFM_surfint_rCurrents_b
 
 def calc_ms_surfint_rCurrents_b(XGSM, timeISO, mhd, nTheta=180, nPhi=180):
     """Process data in BATSRUS file to calculate the delta B at point XGSM.
@@ -64,6 +66,10 @@ def calc_ms_surfint_rCurrents_b(XGSM, timeISO, mhd, nTheta=180, nPhi=180):
     elif mhd.model == 'OpenGGCM':
         BGSM, BirrGSM, BsolGSM = OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, mhd, 
                                                           nTheta, nPhi)
+    elif mhd.model == 'LFM':
+        BGSM, BirrGSM, BsolGSM = LFM_surfint_rCurrents_b(XGSM, timeISO, mhd, 
+                                                          nTheta, nPhi)
+        
 
     # Convert to SM coordinates        
     XSM = GSMtoSM(XGSM, time, ctype_in='car', ctype_out='car')
@@ -163,6 +169,8 @@ def loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=180, nPhi=180,
             mhd = get_batsrus_data_from_cdf(filepath)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
+        elif info['model'] == 'LFM':
+            mhd = get_lfm_data_from_cdf(filepath)
         else:
             import sys
             sys.exit(f'Unknown model type: {info["model"]}')

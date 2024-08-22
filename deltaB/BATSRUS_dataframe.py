@@ -288,16 +288,16 @@ if __name__ == "__main__":
     df = convert_mhd_to_dataframe( batsdata )
     df = create_deltaB_spherical_dataframe( df )
     
-    from deltaB.BATSRUS_to_VTK import BATSRUS_to_VTK
+    # from deltaB.BATSRUS_to_VTK import BATSRUS_to_VTK
 
-    tovtk = BATSRUS_to_VTK(batsdata)
-    tovtk.convert_to_vtk()
+    # tovtk = BATSRUS_to_VTK(batsdata)
+    # tovtk.convert_to_vtk()
     
-    import os.path
-    basename = os.path.basename(file)
+    # import os.path
+    # basename = os.path.basename(file)
     
-    tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
+    # tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
     
-    complete = datetime.now()
-    print('Complete: ', complete.time())
+    # complete = datetime.now()
+    # print('Complete: ', complete.time())
    

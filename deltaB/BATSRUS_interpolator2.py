@@ -114,7 +114,12 @@ class BATSRUS_interpolator2():
         _x = self.batsrus.varidx['x']
         _y = self.batsrus.varidx['y']
         _z = self.batsrus.varidx['z']
+        
         DA = self.batsrus.DataArray
+        
+        nI = self.batsrus.nI
+        nJ = self.batsrus.nJ
+        nK = self.batsrus.nK
 
         # Storage for results
         resultsGSM = np.zeros(len(XGSM))

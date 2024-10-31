@@ -13,17 +13,17 @@ import os.path
 ###############################################
 
 # data_dir = r'/Users/Shared'
-data_dir = r'/Volumes/PhysicsHDv3'
+data_dir = r'/Volumes/PhysicsHD'
 
 info = {
         "model": "SWMF",
         "run_name": "CARR_Scenario1",
         "rCurrents": 1.8,
         "rIonosphere": 1.01725,
-        "file_type": "out",
+        "file_type": "cdf",
         "dir_run": os.path.join(data_dir, "CARR_Scenario1"),
         "dir_plots": os.path.join(data_dir, "CARR_Scenario1.plots"),
         "dir_derived": os.path.join(data_dir, "CARR_Scenario1.derived"),
-        "dir_magnetosphere": os.path.join(data_dir, "CARR_Scenario1", "MAG-3D"),
-        "dir_ionosphere": os.path.join(data_dir, "CARR_Scenario1", "IONO-2D")
+        "dir_magnetosphere": os.path.join(data_dir, "CARR_Scenario1", "GM_CDF"),
+        "dir_ionosphere": os.path.join(data_dir, "CARR_Scenario1", "IONO-2D_CDF")
 }

@@ -46,8 +46,8 @@ if __name__ == "__main__":
     # the ionosphere.  Bn, Be, and Bd calculated at points[0]
     if COMPUTE:
         db.loop_ms_b(info, point, reduce)    
-        db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
-        db.loop_iono_b(info, point, reduce)
+        # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
+        # db.loop_iono_b(info, point, reduce)
         db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
         db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
         db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
@@ -58,20 +58,18 @@ if __name__ == "__main__":
     # Create custom plot for paper
     
     # Set some plot configs
-    plt.rcParams["figure.figsize"] = [6,4.5]
-    plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["figure.figsize"] = [12,4]
     plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 12
+    plt.rcParams['font.size'] = 10
     plt.rcParams.update({
         "text.usetex": True,
         "font.family": "sans-serif",
         "font.sans-serif": "Helvetica",
     })
 
-    # Read magnetosphere, gap region, and ionosphere data
+    # Read the deltaB magnetosphere, inner and outer surface integrals, and divB integral
     # Rename columns to make tidy names on plots
-    # Divide ionosphere data into Pedersen and Hall currents
     pklname = 'dB_bs_msph-' + point + '.pkl'
     df_bs = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     df_bs.columns = [r'$B_N$ Biot-Savart', r'$B_E$ Biot-Savart', r'$B_D$ Biot-Savart', \
@@ -82,12 +80,6 @@ if __name__ == "__main__":
                       r'$B_x$', r'$B_y$', r'$B_z$', \
                       r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
     
-    pklname = 'dB_si_msph-' + point + '.pkl'
-    df_mssi = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
-    df_mssi.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_{Nirr}$', r'$B_{Eirr}$', r'$B_{Dirr}$', \
-                  r'$B_{Nsol}$', r'$B_{Esol}$', r'$B_{Dsol}$', r'$B_x$', r'$B_y$', r'$B_z$', \
-                  r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
-
     pklname = 'dB_si_msph_rCurrents-' + point + '.pkl'
     df_si_inner = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
     df_si_inner.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_{Nirr}$', r'$B_{Eirr}$', r'$B_{Dirr}$', \
@@ -100,258 +92,63 @@ if __name__ == "__main__":
                   r'$B_{Nsol}$', r'$B_{Esol}$', r'$B_{Dsol}$', r'$B_x$', r'$B_y$', r'$B_z$', \
                   r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
     
-    pklname = 'dB_divB_msph_2nd_b1-' + point + '.pkl'
+    pklname = 'dB_divB_msph_b-' + point + '.pkl'
     df_divB = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
-    df_divB.columns = [r'$B_NTT$', r'$B_ETT$', r'$B_DTT$', r'$B_x$', r'$B_y$', r'$B_z$', \
-                 r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
+    df_divB.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_x$', r'$B_y$', r'$B_z$', \
+                  r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
        
     # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
     # Note, that my inner integral is already negative, I calculate the outer
-    # integral for the gap regiomn
-    df_bs[r'$B_N$ Surf Ints + divB'] = df_si_inner[r'$B_N$'] - df_si_outer[r'$B_N$'] - df_divB[r'$B_NTT$'] 
-    df_bs[r'$B_E$ Surf Ints + divB'] = df_si_inner[r'$B_E$'] - df_si_outer[r'$B_E$'] - df_divB[r'$B_ETT$'] 
-    df_bs[r'$B_D$ Surf Ints + divB'] = df_si_inner[r'$B_D$'] - df_si_outer[r'$B_D$'] - df_divB[r'$B_DTT$'] 
+    # integral for the gap region
+    df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_N$'] - df_si_outer[r'$B_N$'] - df_divB[r'$B_N$'] 
+    df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_E$'] - df_si_outer[r'$B_E$'] - df_divB[r'$B_E$'] 
+    df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_D$'] - df_si_outer[r'$B_D$'] - df_divB[r'$B_D$'] 
         
-    df_bs[r'$B_N$ Surf Ints Only'] = df_si_inner[r'$B_N$'] - df_si_outer[r'$B_N$']
-    df_bs[r'$B_E$ Surf Ints Only'] = df_si_inner[r'$B_E$'] - df_si_outer[r'$B_E$']  
-    df_bs[r'$B_D$ Surf Ints Only'] = df_si_inner[r'$B_D$'] - df_si_outer[r'$B_D$']  
+    df_bs[r'$B_N$ Inner + Outer'] = df_si_inner[r'$B_N$'] - df_si_outer[r'$B_N$']
+    df_bs[r'$B_E$ Inner + Outer'] = df_si_inner[r'$B_E$'] - df_si_outer[r'$B_E$']  
+    df_bs[r'$B_D$ Inner + Outer'] = df_si_inner[r'$B_D$'] - df_si_outer[r'$B_D$']  
         
-    df_bs[r'$B_N$ Surf Int Inner'] = df_si_inner[r'$B_N$']
-    df_bs[r'$B_E$ Surf Int Inner'] = df_si_inner[r'$B_E$']  
-    df_bs[r'$B_D$ Surf Int Inner'] = df_si_inner[r'$B_D$']  
+    df_bs[r'$B_N$ Inner'] = df_si_inner[r'$B_N$'] 
+    df_bs[r'$B_E$ Inner'] = df_si_inner[r'$B_E$'] 
+    df_bs[r'$B_D$ Inner'] = df_si_inner[r'$B_D$'] 
         
     # Create directory for plots
     db.create_directory( info['dir_plots'], 'BnedSurfInt'  )
     
     # Create plots and save them 
 
-    ax = df_si_inner.plot.line(x=r'Time (hr)', y=[r'$B_N$'],\
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_N$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Inner Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Bn-surfint-rCurrents-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_si_inner.plot(x=r'Time (hr)', y=[r'$B_E$'],\
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_E$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Inner Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Be-surfint-rCurrents-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_si_inner.plot(x=r'Time (hr)', y=[r'$B_D$'],\
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_D$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Inner Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Bd-surfint-rCurrents-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_si_outer.plot.line(x=r'Time (hr)', y=[r'$B_N$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_N$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Outer Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Bn-surfint-outer-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_si_outer.plot(x=r'Time (hr)', y=[r'$B_E$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_E$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Outer Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Be-surfint-outer-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_si_outer.plot(x=r'Time (hr)', y=[r'$B_D$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_D$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Outer Bob_Weigel_070323_3 at ' + point)
-    plt.xticks(ticks=[4,6,8,10,12,14,16],labels=['04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) 
-    plt.show()
-    pltname = 'tot-Bd-surfint-outer-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_divB.plot.line(x=r'Time (hr)', y=[r'$B_NTT$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_NTT$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'divB Bob_Weigel_070323_3 at ' + point)
-    # df_divB2.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NTF$'],\
-    #             style=['-.'] )
-    # df_divB3.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NFT$'],\
-    #             style=['-.'] )
-    # df_divB4.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_NFF$'],\
-    #             style=['-.'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Bn-divB-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_divB.plot(x=r'Time (hr)', y=[r'$B_ETT$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_ETT$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'divB Bob_Weigel_070323_3 at ' + point)
-    # df_divB2.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_ETF$'],\
-    #             style=['-.'] )
-    # df_divB3.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_EFT$'],\
-    #             style=['-.'] )
-    # df_divB4.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_EFF$'],\
-    #             style=['-.'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Be-divB-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_divB.plot(x=r'Time (hr)', y=[r'$B_DTT$'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_DTT$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'divB Bob_Weigel_070323_3 at ' + point)
-    # df_divB2.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DTF$'],\
-    #             style=['-.'] )
-    # df_divB3.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DFT$'],\
-    #             style=['-.'] )
-    # df_divB4.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_DFF$'],\
-    #             style=['-.'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Bd-divB-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-   ####
-   
-    ax = df_bs.plot.line(x=r'Time (hr)', y=[r'$B_N$ Biot-Savart'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_N$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Test Bob_Weigel_070323_3 at ' + point)
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_N$ Surf Ints + divB'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_N$ Surf Ints Only'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_N$ Surf Int Inner'],\
-                style=['--'] )
-    # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_N$ Biot Gary'],\
-    #             style=['--'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Bn-Test-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_bs.plot(x=r'Time (hr)', y=[r'$B_E$ Biot-Savart'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_E$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Test Bob_Weigel_070323_3 at ' + point)
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_E$ Surf Ints + divB'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_E$ Surf Ints Only'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_E$ Surf Int Inner'],\
-                style=['--'] )
-   # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_E$ Biot Gary'],\
-    #             style=['--'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Be-Test-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
-    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
-
-    ax = df_bs.plot(x=r'Time (hr)', y=[r'$B_D$ Biot-Savart'],\
-                legend=True, \
-                style=['-'], \
-                grid = False,\
-                ylabel = r'$B_D$ at ' + point, xlabel = 'Time (UTC)', \
-                title = 'Test Bob_Weigel_070323_3 at ' + point)
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_D$ Surf Ints + divB'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_D$ Surf Ints Only'],\
-                style=['--'] )
-    df_bs.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_D$ Surf Int Inner'],\
-                style=['--'] )
-    # bs_msph.plot.line(ax=ax, x=r'Time (hr)', y=[r'$B_D$ Biot Gary'],\
-    #             style=['--'] )
-    plt.xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
-    plt.show()
-    pltname = 'tot-Bd-Test-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
+    fig, ax = plt.subplots(nrows=1, ncols=3)
+    
+    l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k-', label=r'Biot Savart' )
+    ax[0].set_ylabel(r'$B_N$ at ' + point)
+    ax[0].set_xlabel('Time (UTC)')
+    l2 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:', 
+               label=r'Inner + Outer + $\nabla \cdot \mathbf{B}$' )
+    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'Inner + Outer')
+    l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'Inner' )
+    # ax[0].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00'])
+    ax[0].legend()
+    
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k-' )
+    ax[1].set_ylabel(r'$B_E$ at ' + point)
+    ax[1].set_xlabel('Time (UTC)')
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner'], 'b-' )
+    # ax[1].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k-' )
+    ax[2].set_ylabel(r'$B_D$ at ' + point)
+    ax[2].set_xlabel('Time (UTC)')
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner'], 'b-' )
+    # ax[2].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    
+    plt.tight_layout()
+    
+    pltname = 'tot-Bned-Test-' + point
+    fig.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 13 16:49:17 2023
+Created on Sun Oct  6 10:15:52 2024
 
 @author: Dean Thomas
 """
@@ -10,10 +10,10 @@ from deltaB import setup, loop_heatmapworldned_ms, loop_heatmapworldned_divB, \
     loop_heatmapworldned_inner, loop_heatmapworldned_outer, \
     plot_heatmapworld_helmholtz_grid
 
-from CARR_Scenarios1_info import info as info
+from CARR_Scenarios1_info import info as info 
 
 # True if we compute data for heatmaps, False if we only plot the results
-COMPUTE = True
+COMPUTE = False
 
 ############################################################################
 #
@@ -24,8 +24,8 @@ COMPUTE = True
 if __name__ == "__main__":
     
     # Max/min of scale used in heatmaps
-    VMIN = -60
-    VMAX = +60
+    VMIN = -1200
+    VMAX = +1200
 
     # We will plot the magnitude of the B field in a lat/long grid
     # Define the grid size
@@ -33,15 +33,15 @@ if __name__ == "__main__":
     NLONG = 60
     
     # BINWIDTH = 50
-    
-    DELTAHR = 0.
 
+    DELTAHR = None
+    
     # The times for the files that we will process
-    TIMES =  ((2000, 1, 1, 1, 0, 0),
-              (2000, 1, 1, 4, 0, 0),
-              (2000, 1, 1, 7, 0, 0),
-              (2000, 1, 1, 10, 0, 0),
-              (2000, 1, 1, 16, 0, 0)) 
+    TIMES = ( (2019, 9, 2, 5, 0, 0),
+              (2019, 9, 2, 6, 0, 0),
+              (2019, 9, 2, 6, 30, 0),
+              (2019, 9, 2, 7, 0, 0),
+              (2019, 9, 2, 8, 0, 0))
      
     # Get a list of BATSRUS files. info parameters define location 
     # (dir_run) and file types. 

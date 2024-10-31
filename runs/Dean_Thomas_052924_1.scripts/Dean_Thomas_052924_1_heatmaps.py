@@ -24,8 +24,8 @@ COMPUTE = False
 if __name__ == "__main__":
     
     # Max/min of scale used in heatmaps
-    VMIN = -25
-    VMAX = +25
+    VMIN = -80
+    VMAX = +80
 
     # We will plot the magnitude of the B field in a lat/long grid
     # Define the grid size

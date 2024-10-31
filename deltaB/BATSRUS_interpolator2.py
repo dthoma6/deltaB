@@ -209,12 +209,12 @@ if __name__ == "__main__":
     
     file = '/Volumes/PhysicsHD/Bob_Weigel_070323_3/GM_CDF/3d__ful_4_e20000101-193800-000.out.cdf'
     dir_derived = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived'
-    
+    info = {} # empty info dict
+   
     from deltaB.BATSRUS_dataframe import get_batsrus_data_from_cdf
 
     # Test interpolation algorithm
-    
-    batsdata = get_batsrus_data_from_cdf(file)
+    batsdata = get_batsrus_data_from_cdf(file,info)
 
     from deltaB import BATSRUS_interpolator
     bats_interp = BATSRUS_interpolator(batsdata)

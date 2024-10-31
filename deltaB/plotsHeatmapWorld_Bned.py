@@ -110,7 +110,7 @@ def loop_heatmapworldned_ms(info, times, nlat, nlong, deltahr=None, maxcores=20)
 
         # Read in the MHD file 
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
-            mhd = get_batsrus_data_from_cdf(filepath)
+            mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
         elif info['model'] == 'LFM':
@@ -251,7 +251,7 @@ def loop_heatmapworldned_divB(info, times, nlat, nlong, deltahr=None, maxcores=2
 
         # Read in the MHD file 
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
-            mhd = get_batsrus_data_from_cdf(filepath)
+            mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
         elif info['model'] == 'LFM':
@@ -382,7 +382,7 @@ def loop_heatmapworldned_inner(info, times, nlat, nlong, deltahr=None, maxcores=
 
         # Read in the MHD file 
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
-            mhd = get_batsrus_data_from_cdf(filepath)
+            mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
         elif info['model'] == 'LFM':
@@ -522,7 +522,7 @@ def loop_heatmapworldned_outer(info, times, nlat, nlong, deltahr=None, maxcores=
 
         # Read in the MHD file 
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
-            mhd = get_batsrus_data_from_cdf(filepath)
+            mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
             mhd = get_openggcm_data_from_cdf(filepath)
         elif info['model'] == 'LFM':
@@ -794,7 +794,7 @@ def plot_heatmapworld_helmholtz_grid(info, times, vmin, vmax, nlat, nlong,
         axp.set_title(time_hhmm)
 
     # Add titles to each row identifying region
-    for axp, row in zip(ax[:,0], ['Biot-Savart', 'Inner', 'divB', 'Outer']):
+    for axp, row in zip(ax[:,0], ['Biot-Savart', 'Inner', r'$\nabla \cdot \mathbf{B}$ ', 'Outer']):
         axp.set_ylabel(row, rotation=90)
    
     # Add colorbar

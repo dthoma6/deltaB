@@ -109,7 +109,7 @@ def setup(info):
 
     assert os.path.exists(info["dir_run"]), "dir_run = " + info["dir_run"] + " not found"
     assert info['file_type'] == 'cdf', "Setup only handles CDF files"
-    assert not info.get('rCurrents'), "info['rCurrents'] exists, and should not.  Delete from info."
+    # assert not info.get('rCurrents'), "info['rCurrents'] exists, and should not.  Delete from info."
 
     info['files'] = {}
 

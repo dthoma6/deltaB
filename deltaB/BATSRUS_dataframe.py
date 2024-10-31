@@ -118,12 +118,14 @@ def P2F(python_index):
 # Code below borrows from swmfio
 ###########################################################
 
-def get_batsrus_data_from_cdf(file):
+def get_batsrus_data_from_cdf(file, info):
     """Read BATSRUS data from CDF file.  Store the data in BATSRUS
     following the pattern used by swmfio for BATSRUS
      
     Inputs:
         file = path to CDF file
+        
+        info = information on MHD data, standard data used throughout code
          
     Outputs:
         Returns batsdata with BATSRUS data
@@ -142,6 +144,12 @@ def get_batsrus_data_from_cdf(file):
     nJ = int(globatts['special_parameter_NY'])
     nK = int(globatts['special_parameter_NZ'])
     assert( nBlock*nI*nJ*nK == npts )
+    
+    # Some CDF files have rCurrents, some do not
+    if 'r_currents' in globatts:
+        rCurrents = np.float64(globatts['r_currents'])
+    else:
+        rCurrents = info['rCurrents']
 
     logging.info(f"npts = {npts}")
     logging.info(f"nBlock = {nBlock}")
@@ -234,7 +242,7 @@ def get_batsrus_data_from_cdf(file):
                       xGlobalMax        = globatts['global_x_max'],
                       yGlobalMax        = globatts['global_y_max'],
                       zGlobalMax        = globatts['global_z_max'],
-                      rCurrents         = np.float64(globatts['r_currents']),
+                      rCurrents         = rCurrents,
     
                       amr_level_0_nodes = amr_level_0_nodes,
                       block_parent_id   = cdf.varget('block_parent_id')[0,:],
@@ -273,12 +281,13 @@ def get_batsrus_data_from_cdf(file):
 if __name__ == "__main__":
     file = '/Volumes/PhysicsHD/Bob_Weigel_070323_3/GM_CDF/3d__ful_4_e20000101-194800-000.out.cdf'
     dir_derived = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived'
+    info = {} # empty info dict as placeholder
     
     from datetime import datetime
     now = datetime.now()
     print('Start: ', now.time())
     
-    batsdata = get_batsrus_data_from_cdf(file)
+    batsdata = get_batsrus_data_from_cdf(file,info)
     
     end = datetime.now()
     print('Finish: ', end.time())

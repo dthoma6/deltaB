@@ -1605,4 +1605,5 @@ specified_magnetometers = {
 'WYYS1': Magnetometer(name='WYYS1', csys='GEO', ctype='sph', coords=(1.,44.717999,-110.638) ),
 'WYYS2': Magnetometer(name='WYYS2', csys='GEO', ctype='sph', coords=(1.,44.396,-110.577003) ),
 'WYYS3': Magnetometer(name='WYYS3', csys='GEO', ctype='sph', coords=(1.,44.561001,-110.315002) ),
+'FRD': Magnetometer(name='FRD', csys='GEO', ctype='sph', coords=(1.,38.2047,77.3729) ),
 }

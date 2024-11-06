@@ -794,7 +794,7 @@ def plot_heatmapworld_helmholtz_grid(info, times, vmin, vmax, nlat, nlong,
         axp.set_title(time_hhmm)
 
     # Add titles to each row identifying region
-    for axp, row in zip(ax[:,0], ['Biot-Savart', 'Inner', r'$\nabla \cdot \mathbf{B}$ ', 'Outer']):
+    for axp, row in zip(ax[:,0], ['$B_{BS}$', '$B_{H}$', r'$\delta B_{div}$', '$\delta B_{outer}$']):
         axp.set_ylabel(row, rotation=90)
    
     # Add colorbar

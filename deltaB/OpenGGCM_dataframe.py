@@ -48,9 +48,9 @@ def get_openggcm_cells_sub( xcell_, ycell_, zcell_, nI, nJ, nK):
     ycellplus[0:-1] = ycell_
     zcellplus[0:-1] = zcell_
     
-    xcellplus[-1] = xcell_[-2] + (xcell_[-2] - xcell_[-3])/2.
-    ycellplus[-1] = ycell_[-2] + (ycell_[-2] - ycell_[-3])/2.
-    zcellplus[-1] = zcell_[-2] + (zcell_[-2] - zcell_[-3])/2.
+    xcellplus[-1] = xcell_[-1] + (xcell_[-1] - xcell_[-2])
+    ycellplus[-1] = ycell_[-1] + (ycell_[-1] - ycell_[-2])
+    zcellplus[-1] = zcell_[-1] + (zcell_[-1] - zcell_[-2])
     
     # The OpenGGCM CDF doesn't contain the full grid, just the range of
     # values for x,y,z.  We use that info to create an x,y,z grid for the cells.

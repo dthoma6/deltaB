@@ -83,11 +83,11 @@ def calcDivB(DA, i, j, k, nI, nJ, nK, _x, _y, _z, _bx, _by, _bz):
         f2 = DA[_by,i,j+2,k]
         divBy = - h1/h2/(h1+h2)*f2 + (h1+h2)/h1/h2*f1 - (2*h1+h2)/h1/(h1+h2)*f0        
     else: # j == nJ-1: on face
-        h1 = DA[_y ,i,j,k-1] - DA[_y,i,j-2,k]
-        h2 = DA[_y ,i,j,k  ] - DA[_y,i,j-1,k]
-        f0 = DA[_by,i,j,k-2]
-        f1 = DA[_by,i,j,k-1]
-        f2 = DA[_by,i,j,k  ]  
+        h1 = DA[_y ,i,j-1,k] - DA[_y,i,j-2,k]
+        h2 = DA[_y ,i,j  ,k] - DA[_y,i,j-1,k]
+        f0 = DA[_by,i,j-2,k]
+        f1 = DA[_by,i,j-1,k]
+        f2 = DA[_by,i,j  ,k]  
         divBy =   h2/h1/(h1+h2)*f0 - (h1+h2)/h1/h2*f1 + (2*h2+h1)/h2/(h1+h2)*f2   
                     
     if k > 0 and k < nK-1: # in interior
@@ -172,7 +172,7 @@ def OpenGGCM_divBint_b(XGSM, timeISO, openggcm):
                     # Get divergence of B for integral
                     divB = calcDivB(openggcm.DataArray, i, j, k, nI, nJ, nK, 
                                             _x, _y, _z, _bx, _by, _bz)
-                    
+                                        
                     # To calculate the integral, we need the distance from 
                     # point i,j,k to XGSM
                     r[0] = XGSM[0] - openggcm.DataArray[_x,i,j,k]
@@ -195,3 +195,63 @@ def OpenGGCM_divBint_b(XGSM, timeISO, openggcm):
                     B = B + divB * r * measure / rmag**3 / 4 / np.pi 
       
     return B
+
+if __name__ == "__main__":
+
+        from OpenGGCM_dataframe import get_openggcm_grid_sub
+        
+        nI = 10
+        nJ = 10
+        nK = 10
+        
+        x_ = -np.array([9,8,7,6,5,4,3,2,1,0])
+        y_ = -np.array([9,8,7,6,5,4,3,2,1,0])        
+        z_ =  np.array([0,1,2,3,4,5,6,7,8,9])
+        
+        x_ = -x_**2
+        y_ = -y_**2
+        z_ =  z_**2
+        
+        # Nonsense cell vertex data
+        # Used to determine measure, which I don't need for this test
+        xcell_ =  (x_ - 0.5)
+        ycell_ =  (y_ - 0.5)
+        zcell_ =  (z_ - 0.5)
+        
+        # Setup grid
+        x, y, z, measure = get_openggcm_grid_sub( x_, y_, z_, 
+                                                    xcell_, ycell_, zcell_,
+                                                    nI, nJ, nK )
+         
+        # This should give us divB=0
+        bx = 10.*z**2
+        by = 100.*x**2
+        bz = 1000.*y**2
+        value = 0.0
+        
+        # # This should give us divB=3
+        # bx = x
+        # by = y
+        # bz = z
+        # value = 3.0
+        
+        # Create data array
+        data_arr = np.zeros((len(x),6))
+        data_arr[:,0] = x
+        data_arr[:,1] = y
+        data_arr[:,2] = z
+        data_arr[:,3] = bx
+        data_arr[:,4] = by
+        data_arr[:,5] = bz
+        
+        DataArray = data_arr.transpose()
+        DataArray = DataArray.reshape((6, nI, nJ, nK), order='F')
+
+        # Calculate divB for each point on grid
+        # Verify that we get the expected answer
+        for i in range(nI):
+            for j in range(nJ):
+                for k in range(nK):
+                    divB = calcDivB(DataArray, i, j, k, nI, nJ, nK, 0,1,2,3,4,5 )
+                    if np.abs(divB - value) > 0.000000001: print( i,j,k,divB )
+                    

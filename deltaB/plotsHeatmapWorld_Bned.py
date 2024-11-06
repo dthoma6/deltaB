@@ -794,17 +794,23 @@ def plot_heatmapworld_helmholtz_grid(info, times, vmin, vmax, nlat, nlong,
         axp.set_title(time_hhmm)
 
     # Add titles to each row identifying region
-    for axp, row in zip(ax[:,0], ['$B_{BS}$', '$B_{H}$', r'$\delta B_{div}$', '$\delta B_{outer}$']):
+    for axp, row in zip(ax[:,0], [r'$\mathsf{B_{BS}}$', 
+                                  r'$\mathsf{B_{HDT}}$', 
+                                  r'$\mathsf{\delta B_{div}}$', 
+                                  r'$\mathsf{\delta B_{out}}$']):
         axp.set_ylabel(row, rotation=90)
    
     # Add colorbar
     cbar = fig.colorbar( im, ax=ax[4,:], orientation='horizontal' )
-    cbar.set_label(component.upper() +' (nT)')
+    if component == r'$B_n$': component = r'$\mathsf{B_N}$'
+    if component == r'$B_e$': component = r'$\mathsf{B_E}$'
+    if component == r'$B_d$': component = r'$\mathsf{B_D}$'
+    cbar.set_label(component +' (nT)')
     for colp in range(cols): 
         fig.delaxes(ax=ax[4,colp])
 
     # Set title
-    fig.suptitle(component.upper() + ' due to Helmholtz Decomposition')
+    fig.suptitle(component + ' due to Helmholtz Decomposition')
 
     # Save plot
     create_directory( info['dir_plots'], 'heatmaps' )

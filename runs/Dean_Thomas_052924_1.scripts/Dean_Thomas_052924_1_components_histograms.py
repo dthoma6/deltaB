@@ -256,13 +256,14 @@ for j in range(3):
     print( '\\begin{center}' )
     print( '\\begin{tabular}{c c c c c}' )
     print( '\\hline' )
-    print( 'Time & Biot--Savart & Inner & Outer & {\divB} \\\\ [0.5ex]' )  
+    print( 'Time & $\bsint$ & $\innerint$ & $\diverr$ & $\outerr$ \\\\ [0.5ex]' )  
     print( '(Hour) & (nT) & (nT) & (nT) & (nT) \\\\ [0.5ex]' )  
     print( '\\hline\hline' )
     
     for i in range(n):
-        print( f'{times3[i]} & {Bm[j,i]:.2f} ({Bs[j,i]:.2f}) & {Im[j,i]:.2f} ({Is[j,i]:.2f}) & {Om[j,i]:.2f} ({Os[j,i]:.2f}) & {Dm[j,i]:.2f} ({Ds[j,i]:.2f}) \\\\ ')
+        print( f'{times3[i]} & {Bm[j,i]:.2f} ({Bs[j,i]:.2f}) & {Im[j,i]:.2f} ({Is[j,i]:.2f}) & {Dm[j,i]:.2f} ({Ds[j,i]:.2f}) & {Om[j,i]:.2f} ({Os[j,i]:.2f}) \\\\ ')
     
     print( '\\hline' )
     print( '\\end{tabular}' )
     print( '\\end{center}' )
+    

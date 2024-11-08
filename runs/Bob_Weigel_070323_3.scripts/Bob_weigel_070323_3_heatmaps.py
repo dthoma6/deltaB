@@ -10,10 +10,10 @@ from deltaB import setup, loop_heatmapworldned_ms, loop_heatmapworldned_divB, \
     loop_heatmapworldned_inner, loop_heatmapworldned_outer, \
     plot_heatmapworld_helmholtz_grid
 
-from CARR_Scenarios1_info import info as info
+from Bob_Weigel_070323_3_info import info as info
 
 # True if we compute data for heatmaps, False if we only plot the results
-COMPUTE = True
+COMPUTE = False
 
 ############################################################################
 #

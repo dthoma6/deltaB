@@ -56,7 +56,7 @@ from datetime import datetime
 from Bob_Weigel_070323_3_info import info as info
 
 # Set some plot configs
-plt.rcParams["figure.figsize"] = [12.5,8.5] # [17.0,10.0] #[12.8, 12.0]
+plt.rcParams["figure.figsize"] = [12.5,8.0] # [17.0,10.0] #[12.8, 12.0]
 plt.rcParams["figure.dpi"] = 600
 plt.rcParams['axes.grid'] = True
 plt.rcParams['font.size'] = 12 #18
@@ -185,25 +185,36 @@ for axp, col in zip(axd[0], times2):
     axp.set_title(time_hhmm)
 
 # Add titles to each row
-for axp, row in zip(axn[:,0], ['Inner $B_N$ (nT)', r'$\nabla \cdot \mathbf{B}$  $B_N$ (nT)', 'Outer $B_N$ (nT)']):
+for axp, row in zip(axn[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
+                               r'$\mathsf{\delta B_{div}}$ (nT)', 
+                               r'$\mathsf{\delta B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
-for axp, row in zip(axe[:,0], ['Inner $B_E$ (nT)', r'$\nabla \cdot \mathbf{B}$  $B_E$ (nT)', 'Outer $B_E$ (nT)']):
+for axp, row in zip(axe[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
+                               r'$\mathsf{\delta B_{div}}$ (nT)', 
+                               r'$\mathsf{\delta B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
-for axp, row in zip(axd[:,0], ['Inner $B_D$ (nT)', r'$\nabla \cdot \mathbf{B}$  $B_D$ (nT)', 'Outer $B_D$ (nT)']):
+for axp, row in zip(axd[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
+                               r'$\mathsf{\delta B_{div}}$ (nT)', 
+                               r'$\mathsf{\delta B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
 # Add titles to each column
 for axp in axn[2,:] :
-    axp.set_xlabel(r'Biot-Savart $B_N$ (nT)')
+    axp.set_xlabel(r'$\mathsf{B_{BS}}$ (nT)')
 
 for axp in axe[2,:] :
-    axp.set_xlabel(r'Biot-Savart $B_E$ (nT)')
+    axp.set_xlabel(r'$\mathsf{B_{BS}}$ (nT)')
 
 for axp in axd[2,:] :
-    axp.set_xlabel(r'Biot-Savart $B_D$ (nT)')
+    axp.set_xlabel(r'$\mathsf{B_{BS}}$ (nT)')
  
+# Set title
+fign.suptitle(r'$\mathsf{B_N}$ for each term')
+fige.suptitle(r'$\mathsf{B_E}$ for each term')
+figd.suptitle(r'$\mathsf{B_D}$ for each term')
+
 fign.subplots_adjust( bottom=0.15 )
 cbar_axn = fign.add_axes([0.3,0.05,0.4,0.02]) # (left, bottom, width, height)
 cbarn = fign.colorbar(scattern, cax=cbar_axn, orientation='horizontal', shrink=0.4)

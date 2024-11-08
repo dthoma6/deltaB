@@ -28,7 +28,7 @@ from Bob_Weigel_070323_3_info import info as info
 
 # COMPUTE, True or False compute delta B contributions
 # If false, only generate plots
-COMPUTE=True
+COMPUTE=False
 
 def extract_from_magnetopost_files(info, surface_location):
 
@@ -90,12 +90,12 @@ if __name__ == "__main__":
     # various current systems in the magnetosphere, gap region, and 
     # the ionosphere.  Bn, Be, and Bd calcuated at points[0]
     if COMPUTE:
-        # db.loop_ms_b(info, point, reduce, maxcores=20)    
+        db.loop_ms_b(info, point, reduce, maxcores=20)    
         # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
         # db.loop_iono_b(info, point, reduce)
-        # db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
         db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        # db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
+        db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
 
     # # Plot the results
     # db.plot_Bned_ms_gap_iono(info, point)
@@ -181,18 +181,22 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(nrows=1, ncols=3)
     
-    l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k-', label=r'Biot Savart' )
-    ax[0].set_ylabel(r'$B_N$ at ' + point)
+    l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k-', label=r'$B_{BS}$' )
+    ax[0].set_ylabel(r'$\mathsf{B_N}$ at ' + point)
     ax[0].set_xlabel('Time (UTC)')
     l2 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:', 
-               label=r'Inner + Outer + $\nabla \cdot \mathbf{B}$' )
-    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'Inner + Outer')
-    l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'Inner' )
+               label=r'$B_{H} $+ $\delta B_{outer}$ + $\delta B_{div}$' )
+    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'$B_{H}$ + $\delta B_{outer}$ ')
+    l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'$B_{H}$' )
     ax[0].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00'])
-    ax[0].legend()
+    ax[0].legend([r'$\mathsf{B}_{\mathsf{BS}}$',
+                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}+\mathsf{\delta B_{div}}$',
+                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}$',
+                  r'$\mathsf{B}_{\mathsf{HDT}}$'])
+    # ax[0].legend()
     
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k-' )
-    ax[1].set_ylabel(r'$B_E$ at ' + point)
+    ax[1].set_ylabel(r'$\mathsf{B_E}$ at ' + point)
     ax[1].set_xlabel('Time (UTC)')
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-' )
@@ -200,7 +204,7 @@ if __name__ == "__main__":
     ax[1].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
     
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k-' )
-    ax[2].set_ylabel(r'$B_D$ at ' + point)
+    ax[2].set_ylabel(r'$\mathsf{B_D}$ at ' + point)
     ax[2].set_xlabel('Time (UTC)')
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-' )

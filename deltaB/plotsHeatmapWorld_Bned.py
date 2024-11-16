@@ -671,7 +671,19 @@ def earth_helmholtz_heatmap( info, time, vmin, vmax, nlat, nlong, ax, title,
     # Get lat/longs for heatmap
     lon_bins = np.array(df['Longitude'])
     lat_bins = np.array(df['Latitude'])
-    density_bins = np.array(df[title])
+
+    ######################################################################################
+    ######################################################################################
+    # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
+    # Note, that my inner integral is already negative, I calculate the outer
+    # integral for the gap region
+    ######################################################################################
+    ######################################################################################
+
+    if integral == 'divB' or integral == 'outer': 
+        density_bins = - np.array(df[title])
+    else:
+        density_bins = np.array(df[title])
     
     # if vmin or vmax are not specified, base them on limits of data
     if vmin is None or vmax is None:

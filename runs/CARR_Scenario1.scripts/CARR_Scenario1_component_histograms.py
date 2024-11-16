@@ -105,8 +105,10 @@ Im = np.zeros([3,n])
 Is = np.zeros([3,n])
 Om = np.zeros([3,n])
 Os = np.zeros([3,n])
+Of = np.zeros([3,n])
 Dm = np.zeros([3,n])
 Ds = np.zeros([3,n])
+Df = np.zeros([3,n])
 
 for i in range( n ):
     biot = biotfiles[i]
@@ -119,10 +121,18 @@ for i in range( n ):
     innerdf = pd.read_pickle( os.path.join( rootdir, inner ) )
     outerdf = pd.read_pickle( os.path.join( rootdir, outer ) )
     
+    ######################################################################################
+    ######################################################################################
+    # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
+    # Note, that my inner integral is already negative, I calculate the outer
+    # integral for the gap region
+    ######################################################################################
+    ######################################################################################
+
     sumdf = pd.DataFrame()
-    sumdf[r'$B_n$'] = divBdf[r'$B_n$'] + innerdf[r'$B_n$'] + outerdf[r'$B_n$'] 
-    sumdf[r'$B_e$'] = divBdf[r'$B_e$'] + innerdf[r'$B_e$'] + outerdf[r'$B_e$'] 
-    sumdf[r'$B_d$'] = divBdf[r'$B_d$'] + innerdf[r'$B_d$'] + outerdf[r'$B_d$']
+    sumdf[r'$B_n$'] = - divBdf[r'$B_n$'] + innerdf[r'$B_n$'] - outerdf[r'$B_n$'] 
+    sumdf[r'$B_e$'] = - divBdf[r'$B_e$'] + innerdf[r'$B_e$'] - outerdf[r'$B_e$'] 
+    sumdf[r'$B_d$'] = - divBdf[r'$B_d$'] + innerdf[r'$B_d$'] - outerdf[r'$B_d$']
     sumdf['Longitude'] = divBdf['Longitude']
     sumdf['Latitude']  = divBdf['Latitude']
     sumdf['Time']      = divBdf['Time']
@@ -141,19 +151,25 @@ for i in range( n ):
     Is[1,i] = innerdf[r'$B_e$'].std()
     Is[2,i] = innerdf[r'$B_d$'].std()
 
-    Om[0,i] = outerdf[r'$B_n$'].mean()
-    Om[1,i] = outerdf[r'$B_e$'].mean()
-    Om[2,i] = outerdf[r'$B_d$'].mean()
-    Os[0,i] = outerdf[r'$B_n$'].std()
-    Os[1,i] = outerdf[r'$B_e$'].std()
-    Os[2,i] = outerdf[r'$B_d$'].std()
+    Om[0,i] = - outerdf[r'$B_n$'].mean()
+    Om[1,i] = - outerdf[r'$B_e$'].mean()
+    Om[2,i] = - outerdf[r'$B_d$'].mean()
+    Os[0,i] = - outerdf[r'$B_n$'].std()
+    Os[1,i] = - outerdf[r'$B_e$'].std()
+    Os[2,i] = - outerdf[r'$B_d$'].std()
+    Of[0,i] = abs(Om[0,i] / Bm[0,i])
+    Of[1,i] = abs(Om[1,i] / Bm[1,i])
+    Of[2,i] = abs(Om[2,i] / Bm[2,i])
 
-    Dm[0,i] = divBdf[r'$B_n$'].mean()
-    Dm[1,i] = divBdf[r'$B_e$'].mean()
-    Dm[2,i] = divBdf[r'$B_d$'].mean()
-    Ds[0,i] = divBdf[r'$B_n$'].std()
-    Ds[1,i] = divBdf[r'$B_e$'].std()
-    Ds[2,i] = divBdf[r'$B_d$'].std()
+    Dm[0,i] = - divBdf[r'$B_n$'].mean()
+    Dm[1,i] = - divBdf[r'$B_e$'].mean()
+    Dm[2,i] = - divBdf[r'$B_d$'].mean()
+    Ds[0,i] = - divBdf[r'$B_n$'].std()
+    Ds[1,i] = - divBdf[r'$B_e$'].std()
+    Ds[2,i] = - divBdf[r'$B_d$'].std()
+    Df[0,i] = abs(Dm[0,i] / Bm[0,i])
+    Df[1,i] = abs(Dm[1,i] / Bm[1,i])
+    Df[2,i] = abs(Dm[2,i] / Bm[2,i])
 
     ############################
     # biot savart
@@ -175,16 +191,17 @@ for i in range( n ):
     # divB
     ############################
     
-    axn[2,i].hist( divBdf[r'$B_n$'], bins=20 )
-    axe[2,i].hist( divBdf[r'$B_e$'], bins=20 )
-    axd[2,i].hist( divBdf[r'$B_d$'], bins=20 )
+    axn[2,i].hist( - divBdf[r'$B_n$'], bins=20 )
+    axe[2,i].hist( - divBdf[r'$B_e$'], bins=20 )
+    axd[2,i].hist( - divBdf[r'$B_d$'], bins=20 )
+    
     ############################
     # outer
     ############################
     
-    axn[3,i].hist( outerdf[r'$B_n$'], bins=20 )
-    axe[3,i].hist( outerdf[r'$B_e$'], bins=20 )
-    axd[3,i].hist( outerdf[r'$B_d$'], bins=20 )
+    axn[3,i].hist( - outerdf[r'$B_n$'], bins=20 )
+    axe[3,i].hist( - outerdf[r'$B_e$'], bins=20 )
+    axd[3,i].hist( - outerdf[r'$B_d$'], bins=20 )
     
     setlims(axn,i)
     setlims(axe,i)
@@ -255,16 +272,17 @@ figd.savefig( os.path.join( info['dir_plots'], 'components', 'Bd-' + times[i] + 
 for j in range(3):
     
     print( '\\begin{center}' )
-    print( '\\begin{tabular}{c c c c c}' )
+    print( '\\begin{tabular}{c c c c c | c c}' )
     print( '\\hline' )
-    print( 'Time & $\bsint$ & $\innerint$ & $\diverr$ & $\outerr$ \\\\ [0.5ex]' )  
-    print( '(Hour) & (nT) & (nT) & (nT) & (nT) \\\\ [0.5ex]' )  
+    print( 'Time & $\\bsint$ & $\\innerint$ & $\\diverr$ & $\\outerr$ & $|\\frac{\\diverr}{\\bsint}|$ & $|\\frac{\\outerr}{\\bsint}|$\\\\ [0.5ex]' )  
+    print( '(Hour) & (nT) & (nT) & (nT) & (nT) & & \\\\ [0.5ex]' )  
     print( '\\hline\hline' )
     
     for i in range(n):
-        print( f'{times3[i]} & {Bm[j,i]:.2f} ({Bs[j,i]:.2f}) & {Im[j,i]:.2f} ({Is[j,i]:.2f}) & {Dm[j,i]:.2f} ({Ds[j,i]:.2f}) & {Om[j,i]:.2f} ({Os[j,i]:.2f}) \\\\ ')
+        print( f'{times3[i]} & {Bm[j,i]:.2f} ({Bs[j,i]:.2f}) & {Im[j,i]:.2f} ({Is[j,i]:.2f}) & {Dm[j,i]:.2f} ({Ds[j,i]:.2f}) & {Om[j,i]:.2f} ({Os[j,i]:.2f}) & {Df[j,i]:.2f} & {Of[j,i]:.2f}\\\\ ')
     
     print( '\\hline' )
     print( '\\end{tabular}' )
     print( '\\end{center}' )
-    
+    print()
+ 

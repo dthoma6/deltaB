@@ -106,29 +106,21 @@ for i in range( len( biotfiles ) ):
     innerdf = pd.read_pickle( os.path.join( rootdir, inner ) )
     outerdf = pd.read_pickle( os.path.join( rootdir, outer ) )
     
+    ######################################################################################
+    ######################################################################################
+    # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
+    # Note, that my inner integral is already negative, I calculate the outer
+    # integral for the gap region
+    ######################################################################################
+    ######################################################################################
+
     sumdf = pd.DataFrame()
-    sumdf[r'$B_n$'] = divBdf[r'$B_n$'] + innerdf[r'$B_n$'] + outerdf[r'$B_n$'] 
-    sumdf[r'$B_e$'] = divBdf[r'$B_e$'] + innerdf[r'$B_e$'] + outerdf[r'$B_e$'] 
-    sumdf[r'$B_d$'] = divBdf[r'$B_d$'] + innerdf[r'$B_d$'] + outerdf[r'$B_d$']
+    sumdf[r'$B_n$'] = - divBdf[r'$B_n$'] + innerdf[r'$B_n$'] - outerdf[r'$B_n$'] 
+    sumdf[r'$B_e$'] = - divBdf[r'$B_e$'] + innerdf[r'$B_e$'] - outerdf[r'$B_e$'] 
+    sumdf[r'$B_d$'] = - divBdf[r'$B_d$'] + innerdf[r'$B_d$'] - outerdf[r'$B_d$']
     sumdf['Longitude'] = divBdf['Longitude']
     sumdf['Latitude']  = divBdf['Latitude']
     sumdf['Time']      = divBdf['Time']
-
-    # print( times[i], '\tbiot N\t', biotdf[r'$B_n$'].mean(), '\t', biotdf[r'$B_n$'].std(), '\t', biotdf[r'$B_n$'].max(), '\t', biotdf[r'$B_n$'].min() )
-    # print( times[i], '\tbiot E\t', biotdf[r'$B_e$'].mean(), '\t', biotdf[r'$B_e$'].std(), '\t', biotdf[r'$B_e$'].max(), '\t', biotdf[r'$B_e$'].min() )
-    # print( times[i], '\tbiot D\t', biotdf[r'$B_d$'].mean(), '\t', biotdf[r'$B_d$'].std(), '\t', biotdf[r'$B_d$'].max(), '\t', biotdf[r'$B_d$'].min() )
-    
-    # print( times[i], '\tinner N\t', innerdf[r'$B_n$'].mean(), '\t', innerdf[r'$B_n$'].std(), '\t', innerdf[r'$B_n$'].max(), '\t', innerdf[r'$B_n$'].min() )
-    # print( times[i], '\tinner E\t', innerdf[r'$B_e$'].mean(), '\t', innerdf[r'$B_e$'].std(), '\t', innerdf[r'$B_e$'].max(), '\t', innerdf[r'$B_e$'].min() )
-    # print( times[i], '\tinner D\t', innerdf[r'$B_d$'].mean(), '\t', innerdf[r'$B_d$'].std(), '\t', innerdf[r'$B_d$'].max(), '\t', innerdf[r'$B_d$'].min() )
-    
-    # print( times[i], '\tdivB N\t', divBdf[r'$B_n$'].mean(), '\t', divBdf[r'$B_n$'].std(), '\t', divBdf[r'$B_n$'].max(), '\t', divBdf[r'$B_n$'].min() )
-    # print( times[i], '\tdivB E\t', divBdf[r'$B_e$'].mean(), '\t', divBdf[r'$B_e$'].std(), '\t', divBdf[r'$B_e$'].max(), '\t', divBdf[r'$B_e$'].min() )
-    # print( times[i], '\tdivB D\t', divBdf[r'$B_d$'].mean(), '\t', divBdf[r'$B_d$'].std(), '\t', divBdf[r'$B_d$'].max(), '\t', divBdf[r'$B_d$'].min() )
-    
-    # print( times[i], '\touter N\t', outerdf[r'$B_n$'].mean(), '\t', outerdf[r'$B_n$'].std(), '\t', outerdf[r'$B_n$'].max(), '\t', outerdf[r'$B_n$'].min() )
-    # print( times[i], '\touter E\t', outerdf[r'$B_e$'].mean(), '\t', outerdf[r'$B_e$'].std(), '\t', outerdf[r'$B_e$'].max(), '\t', outerdf[r'$B_e$'].min() )
-    # print( times[i], '\touter D\t', outerdf[r'$B_d$'].mean(), '\t', outerdf[r'$B_d$'].std(), '\t', outerdf[r'$B_d$'].max(), '\t', outerdf[r'$B_d$'].min() )
 
     ############################
     # inner
@@ -147,26 +139,42 @@ for i in range( len( biotfiles ) ):
     # divB
     ############################
     
-    axn[1,i].scatter( biotdf[r'$B_n$'], divBdf[r'$B_n$'], c=divBdf[color] )
+    ######################################################################################
+    ######################################################################################
+    # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
+    # Note, that my inner integral is already negative, I calculate the outer
+    # integral for the gap region
+    ######################################################################################
+    ######################################################################################
+
+    axn[1,i].scatter( biotdf[r'$B_n$'], - divBdf[r'$B_n$'], c=divBdf[color] )
     setlims(axn,1,i)
        
-    axe[1,i].scatter( biotdf[r'$B_e$'], divBdf[r'$B_e$'], c=divBdf[color] )
+    axe[1,i].scatter( biotdf[r'$B_e$'], - divBdf[r'$B_e$'], c=divBdf[color] )
     setlims(axe,1,i)
     
-    axd[1,i].scatter( biotdf[r'$B_d$'], divBdf[r'$B_d$'], c=divBdf[color] )
+    axd[1,i].scatter( biotdf[r'$B_d$'], - divBdf[r'$B_d$'], c=divBdf[color] )
     setlims(axd,1,i)
         
     ############################
     # outer
     ############################
     
-    axn[2,i].scatter( biotdf[r'$B_n$'], outerdf[r'$B_n$'], c=outerdf[color] )
+    ######################################################################################
+    ######################################################################################
+    # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
+    # Note, that my inner integral is already negative, I calculate the outer
+    # integral for the gap region
+    ######################################################################################
+    ######################################################################################
+
+    axn[2,i].scatter( biotdf[r'$B_n$'], - outerdf[r'$B_n$'], c=outerdf[color] )
     setlims(axn,2,i)
 
-    axe[2,i].scatter( biotdf[r'$B_e$'], outerdf[r'$B_e$'], c=outerdf[color] )
+    axe[2,i].scatter( biotdf[r'$B_e$'], - outerdf[r'$B_e$'], c=outerdf[color] )
     setlims(axe,2,i)
 
-    axd[2,i].scatter( biotdf[r'$B_d$'], outerdf[r'$B_d$'], c=outerdf[color] )
+    axd[2,i].scatter( biotdf[r'$B_d$'], - outerdf[r'$B_d$'], c=outerdf[color] )
     setlims(axd,2,i)
         
 # Add times to each column

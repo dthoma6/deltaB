@@ -106,7 +106,7 @@ if __name__ == "__main__":
     plt.rcParams['axes.grid'] = True
     plt.rcParams['font.size'] = 10
     plt.rcParams.update({
-        "text.usetex": True,
+        # "text.usetex": True,
         "font.family": "sans-serif",
         "font.sans-serif": "Helvetica",
     })

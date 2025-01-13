@@ -3,11 +3,11 @@ This variant support Geomagnetically Induced Current (GIC) analysis.
 
 # Install
 
-...
+```
 git clone https://github.com/dthoma6/deltaB/tree/GIC
 cd deltaB
 pip install --editable .
-...
+```
 
 # Description
 

@@ -1,6 +1,16 @@
 
 This variant support divB analysis of SWMF, LFM, and OpenGGCM simulations.
 
+# Install
+
+```
+git clone https://github.com/dthoma6/deltaB/tree/surface_integral
+cd deltaB
+pip install --editable .
+```
+
+# Description
+
 This repository includes tools to analyze $\delta B$ contributions from the magnetosphere, 
 ionosphere, and gap-region to the magnetic field on Earth.  This version, 1.0.1, has 
 the ability to determine contributions from Space Weather Modeling Framework

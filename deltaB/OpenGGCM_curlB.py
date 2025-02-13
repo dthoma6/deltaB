@@ -36,7 +36,7 @@ def calcCurlB(DA, i, j, k, nI, nJ, nK, _x, _y, _z, _bx, _by, _bz):
     assert( j>=0 and j<nJ )
     assert( k>=0 and k<nK )
         
-    # Use stencils to calculate derivatives, sum derivatives to determine divB
+    # Use stencils to calculate derivatives, sum derivatives to determine curlB
     # We have unequal intervals, so we must use the correct stencils
     #
     # Singh, Ashok K., and B. S. Bhadauria. "Finite difference formulae for 
@@ -205,7 +205,6 @@ def OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, rCurrents):
         data_arr = updated data_arr with calculated values of jx, jy, jz 
     """
 
-    
     # We use these values throughout the routine, so to avoid muliple lookups
     # we look for them once.
     _x = varidx['x']
@@ -219,13 +218,6 @@ def OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, rCurrents):
     _jx = varidx['jx']
     _jy = varidx['jy']
     _jz = varidx['jz']
-    
-    # Reshape the data array     
-    # DataArray = data_arr.transpose()
-    # assert(np.isfortran(DataArray))
-    
-    # DataArray = DataArray.reshape((nVar, nI, nJ, nK), order='F')
-    # assert(np.isfortran(DataArray))
     
     # Iterate thru points in simulation grid, calculating the current density
     # based on curl of B at each point.  
@@ -298,28 +290,28 @@ if __name__ == "__main__":
                                                     xcell_, ycell_, zcell_,
                                                     nI, nJ, nK )
          
-        # This should give us curlB=(1,1,1)
-        bx = z
-        by = x
-        bz = y
-        value = np.array([1.,1.,1.])
-        value2 = 3.
+        # # This should give us curlB=(1,1,1)
+        # bx = z
+        # by = x
+        # bz = y
+        # value = np.array([1.,1.,1.])
+        # value2 = 3. * (1.2491 * 10**(-4))**2
         
         # # This should give us curlB=(-1000,-10,-100)
         # bx = 100.*y
         # by = 1000.*z
         # bz = 10.*x
         # value = np.array([-1000.,-10.,-100.])
-        # value2 = 1000.*1000. + 10.*10. + 100.*100.
+        # value2 = (1000.*1000. + 10.*10. + 100.*100.) * (1.2491 * 10**(-4))**2
         
-        # # This should give us curlB=(0,0,0)
-        # bx = x
-        # by = y
-        # bz = z
-        # value = np.array([0.0,0.0,0.0])
-        # value2 = 0.
+        # This should give us curlB=(0,0,0)
+        bx = x
+        by = y
+        bz = z
+        value = np.array([0.0,0.0,0.0])
+        value2 = 0. * (1.2491 * 10**(-4))**2
         
-        if False: # test curl function
+        if True: # test curl function
             # Create data array
             data_arr = np.zeros((len(x),6))
             data_arr[:,0] = x
@@ -339,7 +331,7 @@ if __name__ == "__main__":
                     for k in range(nK):
                         curlB = calcCurlB(DataArray, i, j, k, nI, nJ, nK, 0,1,2,3,4,5 )
                         if np.linalg.norm(curlB - value) > 0.000000001: print( i,j,k,curlB )
-            print('Done')
+            print('Done Curl')
             
         if True: # test curl B to J
             # Create data array
@@ -370,10 +362,10 @@ if __name__ == "__main__":
             varidx['jz'] = 8
             nVar = len(varidx)
             
-            # DataArray = data_arr.transpose()
-            # DataArray = DataArray.reshape((9, nI, nJ, nK), order='F')
+            DataArray = data_arr.transpose()
+            DataArray = DataArray.reshape((9, nI, nJ, nK), order='F')
             
-            data_arr = OpenGGCM_curlBtoJ(data_arr, varidx, nVar, nI, nJ, nK)
+            data_arr = OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, 0)
             
             jx = data_arr[:,6]
             jy = data_arr[:,7]
@@ -382,7 +374,7 @@ if __name__ == "__main__":
             
             for i in range(len(j2)):
                 if value2 > 0.:
-                    if abs(j2[i] - value2)/value2 > 0.000000001: print( i,j2[i] )
+                    if abs(j2[i] - value2)/value2 > 0.000000001: print( 'A: ', i,j2[i] )
                 else:
-                    if abs(j2[i] - value2)       > 0.000000001: print( i,j2[i] )
-            print('Done')
+                    if abs(j2[i] - value2)        > 0.000000001: print( 'B: ', i,j2[i] )
+            print('Done j')

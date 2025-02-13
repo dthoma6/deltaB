@@ -17,7 +17,8 @@ from deltaB.coordinates import get_transform_matrix
 from deltaB.OpenGGCM_data import OpenGGCMdata
 from deltaB.OpenGGCM_curlB import OpenGGCM_curlBtoJ
 
-USE_CURLB = False # Use curl of B to find current density True, use OpenGGCM current density False
+USE_CURLB = False # Use curl of B to find current density True, 
+                  # use OpenGGCM current density False
 
 @numba.njit
 def get_openggcm_cells_sub( xcell_, ycell_, zcell_, nI, nJ, nK):
@@ -438,28 +439,28 @@ if __name__ == "__main__":
     for i in range(len(measure)):
         assert measure[i] >= 0.
        
-    # from deltaB import OpenGGCM_interpolator
+    from deltaB import OpenGGCM_interpolator
     
-    # openggcm_interp = OpenGGCM_interpolator(oggcmdata)
-    # openggcm_interp.register_variable( 'bx' )
-    # xxGSM = np.array( [-10,-12,15] )
-    # bx = openggcm_interp.interpolator(xxGSM, 'bx')[0]
-    # print(bx)
+    openggcm_interp = OpenGGCM_interpolator(oggcmdata)
+    openggcm_interp.register_variable( 'bx' )
+    xxGSM = np.array( [-10,-12,15] )
+    bx = openggcm_interp.interpolator(xxGSM, 'bx')[0]
+    print(bx)
 
-    # from deltaB import convert_mhd_to_dataframe, create_deltaB_spherical_dataframe
+    from deltaB import convert_mhd_to_dataframe, create_deltaB_spherical_dataframe
     
-    # df = convert_mhd_to_dataframe( oggcmdata )
-    # df = create_deltaB_spherical_dataframe( df )
+    df = convert_mhd_to_dataframe( oggcmdata )
+    df = create_deltaB_spherical_dataframe( df )
 
-    # from deltaB.OpenGGCM_to_VTK import OpenGGCM_to_VTK
+    from deltaB.OpenGGCM_to_VTK import OpenGGCM_to_VTK
     
-    # tovtk = OpenGGCM_to_VTK(oggcmdata)
-    # tovtk.convert_to_vtk()
+    tovtk = OpenGGCM_to_VTK(oggcmdata)
+    tovtk.convert_to_vtk()
     
-    # import os.path
-    # basename = os.path.basename(file)
+    import os.path
+    basename = os.path.basename(file)
     
-    # tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
+    tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
     
     complete = datetime.now()
     print('Complete: ', complete.time())

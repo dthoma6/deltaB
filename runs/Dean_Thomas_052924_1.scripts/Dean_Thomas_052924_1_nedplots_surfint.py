@@ -14,7 +14,7 @@ from Dean_Thomas_052924_1_info import info as info
 
 # COMPUTE, True or False compute delta B contributions
 # If false, only generate plots
-COMPUTE=False
+COMPUTE=True
 
 if __name__ == "__main__":
 
@@ -34,12 +34,12 @@ if __name__ == "__main__":
     # various current systems in the magnetosphere, gap region, and 
     # the ionosphere.  Bn, Be, and Bd calcuated at points[0]
     if COMPUTE:
-        db.loop_ms_b(info, point, reduce, maxcores=1)    
+        db.loop_ms_b(info, point, reduce, maxcores=20)    
         # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
         # db.loop_iono_b(info, point, reduce)
-        db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
+        # db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        # db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        # db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
  
     # Set some plot configs
     plt.rcParams["figure.figsize"] = [12,4]

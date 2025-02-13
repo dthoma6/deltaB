@@ -254,4 +254,4 @@ if __name__ == "__main__":
                 for k in range(nK):
                     divB = calcDivB(DataArray, i, j, k, nI, nJ, nK, 0,1,2,3,4,5 )
                     if np.abs(divB - value) > 0.000000001: print( i,j,k,divB )
-                    
+        print('Done')

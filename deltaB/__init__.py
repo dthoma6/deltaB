@@ -93,6 +93,7 @@ from .OpenGGCM_to_VTK import OpenGGCM_to_VTK
 from .OpenGGCM_surfint_outer_b import OpenGGCM_surfint_outer_b
 from .OpenGGCM_surfint_rCurrents_b import OpenGGCM_surfint_rCurrents_b
 from .OpenGGCM_divBint_b import OpenGGCM_divBint_b
+from .OpenGGCM_curlB import OpenGGCM_curlBtoJ
 
 from .LFM_data import LFMdata
 from .LFM_dataframe import get_lfm_data_from_cdf

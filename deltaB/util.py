@@ -73,6 +73,8 @@ def get_mhd_file_time(filepath):
         cdflist = os.path.join( dirname, filepathsplit[-3] + '_IE_cdf_list')
     if not os.path.isfile(cdflist):
         cdflist = os.path.join( dirname, filepathsplit[-3] + '_cdf_list')
+    if not os.path.isfile(cdflist):
+        cdflist = os.path.join( dirname, filepathsplit[-3] + '.iof_list')
     elif not os.path.isfile(cdflist):
         return -1
         
@@ -113,7 +115,7 @@ def setup(info):
 
     info['files'] = {}
 
-    for subdir in ["GM_CDF", "IONO-2D_CDF"]:
+    for subdir in ["GM_CDF", "IONO-2D_CDF", "IONO-2D_IOF"]:
         if subdir == "GM_CDF" and exists( os.path.join(info['dir_run'], subdir) ):
             # Note lower case 'cdf' in _GM_cdf_list
             file = open(os.path.join(info['dir_run'], subdir, info['run_name'] + '_GM_cdf_list'), 'r')
@@ -121,6 +123,10 @@ def setup(info):
         if subdir == "IONO-2D_CDF" and exists( os.path.join(info['dir_run'], subdir) ):
             # Note upper case 'CDF' in _GM_CDF_list
             file = open(os.path.join(info['dir_run'], subdir, info['run_name'] + '_IE_CDF_list'), 'r')
+            key = "ionosphere"
+        if subdir == "IONO-2D_IOF" and exists( os.path.join(info['dir_run'], subdir) ):
+            # Note period rather than underscore in name
+            file = open(os.path.join(info['dir_run'], subdir, info['run_name'] + '.iof_list'), 'r')
             key = "ionosphere"
 
         if exists( os.path.join(info['dir_run'], subdir) ):
@@ -130,7 +136,7 @@ def setup(info):
             for line in lines:
                 line = line.strip()
                 linea = line.split()
-                if linea[0].endswith('.cdf') == False:
+                if linea[0].endswith('.cdf') == False and linea[0].find('.iof') == -1:
                     continue
     
                 datea = linea[2].split("/")

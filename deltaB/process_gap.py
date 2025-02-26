@@ -14,6 +14,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from spacepy.pybats.rim import Iono
 from spacepy.time import Ticktock
+from xarray import open_dataset
 import os.path
 
 from deltaB.util import create_directory, date_timeISO
@@ -299,6 +300,7 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
     dR     = (rCurrents - rIonosphere) / nR
     
     base_ext = os.path.splitext( filepath )
+    base_typ = os.path.splitext( base_ext[0] )
     if base_ext[1] == '.idl':
         # If its an idl file, use spacepy Iono to read
         ionodata = Iono( filepath )
@@ -326,6 +328,35 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
         phi_array = np.concatenate( [n_psi, s_psi], axis = 0 ) * np.pi/180
         jr_array = np.concatenate( [n_jr, s_jr], axis = 0 )
        
+    elif base_typ[1] == '.iof':
+        # If its an iof file, use xarray to read
+        iofdata = open_dataset( filepath )
+
+        # Get lats, lons (degs)
+        # from openggcm output file
+        lats = iofdata['lats'].to_numpy() 
+        lons = iofdata['longs'].to_numpy()
+        
+        # Get FAC current at ionosphere [micro-A/m**2]
+        # Radial component, change from + in to + out
+        j_r = - iofdata['pacurr'].to_numpy() 
+        
+        # Create arrays to stored results
+        theta = np.zeros([len(lons),len(lats)])
+        phi   = np.zeros([len(lons),len(lats)])
+        
+        # Loop through arrays to create theta, phi arrays
+        for i in range(len(lats)):
+            for j in range(len(lons)):
+                   theta[j,i] = lats[i]
+                   phi[j,i]   = lons[j]
+                   
+        # Setup interpolator for finding jr at point theta, phi on 2D surface from 
+        # RIM file.  NOTE, must transform input data from degrees to radians
+        theta_array = theta.reshape(-1) * np.pi / 180   # (deg -> radians)
+        phi_array = phi.reshape(-1) * np.pi / 180
+        jr_array = j_r.reshape(-1)
+                   
     else:
         # Read RIM file
         data_arr, var_dict, units = swmfio.read_rim(filepath)
@@ -815,6 +846,7 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
         # Use Biot-Savart to calculate magnetic field, B, at magnetometer position
         # XSM.  Store the results and the time
         if useRIM:
+            assert info['model'] == 'SWMF'  # useRIM not valid for other models
             Bn, Be, Bd, Bx, By, Bz = calc_gap_b_rim(X, filepath, timeISO, \
                                     info['rCurrents'], info['rIonosphere'], nR)
         else:
@@ -834,7 +866,7 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
     if useRIM:
         logging.info("nTheta and nPhi values ignored when useRIM is True")
     else:
-        logging.warning("Warning: Depreciated mode, useRIM=True is recommended")
+        logging.warning("Warning: Depreciated mode for SWMF, useRIM=True is recommended")
 
     # Get times for RIM files, if reduce is a number we reduce the number of 
     # files selected.  info parameters define location (dir_run) and file types
@@ -891,3 +923,21 @@ def loop_gap_b(info, point, reduce, nTheta=180, nPhi=180, nR=800, useRIM=True,
     pklname = 'dB_bs_gap-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
 
+if __name__ == "__main__":
+    # folder = '/Volumes/PhysicsHDv2/divB_simple1/IE/'
+    # fname = 'it100320_114900_000.idl'
+    folder = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1/IONO-2D_IOF/'
+    fname = 'Dean_Thomas_020625_1.iof.007800'
+    
+    XSM = np.array([10,10,10])
+    rCurrents = 3.0
+    rIonosphere = 1.01725
+    filepath = folder + fname
+    timeISO = (1990,1,1,1,1,1) 
+    
+    B = np.zeros(3)
+    
+    # Bnp, Bep, Bdp, bSMp[0], bSMp[1], bSMp[2], Bnh, Beh, Bdh, bSMh[0], bSMh[1], bSMh[2] = calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere)
+    Bn, Be, Bd, B[0], B[1], B[2] = calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, 180, 180, 200)
+    print( Bn, Be, Bd, B[0], B[1], B[2] )
+ 

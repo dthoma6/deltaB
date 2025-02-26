@@ -13,6 +13,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from spacepy.pybats.rim import Iono
 from spacepy.time import Ticktock
+from xarray import open_dataset
 import os.path
 
 from deltaB.util import create_directory, date_timeISO
@@ -65,6 +66,7 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
     logging.info(f'Calculate ionosphere dB... {os.path.basename(filepath)}')
 
     base_ext = os.path.splitext( filepath )
+    base_typ = os.path.splitext( base_ext[0] )
     if base_ext[1] == '.idl':
         # If its an idl file, use spacepy Iono to read
         ionodata = Iono( filepath )
@@ -116,9 +118,74 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         
         # Get size of measure 
         shp = ionodata['n_theta'].shape
-        dtheta = np.pi / ( shp[0] - 1 )
+        dtheta = np.pi / 2 / ( shp[0] - 1 )
         dphi = 2 * np.pi / ( shp[1] - 1 )
         df['measure'] = rIonosphere**2 * dtheta * dphi * np.sin( df['theta'] )
+        
+    elif base_typ[1] == '.iof':
+        # If its an iof file, use xarray to read
+        iofdata = open_dataset( filepath )
+
+        # Get lats, lons, azimuthal electric field [mV/m], meridional electric field [mV/m]
+        # from openggcm output file
+        lats = iofdata['lats'].to_numpy() * np.pi / 180   # (deg -> radians)
+        lons = iofdata['longs'].to_numpy() * np.pi / 180
+        
+        epio = iofdata['epio'].to_numpy() # azimuthal electric field (mV/m)
+        etio = iofdata['etio'].to_numpy() # meridonal
+        
+        # Create arrays to stored results
+        x = np.zeros([len(lons),len(lats)])
+        y = np.zeros([len(lons),len(lats)])
+        z = np.zeros([len(lons),len(lats)])
+        
+        measure = np.zeros([len(lons),len(lats)])
+        
+        Ex = np.zeros([len(lons),len(lats)])
+        Ey = np.zeros([len(lons),len(lats)])
+        Ez = np.zeros([len(lons),len(lats)])
+        
+        # Determine dtheta and dphi for calculating measure below
+        dtheta = np.pi / (len(lats) - 1)
+        dphi = 2 * np.pi / (len(lons) - 1)
+
+        # Loop through arrays to calculate x,y,z and Ex,Ey,Ez
+        for i in range(len(lats)):
+            for j in range(len(lons)):
+                   theta = lats[i]
+                   phi   = lons[j]
+                   
+                   # Calculate x,y,z pt at rIonosphere,phi,theta
+                   x[j,i] = rIonosphere * np.cos(phi) * np.cos(theta)
+                   y[j,i] = rIonosphere * np.sin(phi) * np.cos(theta)
+                   z[j,i] = rIonosphere * np.sin(theta)
+                   
+                   # Measure for 2-D element
+                   measure[j,i] = rIonosphere**2 * dtheta * dphi * np.sin(theta)
+                   
+                   # Convert from spherical coordinates to cartesian
+                   # Note, only azimuthal and meridonal components in 2D ionosphere
+                   # No radial component.
+                   Ex[j,i] = etio[j,i] * np.sin(theta) * np.cos(phi) - epio[j,i] * np.sin(phi)
+                   Ey[j,i] = etio[j,i] * np.sin(theta) * np.sin(phi) + epio[j,i] * np.cos(phi)
+                   Ez[j,i] = etio[j,i] * np.cos(theta)
+        
+        # Put arrays in dataframe for calculations below
+        df = pd.DataFrame()
+
+        df['x'] = x.reshape(-1)
+        df['y'] = y.reshape(-1)
+        df['z'] = z.reshape(-1)
+        
+        df['measure'] = measure.reshape(-1)
+
+        df['Ex'] = Ex.reshape(-1)
+        df['Ey'] = Ey.reshape(-1)
+        df['Ez'] = Ez.reshape(-1)
+        
+        # Get Hall and Pedersen conductivities [Siemens = 1/ohm]
+        df['sigmaH']  = iofdata['sigh'].to_numpy().reshape(-1) 
+        df['sigmaP']  = iofdata['sigp'].to_numpy().reshape(-1)
         
     else:
         # Read RIM file
@@ -349,3 +416,25 @@ def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False
     create_directory(info['dir_derived'], 'timeseries')
     pklname = 'dB_bs_iono-' + point + '.pkl'
     df.to_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    
+if __name__ == "__main__":
+    # folder = '/Volumes/PhysicsHDv2/divB_simple1/IE/'
+    # fname = 'it100320_114900_000.idl'
+    folder = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1/IONO-2D_IOF/'
+    fname = 'Dean_Thomas_020625_1.iof.007800'
+    
+    XSM = np.array([10,10,10])
+    rCurrents = 3.0
+    rIonosphere = 1.01725
+    filepath = folder + fname
+    timeISO = (1990,1,1,1,1,1) 
+    
+    bSMp = np.zeros(3)
+    bSMh = np.zeros(3)
+    
+    Bnp, Bep, Bdp, bSMp[0], bSMp[1], bSMp[2], Bnh, Beh, Bdh, bSMh[0], bSMh[1], bSMh[2] = calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere)
+    
+    print( Bnp, Bep, Bdp, Bnh, Beh, Bdh )
+    
+    
+    

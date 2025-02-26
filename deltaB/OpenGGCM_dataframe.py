@@ -206,7 +206,7 @@ def transform_vector_sub( vector, trans_mat):
             
     return
 
-def get_openggcm_data_from_cdf(file):
+def get_openggcm_data_from_cdf(file, info):
     """Read OpenGGCM data from CDF file.  Store the data in OpenGGCMClass
     following the pattern used by swmfio for BATSRUS
      
@@ -289,7 +289,13 @@ def get_openggcm_data_from_cdf(file):
     xGlobalMaxGSE  = np.max(-xGSE_)
     yGlobalMaxGSE  = np.max(-yGSE_)
     zGlobalMaxGSE  = np.max( zGSE_)
-    rCurrents      = np.float32(globatts['r_currents'])
+
+    # Some CDF files have rCurrents, some do not
+    if 'r_currents' in globatts:
+        rCurrents = np.float64(globatts['r_currents'])
+    else:
+        rCurrents = info['rCurrents']
+
 
     # Get cells, each cell has an x,y,z point at the center and has
     # volume measure
@@ -422,14 +428,29 @@ def get_openggcm_data_from_cdf(file):
     return openggcmdata
 
 if __name__ == "__main__":
-    file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
-    dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_052924_1.derived'
+    # file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
+    # dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_052924_1.derived'
+    file = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1/GM_CDF/Dean_Thomas_020625_1.3df.061560.cdf'
+    dir_derived = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1.derived'
+    data_dir = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1'
     
+    # Example info.  Info is used below in call to loop_ms_b
+    import os
+    info = {
+            "model": "OpenGGCM",
+            "run_name": "Dean_Thomas_020625_1",
+            "file_type": "cdf",
+            "rCurrents": 2.0,
+            "dir_run": os.path.join(data_dir, "Dean_Thomas_020625_1"),
+            "dir_plots": os.path.join(data_dir, "Dean_Thomas_020625_1.plots"),
+            "dir_derived": os.path.join(data_dir, "Dean_Thomas_020625_1.derived"),
+    }
+
     from datetime import datetime
     now = datetime.now()
     print('Start: ', now.time())
     
-    oggcmdata = get_openggcm_data_from_cdf(file)
+    oggcmdata = get_openggcm_data_from_cdf(file, info)
     
     end = datetime.now()
     print('Finish: ', end.time())
@@ -452,15 +473,15 @@ if __name__ == "__main__":
     df = convert_mhd_to_dataframe( oggcmdata )
     df = create_deltaB_spherical_dataframe( df )
 
-    from deltaB.OpenGGCM_to_VTK import OpenGGCM_to_VTK
+    # from deltaB.OpenGGCM_to_VTK import OpenGGCM_to_VTK
     
-    tovtk = OpenGGCM_to_VTK(oggcmdata)
-    tovtk.convert_to_vtk()
+    # tovtk = OpenGGCM_to_VTK(oggcmdata)
+    # tovtk.convert_to_vtk()
     
-    import os.path
-    basename = os.path.basename(file)
+    # import os.path
+    # basename = os.path.basename(file)
     
-    tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
+    # tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
     
-    complete = datetime.now()
-    print('Complete: ', complete.time())
+    # complete = datetime.now()
+    # print('Complete: ', complete.time())

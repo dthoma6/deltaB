@@ -45,7 +45,12 @@ def plot_Bned_ms_gap_iono(info, obs_point):
     # Divide ionosphere data into Pedersen and Hall currents
     pklname = 'dB_bs_msph-' + obs_point + '.pkl'
     df_ms = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
-    df_ms.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_x$', r'$B_y$', r'$B_z$', \
+    df_ms.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_{\parallel N}$', \
+                     r'$B_{\parallel E}$', r'$B_{\parallel D}$', \
+                     r'$B_{\perp N}$', r'$B_{\perp E}$', r'$B_{\perp D}$', \
+                     r'$B_{\perp \phi N}$', r'$B_{\perp \phi E}$', r'$B_{\perp \phi D}$', \
+                     r'$B_{\perp Res N}$', r'$B_{\perp Res E}$', r'$B_{\perp Res D}$', \
+                     r'$B_x$', r'$B_y$', r'$B_z$', \
                      r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
  
     pklname = 'dB_bs_gap-' + obs_point + '.pkl'

@@ -118,8 +118,8 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         
         # Get size of measure 
         shp = ionodata['n_theta'].shape
-        dtheta = np.pi / 2 / ( shp[0] - 1 )
-        dphi = 2 * np.pi / ( shp[1] - 1 )
+        dtheta = np.pi / 2 / ( shp[0] - 1 ) # Note, here theta is 0 -> pi
+        dphi = 2 * np.pi / ( shp[1] - 1 )  
         df['measure'] = rIonosphere**2 * dtheta * dphi * np.sin( df['theta'] )
         
     elif base_typ[1] == '.iof':
@@ -130,6 +130,10 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         # from openggcm output file
         lats = iofdata['lats'].to_numpy() * np.pi / 180   # (deg -> radians)
         lons = iofdata['longs'].to_numpy() * np.pi / 180
+        
+        # Verify units
+        assert iofdata['epio'].attrs['units'] == 'mV/m'
+        assert iofdata['etio'].attrs['units'] == 'mV/m'
         
         epio = iofdata['epio'].to_numpy() # azimuthal electric field (mV/m)
         etio = iofdata['etio'].to_numpy() # meridonal
@@ -152,23 +156,23 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         # Loop through arrays to calculate x,y,z and Ex,Ey,Ez
         for i in range(len(lats)):
             for j in range(len(lons)):
-                   theta = lats[i]
-                   phi   = lons[j]
+                   theta = lats[i]  # -pi/2 -> pi/2
+                   phi   = lons[j]  # -pi -> pi
                    
                    # Calculate x,y,z pt at rIonosphere,phi,theta
-                   x[j,i] = rIonosphere * np.cos(phi) * np.cos(theta)
-                   y[j,i] = rIonosphere * np.sin(phi) * np.cos(theta)
-                   z[j,i] = rIonosphere * np.sin(theta)
+                   x[j,i] =   rIonosphere * np.cos(phi) * np.cos(theta)
+                   y[j,i] =   rIonosphere * np.sin(phi) * np.cos(theta)
+                   z[j,i] = - rIonosphere * np.sin(theta)
                    
                    # Measure for 2-D element
-                   measure[j,i] = rIonosphere**2 * dtheta * dphi * np.sin(theta)
+                   measure[j,i] = rIonosphere**2 * dtheta * dphi * np.cos(theta)
                    
                    # Convert from spherical coordinates to cartesian
                    # Note, only azimuthal and meridonal components in 2D ionosphere
                    # No radial component.
-                   Ex[j,i] = etio[j,i] * np.sin(theta) * np.cos(phi) - epio[j,i] * np.sin(phi)
-                   Ey[j,i] = etio[j,i] * np.sin(theta) * np.sin(phi) + epio[j,i] * np.cos(phi)
-                   Ez[j,i] = etio[j,i] * np.cos(theta)
+                   Ex[j,i] = - etio[j,i] * np.sin(theta) * np.cos(phi) - epio[j,i] * np.sin(phi)
+                   Ey[j,i] = - etio[j,i] * np.sin(theta) * np.sin(phi) + epio[j,i] * np.cos(phi)
+                   Ez[j,i] = - etio[j,i] * np.cos(theta)
         
         # Put arrays in dataframe for calculations below
         df = pd.DataFrame()
@@ -184,6 +188,9 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         df['Ez'] = Ez.reshape(-1)
         
         # Get Hall and Pedersen conductivities [Siemens = 1/ohm]
+        assert iofdata['sigh'].attrs['units'] == 'S'
+        assert iofdata['sigp'].attrs['units'] == 'S'
+
         df['sigmaH']  = iofdata['sigh'].to_numpy().reshape(-1) 
         df['sigmaP']  = iofdata['sigp'].to_numpy().reshape(-1)
         
@@ -420,9 +427,13 @@ def loop_iono_b(info, point, reduce, deltahr=None, maxcores=20, deltaBlist=False
 if __name__ == "__main__":
     # folder = '/Volumes/PhysicsHDv2/divB_simple1/IE/'
     # fname = 'it100320_114900_000.idl'
-    folder = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1/IONO-2D_IOF/'
+
+    folder = '/Volumes/PhysicsHD/Dean_Thomas_020625_1/IONO-2D_IOF/'
     fname = 'Dean_Thomas_020625_1.iof.007800'
     
+    # folder = '/Volumes/Data1/Do_NOT_Transfer/CARR_Scenario1/IONO-2D/'
+    # fname = 'i_e20190902-074400-000.tec'
+        
     XSM = np.array([10,10,10])
     rCurrents = 3.0
     rIonosphere = 1.01725

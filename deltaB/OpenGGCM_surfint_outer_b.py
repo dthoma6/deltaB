@@ -45,19 +45,35 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
     """
 
     # Set up some variables used below
-    B      = np.zeros(3)
-    Bpt    = np.zeros(3)
-    Birr   = np.zeros(3)
-    Bsol   = np.zeros(3)
+    # B      = np.zeros(3)
+    # Bpt    = np.zeros(3)
+    # Birr   = np.zeros(3)
+    # Bsol   = np.zeros(3)
+    BGSE      = np.zeros(3)
+    BptGSE    = np.zeros(3)
+    BirrGSE   = np.zeros(3)
+    BsolGSE   = np.zeros(3)
     
     # Create OpenGGCM interpolators, see openggcm_interpolator.py
-    openggcm_interp = OpenGGCM_interpolator(openggcm)
-    openggcm_interp.register_variable( 'bx' )
-    openggcm_interp.register_variable( 'by' )
-    openggcm_interp.register_variable( 'bz' )
+    # openggcm_interp = OpenGGCM_interpolator(openggcm)
+    # openggcm_interp.register_variable( 'bx' )
+    # openggcm_interp.register_variable( 'by' )
+    # openggcm_interp.register_variable( 'bz' )
+    
+    # Create OpenGGCM interpolators, see openggcm_interpolator.py
+    # To avoid numerical errors due to GSE->GSM transformation, we use GSE coordinates
+    openggcm_interp = OpenGGCM_interpolator(openggcm, GSMIN=False)
+    openggcm_interp.register_variable( 'bxGSE' )
+    openggcm_interp.register_variable( 'byGSE' )
+    openggcm_interp.register_variable( 'bzGSE' )
     
     # We need the GSE to GSM transformation matrix below
-    trans_mat = openggcm.GSE_to_GSM
+    # trans_mat = openggcm.GSE_to_GSM
+    trans_to_GSM = openggcm.GSE_to_GSM
+    trans_to_GSE = openggcm.GSM_to_GSE
+    
+    # Need XGSM in GSE coordiantes below to calculate r
+    XGSE = matmul( trans_to_GSE, XGSM )
 
     # Local routine that is used in loops below to calculate contribution
     # from each surface element.
@@ -67,20 +83,33 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
             dS = size of surface element
         """
         # Interpolator needs GSM coordinates and we get result in GSM
-        xxGSM    = matmul( trans_mat, xxGSE )
-        xxhatGSM = matmul( trans_mat, xxhatGSE )
+        # xxGSM    = matmul( trans_mat, xxGSE )
+        # xxhatGSM = matmul( trans_mat, xxhatGSE )
 
         # Get B field at point xx (GSM) (result in GSM coordinates)
-        Bpt[0] = interpolator.interpolator(xxGSM, 'bx')[0]
-        Bpt[1] = interpolator.interpolator(xxGSM, 'by')[0]
-        Bpt[2] = interpolator.interpolator(xxGSM, 'bz')[0]
-            
-        if( np.isnan(Bpt[0]) or np.isnan(Bpt[1]) or np.isnan(Bpt[2]) ):
-            import sys
-            sys.exit(f'B interpolation error: xx = {xxGSE}, xxhat = {xxhatGSE}, Bpt = {Bpt}')
+        # Bpt[0] = interpolator.interpolator(xxGSM, 'bx')[0]
+        # Bpt[1] = interpolator.interpolator(xxGSM, 'by')[0]
+        # Bpt[2] = interpolator.interpolator(xxGSM, 'bz')[0]
+        
+        # Get B field at point xx (GSE) (result in GSE coordinates)
+        BptGSE[0] = interpolator.interpolator(xxGSE, 'bxGSE')[0]
+        BptGSE[1] = interpolator.interpolator(xxGSE, 'byGSE')[0]
+        BptGSE[2] = interpolator.interpolator(xxGSE, 'bzGSE')[0]
+
+        # if( np.isnan(Bpt[0]) or np.isnan(Bpt[1]) or np.isnan(Bpt[2]) ):
+        #     import sys
+        #     sys.exit(f'B interpolation error: xx = {xxGSE}, xxhat = {xxhatGSE}, Bpt = {Bpt}')
                     
-        # Distance to point XGSM where we want to know the magnetic field
-        r = XGSM - xxGSM
+        if( np.isnan(BptGSE[0]) or np.isnan(BptGSE[1]) or np.isnan(BptGSE[2]) ):
+            import sys
+            sys.exit(f'B interpolation error: xx = {xxGSE}, xxhat = {xxhatGSE}, Bpt = {BptGSE}')
+                    
+        # # Distance to point XGSM where we want to know the magnetic field
+        # r = XGSM - xxGSM
+        # rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
+
+        # Distance to point XGSE where we want to know the magnetic field
+        r = XGSE - xxGSE
         rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
         
         ##########################################################
@@ -91,10 +120,16 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
         #    = 1/(4pi) with distances in Re, B in nT
         ##########################################################
     
+        # # Irrotational and solenodial contributions from Helmholtz decomposition
+        # # in GSM coordintates
+        # Birr[:] = Birr[:] - np.dot(Bpt,xxhatGSM) * r / rmag**3 * dS / 4 / np.pi
+        # Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xxhatGSM) ) / rmag**3 * dS / 4 / np.pi
+        
         # Irrotational and solenodial contributions from Helmholtz decomposition
-        # in GSM coordintates
-        Birr[:] = Birr[:] - np.dot(Bpt,xxhatGSM) * r / rmag**3 * dS / 4 / np.pi
-        Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xxhatGSM) ) / rmag**3 * dS / 4 / np.pi
+        # in GSE coordintates
+        BirrGSE[:] = BirrGSE[:] - np.dot(BptGSE,xxhatGSE) * r / rmag**3 * dS / 4 / np.pi
+        BsolGSE[:] = BsolGSE[:] - np.cross( r, np.cross(BptGSE,xxhatGSE) ) / rmag**3 * dS / 4 / np.pi
+
         return
 
     # Start the loops for surface numerical integration.  We will cover the 
@@ -183,9 +218,18 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
             xhatGSE = np.array([-1.,0.,0.])
             calc( openggcm_interp, xGSE, xhatGSE, dSyz )
             
+    # # Add irrotational and solenoidal contributions to get total B contribution
+    # # in GSM coordinatees
+    # B[:] = Birr[:] + Bsol[:]
+
     # Add irrotational and solenoidal contributions to get total B contribution
-    # in GSM coordinatees
-    B[:] = Birr[:] + Bsol[:]
+    # in GSE coordinatees
+    BGSE[:] = BirrGSE[:] + BsolGSE[:]
     
+    # Transform to GSM coordinates
+    B    = matmul( trans_to_GSM, BGSE )
+    Birr = matmul( trans_to_GSM, BirrGSE )
+    Bsol = matmul( trans_to_GSM, BsolGSE )
+
     return B, Birr, Bsol
   

@@ -15,12 +15,14 @@ class OpenGGCM_interpolator2():
     '''
 
     """
-    def __init__(self, openggcm):
+    def __init__(self, openggcm, GSMIN=True):
         """Initialize openggcm_interpolator class
             
         Inputs:
             openggcm = OpenGGCM_dataframe reading of OpenGGCM CDF file
                  
+            GSMIN = True => GSM coordinates provided for interpolation grid,
+                    False => GSE coordinates provided
         Outputs:
             None
         """
@@ -41,6 +43,8 @@ class OpenGGCM_interpolator2():
         self.ztickGSE = self.openggcm.ztickGSE
         
         self.DataArray = self.openggcm.DataArray  # data in GSM
+
+        self.GSMIN = GSMIN
 
         return
 
@@ -95,7 +99,12 @@ class OpenGGCM_interpolator2():
         for m in range(len(XGSM)):
             # We need XGSM, YGSM, ZGSM in GSE coordinates for interpolation
             # Coordinates are in GSE, but data are in GSM
-            xGSE = self.transfrom_GSMtoGSE( np.array([XGSM[m], YGSM[m], ZGSM[m]]) )
+
+            # Note: GSMIN tells us whether to expect GSM or GSE coordinates as input
+            if self.GSMIN: 
+                xGSE = self.transfrom_GSMtoGSE( np.array([XGSM[m], YGSM[m], ZGSM[m]]) )
+            else:
+                xGSE = np.array([XGSM[m], YGSM[m], ZGSM[m]])
             
             # Interpolate
             tmp = self.var_interp[varnameGSM]( xGSE )

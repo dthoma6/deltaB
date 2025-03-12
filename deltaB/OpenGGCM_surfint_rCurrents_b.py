@@ -6,9 +6,21 @@ Created on Thu Jul 11 13:14:30 2024
 @author: Dean Thomas
 """
 
+import numba
 import numpy as np 
 
 from deltaB.OpenGGCM_interpolator import OpenGGCM_interpolator
+
+@numba.njit
+def matmul( A, B ):
+    """Matrix multiplication of A (3x3) matrix with B (3) vector to give C (3)
+    vector, allows numba accelleration
+    """
+    C = np.zeros(3)
+    C[0] = A[0,0]*B[0] + A[0,1]*B[1] + A[0,2]*B[2]
+    C[1] = A[1,0]*B[0] + A[1,1]*B[1] + A[1,2]*B[2]
+    C[2] = A[2,0]*B[0] + A[2,1]*B[1] + A[2,2]*B[2]
+    return C
 
 def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     """ Subroutine for calc_ms_surfint_rCurrents_b.
@@ -33,25 +45,52 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     """
 
     # Set up some variables used below
-    B      = np.zeros(3)
-    r      = np.zeros(3)
-    Bpt    = np.zeros(3)
-    x      = np.zeros(3)
-    xhat   = np.zeros(3)
-    Birr   = np.zeros(3)
-    Bsol   = np.zeros(3)
+    # B      = np.zeros(3)
+    # r      = np.zeros(3)
+    # Bpt    = np.zeros(3)
+    # x      = np.zeros(3)
+    # xhat   = np.zeros(3)
+    # Birr   = np.zeros(3)
+    # Bsol   = np.zeros(3)
+    BGSE      = np.zeros(3)
+    BptGSE    = np.zeros(3)
+    BirrGSE   = np.zeros(3)
+    BsolGSE   = np.zeros(3)
+    r         = np.zeros(3)
+    xxGSE     = np.zeros(3)
+    xxhatGSE  = np.zeros(3)
+
     
+    # # Create OpenGGCM interpolators, see openggcm_interpolator.py
+    # openggcm_interp = OpenGGCM_interpolator(openggcm)
+    # openggcm_interp.register_variable( 'bx' )
+    # openggcm_interp.register_variable( 'by' )
+    # openggcm_interp.register_variable( 'bz' )
+ 
     # Create OpenGGCM interpolators, see openggcm_interpolator.py
-    openggcm_interp = OpenGGCM_interpolator(openggcm)
-    openggcm_interp.register_variable( 'bx' )
-    openggcm_interp.register_variable( 'by' )
-    openggcm_interp.register_variable( 'bz' )
+    # To avoid GSE->GSM numerical errors, we'll do everything in GSE
+    openggcm_interp = OpenGGCM_interpolator(openggcm, GSMIN=False)
+    openggcm_interp.register_variable( 'bxGSE' )
+    openggcm_interp.register_variable( 'byGSE' )
+    openggcm_interp.register_variable( 'bzGSE' )
     
+    # We need the GSE to GSM transformation matrix below
+    # trans_mat = openggcm.GSE_to_GSM
+    trans_to_GSM = openggcm.GSE_to_GSM
+    trans_to_GSE = openggcm.GSM_to_GSE
+    
+    # Need XGSM in GSE coordiantes below to calculate r
+    XGSE = matmul( trans_to_GSE, XGSM )
+
     # Start the loops for surface numerical integration. We use two 
     # loops, theta and phi, which cover the inner boundary of the
     # magnetosphere (a sphere at rCurrents).
     
-    # theta increments and phi increments (GSM coordinates)
+    # # theta increments and phi increments (GSM coordinates)
+    # dTheta = np.pi/nTheta
+    # dPhi = 2. * np.pi/nPhi
+
+    # theta increments and phi increments (GSE coordinates)
     dTheta = np.pi/nTheta
     dPhi = 2. * np.pi/nPhi
 
@@ -70,24 +109,37 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
             # from phi - dPhi/2 to phi + dPhi/2
             phi = (j + 0.5) * dPhi
         
-            # Normal unit vector on sphere at rCurrents (GSM coordinates)
+            # # Normal unit vector on sphere at rCurrents (GSM coordinates)
+            # # Unit vector points radially for gap region
+            # xhat[0] = np.cos( theta ) * np.cos( phi )
+            # xhat[1] = np.cos( theta ) * np.sin( phi )
+            # xhat[2] = np.sin( theta )
+
+            # Normal unit vector on sphere at rCurrents (GSE coordinates)
             # Unit vector points radially for gap region
-            xhat[0] = np.cos( theta ) * np.cos( phi )
-            xhat[1] = np.cos( theta ) * np.sin( phi )
-            xhat[2] = np.sin( theta )
-          
-            # Point on sphere at rCurrents (GSM coordinates)
-            x = xhat * openggcm.rCurrents
+            xxhatGSE[0] = np.cos( theta ) * np.cos( phi )
+            xxhatGSE[1] = np.cos( theta ) * np.sin( phi )
+            xxhatGSE[2] = np.sin( theta )
+
+            # # Point on sphere at rCurrents (GSM coordinates)
+            # x = xhat * openggcm.rCurrents
+            
+            # Point on sphere at rCurrents (GSE coordinates)
+            xxGSE = xxhatGSE * openggcm.rCurrents
             
             # Get B field at point x (in GSM coordinates)
-            Bpt[0] = openggcm_interp.interpolator(x, 'bx')[0]
-            Bpt[1] = openggcm_interp.interpolator(x, 'by')[0]
-            Bpt[2] = openggcm_interp.interpolator(x, 'bz')[0]
+            BptGSE[0] = openggcm_interp.interpolator(xxGSE, 'bxGSE')[0]
+            BptGSE[1] = openggcm_interp.interpolator(xxGSE, 'byGSE')[0]
+            BptGSE[2] = openggcm_interp.interpolator(xxGSE, 'bzGSE')[0]
 
-            # Distance to point XGSM where we want to know the magnetic field
-            r = XGSM - x
-            rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
+            # # Distance to point XGSM where we want to know the magnetic field
+            # r = XGSM - x
+            # rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
             
+            # Distance to point XGSM where we want to know the magnetic field
+            r = XGSE - xxGSE
+            rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
+
             ##########################################################
             # Below we calculate the delta B in each differential surface 
             # element in the integral.  We want the final result to be in nT.
@@ -97,10 +149,15 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
             ##########################################################
     
             # Irrotational and solenodial contributions from Helmholtz decomposition
-            Birr[:] = Birr[:] - np.dot(Bpt,xhat) * r / rmag**3 * dS / 4 / np.pi
-            Bsol[:] = Bsol[:] - np.cross( r, np.cross(Bpt,xhat) ) / rmag**3 * dS / 4 / np.pi
+            BirrGSE[:] = BirrGSE[:] - np.dot(BptGSE,xxhatGSE) * r / rmag**3 * dS / 4 / np.pi
+            BsolGSE[:] = BsolGSE[:] - np.cross( r, np.cross(BptGSE,xxhatGSE) ) / rmag**3 * dS / 4 / np.pi
                              
     # Add irrotational and solenoidal contributions to get total B contribution
-    B[:] = Birr[:] + Bsol[:]
+    BGSE[:] = BirrGSE[:] + BsolGSE[:]
     
+    # Transform to GSM coordinates
+    B    = matmul( trans_to_GSM, BGSE )
+    Birr = matmul( trans_to_GSM, BirrGSE )
+    Bsol = matmul( trans_to_GSM, BsolGSE )
+
     return B, Birr, Bsol

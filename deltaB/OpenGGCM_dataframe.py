@@ -17,8 +17,19 @@ from deltaB.coordinates import get_transform_matrix
 from deltaB.OpenGGCM_data import OpenGGCMdata
 from deltaB.OpenGGCM_curlB import OpenGGCM_curlBtoJ
 
-USE_CURLB = False # Use curl of B to find current density True, 
-                  # use OpenGGCM current density False
+####################################################################
+#
+# USE_CURLB, USE_FALSEB, and USE_GSE are flags for special test
+# cases.  In general, all three should be FALSE
+#
+####################################################################
+
+USE_CURLB = False   # Use curl of B to find current density True, 
+                    # use OpenGGCM current density False
+                  
+USE_FALSEB = False  # Use a 'made-up' B as test case
+
+USE_GSE = False     # When true, do not perform GSE->GSM tranformation
 
 @numba.njit
 def get_openggcm_cells_sub( xcell_, ycell_, zcell_, nI, nJ, nK):
@@ -246,8 +257,8 @@ def get_openggcm_data_from_cdf(file, info):
         if cdfvar != 'bx1' and cdfvar != 'by1' and cdfvar != 'bz1': 
             if cdf.varget(cdfvar).shape == (1, npts):
                 nVar += 1
-    # Add nVars for x,y,z,measure
-    nVar += 4
+    # Add nVars for x,y,z,measure,xGSE,yGSE,zGSE,bxGSE,byGSE,bzGSE
+    nVar += 10
     
     # Setup dicts that will contain the list of variables and associated units
     varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, 
@@ -305,7 +316,8 @@ def get_openggcm_data_from_cdf(file, info):
     cellcentersGSE = np.column_stack((xGSE, yGSE, zGSE))
 
     # We'll save the OpenGGCM data in data_arr
-    data_arr = np.empty((npts, nVar), dtype=np.float32);
+    # data_arr = np.empty((npts, nVar), dtype=np.float32); Caused error in data processing
+    data_arr = np.empty((npts, nVar))
     data_arr[:,:] = np.nan
 
     # We'll start with the xyz points and measures
@@ -357,7 +369,31 @@ def get_openggcm_data_from_cdf(file, info):
     data_arr[:, varidx['ux']] = - data_arr[:, varidx['ux']]
     data_arr[:, varidx['uy']] = - data_arr[:, varidx['uy']]
 
-    if USE_CURLB:
+    if USE_FALSEB:
+        logging.info('WARNING: USE_FALSEB is True, fake B field in use. Check options')
+        # data_arr[:, varidx['bx']] = 0
+        # data_arr[:, varidx['by']] = 0
+        # data_arr[:, varidx['bz']] = 0
+        
+        # data_arr[:, varidx['bx']] = xGSE
+        # data_arr[:, varidx['by']] = yGSE
+        # data_arr[:, varidx['bz']] = zGSE
+
+        # data_arr[:, varidx['bx']] = 10.*yGSE**2
+        # data_arr[:, varidx['by']] = 100.*zGSE**2
+        # data_arr[:, varidx['bz']] = 1000.*xGSE**2
+
+        # data_arr[:, varidx['bx']] = 10.*zGSE**2
+        # data_arr[:, varidx['by']] = 100.*xGSE**2
+        # data_arr[:, varidx['bz']] = 1000.*yGSE**2
+
+        # B = 1/x^2, 1/y^2, 1/z^2
+        data_arr[:, varidx['bx']] = 1/xGSE**2
+        data_arr[:, varidx['by']] = 1/yGSE**2
+        data_arr[:, varidx['bz']] = 1/zGSE**2
+
+    if USE_CURLB or USE_FALSEB:
+        logging.info('WARNING: USE_CURLB is True, check options')
         # Use curlB to determine current density, j, rather than use OpenGGCM 
         # provided values
         
@@ -369,11 +405,58 @@ def get_openggcm_data_from_cdf(file, info):
 
         data_arr = OpenGGCM_curlBtoJ(data_arr, DataArray_tmp, varidx, nVar, nI, nJ, nK, rCurrents)
             
+    # Keep copies of some GSE variables.  The variables above will be
+    # transformed to GSM below.  We use the GSE variables in some calculations.
+    
+    cdfvar = 'xGSE'
+    data_arr[:, iVar] = deepcopy(xGSE)
+    units[cdfvar] = units['x']
+    varidx[cdfvar] = iVar
+    iVar += 1
+    
+    cdfvar = 'yGSE'
+    data_arr[:, iVar] = deepcopy(yGSE)
+    units[cdfvar] = units['y']
+    varidx[cdfvar] = iVar
+    iVar += 1
+    
+    cdfvar = 'zGSE'
+    data_arr[:, iVar] = deepcopy(zGSE )
+    units[cdfvar] = units['z']
+    varidx[cdfvar] = iVar
+    iVar += 1
+
+    cdfvar = 'bxGSE'
+    data_arr[:, iVar] = deepcopy(data_arr[:, varidx['bx']])
+    units[cdfvar] = units['bx']
+    varidx[cdfvar] = iVar
+    iVar += 1
+    
+    cdfvar = 'byGSE'
+    data_arr[:, iVar] = deepcopy(data_arr[:, varidx['by']])
+    units[cdfvar] = units['by']
+    varidx[cdfvar] = iVar
+    iVar += 1
+    
+    cdfvar = 'bzGSE'
+    data_arr[:, iVar] = deepcopy(data_arr[:, varidx['bz']] )
+    units[cdfvar] = units['bz']
+    varidx[cdfvar] = iVar
+    iVar += 1
+
     # Convert to GSM coordinates
     logging.info('Convert OpenGGCM vectors from GSE to GSM coordinates')
         
     # Transformation matrix to change from GSE to GSM coordinates 
-    transform_matrix = get_transform_matrix(time, "GSE", "GSM", ) 
+    if USE_GSE:
+        # We ignor transform if USE_GSE is True
+        logging.info('WARNING: USE_GSE is True, check options')
+        transform_matrix     = np.identity(3) 
+        rev_transform_matrix = np.identity(3) 
+    else:
+        transform_matrix     = get_transform_matrix(time, "GSE", "GSM", ) 
+        rev_transform_matrix = get_transform_matrix(time, "GSM", "GSE", )
+        
     transform_openggcm_variables_sub( data_arr, varidx, transform_matrix)
     cellverticesGSM = deepcopy( cellverticesGSE )
     transform_vector_sub( cellverticesGSM, transform_matrix )
@@ -419,7 +502,7 @@ def get_openggcm_data_from_cdf(file, info):
                     cellverticesGSM = cellverticesGSM, # GSM coordinates
 
                     GSE_to_GSM  = transform_matrix,
-                    GSM_to_GSE  = get_transform_matrix(time, "GSM", "GSE", ),
+                    GSM_to_GSE  = rev_transform_matrix,
                     
                     units       = units,
                     time        = time,
@@ -430,9 +513,9 @@ def get_openggcm_data_from_cdf(file, info):
 if __name__ == "__main__":
     # file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
     # dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_052924_1.derived'
-    file = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1/GM_CDF/Dean_Thomas_020625_1.3df.061560.cdf'
-    dir_derived = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1.derived'
-    data_dir = '/Volumes/PhysicsHDv2/Dean_Thomas_020625_1'
+    file = '/Volumes/PhysicsHD/Dean_Thomas_020625_1/GM_CDF/Dean_Thomas_020625_1.3df.061560.cdf'
+    dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_020625_1.derived'
+    data_dir = '/Volumes/PhysicsHD/Dean_Thomas_020625_1'
     
     # Example info.  Info is used below in call to loop_ms_b
     import os
@@ -485,3 +568,4 @@ if __name__ == "__main__":
     
     # complete = datetime.now()
     # print('Complete: ', complete.time())
+

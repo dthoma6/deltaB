@@ -14,11 +14,14 @@ class OpenGGCM_interpolator():
     '''
 
     """
-    def __init__(self, openggcm):
+    def __init__(self, openggcm, GSMIN=True):
         """Initialize openggcm_interpolator class
             
         Inputs:
             openggcm = OpenGGCM_dataframe reading of OpenGGCM CDF file
+            
+            GSMIN = True => GSM coordinates provided for interpolation grid,
+                    False => GSE coordinates provided
                  
         Outputs:
             None
@@ -40,6 +43,8 @@ class OpenGGCM_interpolator():
         self.ztickGSE = self.openggcm.ztickGSE
 
         self.DataArray = self.openggcm.DataArray  # data in GSM
+        
+        self.GSMIN = GSMIN
 
         return
 
@@ -90,7 +95,12 @@ class OpenGGCM_interpolator():
         for m in range(len(XGSM)):
             # We need XGSM, YGSM, ZGSM in GSE coordinates to simplify
             # the trilinear interpolation using original OpenGGCM GSE data
-            xGSE = self.transfrom_GSMtoGSE( np.array([XGSM[m], YGSM[m], ZGSM[m]]) )
+            
+            # Note: GSMIN tells us whether to expect GSM or GSE coordinates as input
+            if self.GSMIN: 
+                xGSE = self.transfrom_GSMtoGSE( np.array([XGSM[m], YGSM[m], ZGSM[m]]) )
+            else:
+                xGSE = np.array([XGSM[m], YGSM[m], ZGSM[m]])
             
             # Find where point lies inside x,y,z grid (GSE)
             # We compare the xGSE point to the ticks along

@@ -45,13 +45,6 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     """
 
     # Set up some variables used below
-    # B      = np.zeros(3)
-    # r      = np.zeros(3)
-    # Bpt    = np.zeros(3)
-    # x      = np.zeros(3)
-    # xhat   = np.zeros(3)
-    # Birr   = np.zeros(3)
-    # Bsol   = np.zeros(3)
     BGSE      = np.zeros(3)
     BptGSE    = np.zeros(3)
     BirrGSE   = np.zeros(3)
@@ -60,13 +53,6 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     xxGSE     = np.zeros(3)
     xxhatGSE  = np.zeros(3)
 
-    
-    # # Create OpenGGCM interpolators, see openggcm_interpolator.py
-    # openggcm_interp = OpenGGCM_interpolator(openggcm)
-    # openggcm_interp.register_variable( 'bx' )
-    # openggcm_interp.register_variable( 'by' )
-    # openggcm_interp.register_variable( 'bz' )
- 
     # Create OpenGGCM interpolators, see openggcm_interpolator.py
     # To avoid GSE->GSM numerical errors, we'll do everything in GSE
     openggcm_interp = OpenGGCM_interpolator(openggcm, GSMIN=False)
@@ -86,10 +72,6 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     # loops, theta and phi, which cover the inner boundary of the
     # magnetosphere (a sphere at rCurrents).
     
-    # # theta increments and phi increments (GSM coordinates)
-    # dTheta = np.pi/nTheta
-    # dPhi = 2. * np.pi/nPhi
-
     # theta increments and phi increments (GSE coordinates)
     dTheta = np.pi/nTheta
     dPhi = 2. * np.pi/nPhi
@@ -109,21 +91,12 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
             # from phi - dPhi/2 to phi + dPhi/2
             phi = (j + 0.5) * dPhi
         
-            # # Normal unit vector on sphere at rCurrents (GSM coordinates)
-            # # Unit vector points radially for gap region
-            # xhat[0] = np.cos( theta ) * np.cos( phi )
-            # xhat[1] = np.cos( theta ) * np.sin( phi )
-            # xhat[2] = np.sin( theta )
-
             # Normal unit vector on sphere at rCurrents (GSE coordinates)
             # Unit vector points radially for gap region
             xxhatGSE[0] = np.cos( theta ) * np.cos( phi )
             xxhatGSE[1] = np.cos( theta ) * np.sin( phi )
             xxhatGSE[2] = np.sin( theta )
 
-            # # Point on sphere at rCurrents (GSM coordinates)
-            # x = xhat * openggcm.rCurrents
-            
             # Point on sphere at rCurrents (GSE coordinates)
             xxGSE = xxhatGSE * openggcm.rCurrents
             
@@ -132,10 +105,6 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
             BptGSE[1] = openggcm_interp.interpolator(xxGSE, 'byGSE')[0]
             BptGSE[2] = openggcm_interp.interpolator(xxGSE, 'bzGSE')[0]
 
-            # # Distance to point XGSM where we want to know the magnetic field
-            # r = XGSM - x
-            # rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
-            
             # Distance to point XGSM where we want to know the magnetic field
             r = XGSE - xxGSE
             rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )

@@ -158,3 +158,84 @@ def BATSRUS_divBint_b(XGSM, timeISO, batsrus):
                         B = B + divB * r * measure / rmag**3 / 4 / np.pi 
       
     return B
+
+if __name__ == "__main__":
+        
+        import os.path
+
+        ###############################################
+        # Based on magnetopost info structure
+        ###############################################
+
+        # data_dir = r'/Users/Shared'
+        # data_dir = r'/Volumes/PhysicsHD'
+        data_dir = r'/Volumes/Data1'
+
+        info = {
+                "model": "SWMF",
+                "run_name": "Bob_Weigel_070323_3",
+                # "rCurrents": 3.0,
+                "rIonosphere": 1.01725,
+                "file_type": "cdf",
+                "method": "method1",
+                "dir_run": os.path.join(data_dir, "Bob_Weigel_070323_3"),
+                "dir_plots": os.path.join(data_dir, "Bob_Weigel_070323_3.plots"),
+                "dir_derived": os.path.join(data_dir, "Bob_Weigel_070323_3.derived"),
+                "dir_magnetosphere": os.path.join(data_dir, "Bob_Weigel_070323_3", "GM_CDF"),
+                "dir_ionosphere": os.path.join(data_dir, "Bob_Weigel_070323_3", "IONO-2D_CDF")
+        }
+
+        file = '/Volumes/Data1/Bob_Weigel_070323_3/GM_CDF/3d__ful_4_e20000101-194800-000.out.cdf'
+
+        # # This should give us divB=0
+        # bx = 10.*z**2
+        # by = 100.*x**2
+        # bz = 1000.*y**2
+        # value = 0.0
+        
+        # # This should give us divB=3
+        # bx = x
+        # by = y
+        # bz = z
+        value = 3.0
+        
+        from deltaB import get_batsrus_data_from_cdf
+
+        batsrus = get_batsrus_data_from_cdf(file, info)
+        
+        nI        = batsrus.nI
+        nJ        = batsrus.nJ
+        nK        = batsrus.nK
+        nBlock    = batsrus.nBlock
+        nVar      = batsrus.DataArray.shape[0]
+        
+        DataArray = batsrus.DataArray
+        data_arr  = batsrus.data_arr
+        varidx    = batsrus.varidx
+        rCurrents = batsrus.rCurrents
+        
+        _x = batsrus.varidx['x']
+        _y = batsrus.varidx['y']
+        _z = batsrus.varidx['z']
+
+        _bx = batsrus.varidx['bx']
+        _by = batsrus.varidx['by']
+        _bz = batsrus.varidx['bz']
+
+        if True: # test div function
+    
+            # Calculate curlB for each point on grid
+            # Verify that we get the expected answer
+            for n in range(nBlock):
+                # Determine dX, dY, and dZ for this block
+                dX = batsrus.DataArray[_x,1,0,0,n] - batsrus.DataArray[_x,0,0,0,n]
+                dY = batsrus.DataArray[_y,0,1,0,n] - batsrus.DataArray[_y,0,0,0,n]
+                dZ = batsrus.DataArray[_z,0,0,1,n] - batsrus.DataArray[_z,0,0,0,n]
+                if n%1000 == 0: print(n)
+                for i in range(nI):
+                    for j in range(nJ):
+                        for k in range(nK):
+                            divB = calcDivB(batsrus, i, j, k, n, nI, nJ, nK, dX, dY, dZ, _bx, _by, _bz)
+                            if np.abs(divB - value) > 0.000000001: print( i,j,k,divB )
+            print('Done divB')
+            

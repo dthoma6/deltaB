@@ -165,7 +165,7 @@ def loop_ms_surfint_outer_b(info, point, reduce, nX=100, nY=100, nZ=100,
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
             mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
-            mhd = get_openggcm_data_from_cdf(filepath)
+            mhd = get_openggcm_data_from_cdf(filepath,info)
         elif info['model'] == 'LFM':
             mhd = get_lfm_data_from_cdf(filepath)
         else:

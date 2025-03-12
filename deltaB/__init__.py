@@ -84,6 +84,7 @@ from .BATSRUS_to_VTK import BATSRUS_to_VTK
 from .BATSRUS_surfint_outer_b import BATSRUS_surfint_outer_b
 from .BATSRUS_surfint_rCurrents_b import BATSRUS_surfint_rCurrents_b
 from .BATSRUS_divBint_b import BATSRUS_divBint_b
+from .BATSRUS_curlB import BATSRUS_curlBtoJ
 
 from .OpenGGCM_data import OpenGGCMdata
 from .OpenGGCM_dataframe import get_openggcm_data_from_cdf

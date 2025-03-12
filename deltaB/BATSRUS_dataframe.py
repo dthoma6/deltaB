@@ -12,6 +12,12 @@ import numba
 
 from deltaB.util import get_mhd_file_time
 from deltaB.BATSRUS_data import BATSRUSdata
+from deltaB.BATSRUS_curlB import BATSRUS_curlBtoJ
+
+USE_CURLB = False # Use curl of B to find current density True, 
+                  # use BATSRUS current density False
+                  
+USE_FALSEB = False  # Use false B as test case
 
 @numba.jit(nopython=True)
 def get_batsrus_grid_sub( DataArray, varidx, nBlock, nI, nJ, nK):
@@ -191,6 +197,46 @@ def get_batsrus_data_from_cdf(file, info):
     
     assert(not np.isfortran(data_arr))
     
+    if USE_FALSEB:
+        logging.info('WARNING: USE_FALSEB is True, fake B field in use. Check options')
+        # data_arr[:, varidx['bx']] = data_arr[:, varidx['z']]
+        # data_arr[:, varidx['by']] = data_arr[:, varidx['x']]
+        # data_arr[:, varidx['bz']] = data_arr[:, varidx['y']]
+        
+        # data_arr[:, varidx['bx']] = 100. * data_arr[:, varidx['y']]
+        # data_arr[:, varidx['by']] = 1000.* data_arr[:, varidx['z']]
+        # data_arr[:, varidx['bz']] = 10.  * data_arr[:, varidx['x']]
+       
+        # data_arr[:, varidx['bx']] = data_arr[:, varidx['x']]
+        # data_arr[:, varidx['by']] = data_arr[:, varidx['y']]
+        # data_arr[:, varidx['bz']] = data_arr[:, varidx['z']]
+        
+        # B = 1/z^2, 1/x^2, 1/y^2
+        data_arr[:, varidx['bx']] = data_arr[:, varidx['z']]**2
+        data_arr[:, varidx['by']] = data_arr[:, varidx['x']]**2
+        data_arr[:, varidx['bz']] = data_arr[:, varidx['y']]**2
+        data_arr[:, varidx['bx']] = 1/data_arr[:, varidx['bx']]
+        data_arr[:, varidx['by']] = 1/data_arr[:, varidx['by']]
+        data_arr[:, varidx['bz']] = 1/data_arr[:, varidx['bz']]
+
+        # # bx = 10.*z**2, by = 100.*x**2, bz = 1000.*y**2
+        # data_arr[:, varidx['bx']] = 10.*data_arr[:, varidx['z']]**2
+        # data_arr[:, varidx['by']] = 100.*data_arr[:, varidx['x']]**2
+        # data_arr[:, varidx['bz']] = 1000.*data_arr[:, varidx['y']]**2
+
+    if USE_CURLB or USE_FALSEB:
+        logging.info('WARNING: USE_CURLB is True, check options')
+        # Use curlB to determine current density, j, rather than use OpenGGCM 
+        # provided values
+        
+        DataArray_tmp = data_arr.transpose()
+        assert(np.isfortran(DataArray_tmp))
+        
+        DataArray_tmp = DataArray_tmp.reshape((nVar, nI, nJ, nK,nBlock), order='F')
+        assert(np.isfortran(DataArray_tmp))
+
+        data_arr = BATSRUS_curlBtoJ(data_arr, DataArray_tmp, varidx, nVar, nI, nJ, nK, nBlock, rCurrents)
+
     DataArray = data_arr.transpose()
     assert(np.isfortran(DataArray))
     

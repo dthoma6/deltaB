@@ -156,13 +156,29 @@ class OpenGGCM_interpolator():
 if __name__ == "__main__":
     
     file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
-    dir_derived = '/Volumes/PhysicsHD/Dean_Thomas_052924_1.derived'
+ 
+    import os.path
+
+    data_dir = r'/Volumes/PhysicsHD'
+    info = {
+            "model": "OpenGGCM",
+            "run_name": "Dean_Thomas_052924_1",
+            # "rCurrents": 3.0,
+            "rIonosphere": 1.01725,
+            "file_type": "cdf",
+            "method": "method1",
+            "dir_run": os.path.join(data_dir, "Dean_Thomas_052924_1"),
+            "dir_plots": os.path.join(data_dir, "Dean_Thomas_052924_1.plots"),
+            "dir_derived": os.path.join(data_dir, "Dean_Thomas_052924_1.derived"),
+            "dir_magnetosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "GM_CDF"),
+            "dir_ionosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "IONO-2D_CDF")
+    }
     
     from deltaB.OpenGGCM_dataframe import get_openggcm_data_from_cdf
 
     # Test interpolation algorithm
     
-    ogcmdata = get_openggcm_data_from_cdf(file)
+    ogcmdata = get_openggcm_data_from_cdf(file,info)
     ogcm_interp = OpenGGCM_interpolator(ogcmdata)
     ogcm_interp.register_variable( 'bx' )
     

@@ -230,7 +230,7 @@ def loop_heatmapworld_ms(info, times, nlat, nlong, deltahr=None, maxcores=20):
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
             mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
-            mhd = get_openggcm_data_from_cdf(filepath)
+            mhd = get_openggcm_data_from_cdf(filepath,info)
         elif info['model'] == 'LFM':
             mhd = get_lfm_data_from_cdf(filepath)
         else:
@@ -2142,7 +2142,7 @@ def loop_heatmapworld_divB(info, times, nlat, nlong, deltahr=None, maxcores=20):
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
             mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
-            mhd = get_openggcm_data_from_cdf(filepath)
+            mhd = get_openggcm_data_from_cdf(filepath,info)
         elif info['model'] == 'LFM':
             mhd = get_lfm_data_from_cdf(filepath)
         else:
@@ -2284,7 +2284,7 @@ def loop_heatmapworld_divB(info, times, nlat, nlong, deltahr=None, maxcores=20):
         if info['model'] == 'SWMF' or info['model'] == 'BATSRUS':
             mhd = get_batsrus_data_from_cdf(filepath,info)
         elif info['model'] == 'OpenGGCM':
-            mhd = get_openggcm_data_from_cdf(filepath)
+            mhd = get_openggcm_data_from_cdf(filepath,info)
         elif info['model'] == 'LFM':
             mhd = get_lfm_data_from_cdf(filepath)
         else:

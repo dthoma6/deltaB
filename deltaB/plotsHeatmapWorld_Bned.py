@@ -807,9 +807,9 @@ def plot_heatmapworld_helmholtz_grid(info, times, vmin, vmax, nlat, nlong,
 
     # Add titles to each row identifying region
     for axp, row in zip(ax[:,0], [r'$\mathsf{B_{BS}}$', 
-                                  r'$\mathsf{B_{HDT}}$', 
-                                  r'$\mathsf{\delta B_{div}}$', 
-                                  r'$\mathsf{\delta B_{out}}$']):
+                                  r'$\mathsf{B_{in}}$', 
+                                  r'$\mathsf{B_{div}}$', 
+                                  r'$\mathsf{B_{out}}$']):
         axp.set_ylabel(row, rotation=90)
    
     # Add colorbar

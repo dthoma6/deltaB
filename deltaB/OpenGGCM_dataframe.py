@@ -11,8 +11,10 @@ import numpy as np
 import logging
 import numba
 from copy import deepcopy
+from os import remove
+from os.path import exists
 
-from deltaB.util import get_mhd_file_time
+from deltaB.util import get_mhd_file_time, gunzip_to_temp
 from deltaB.coordinates import get_transform_matrix
 from deltaB.OpenGGCM_data import OpenGGCMdata
 from deltaB.OpenGGCM_curlB import OpenGGCM_curlBtoJ
@@ -217,22 +219,30 @@ def transform_vector_sub( vector, trans_mat):
             
     return
 
-def get_openggcm_data_from_cdf(file, info):
+def get_openggcm_data_from_cdf(infile, info):
     """Read OpenGGCM data from CDF file.  Store the data in OpenGGCMClass
     following the pattern used by swmfio for BATSRUS
      
     Inputs:
-        file = path to CDF file
+        infile = path to CDF file
          
     Outputs:
         Returns openggccmdata with OpenGGCM data
     """
     logging.info('Read OpenGGCM file and convert to OpenGGCMData')
     
+    # Determine if this is a plain CDF or gzipped file
+    if exists( infile ):
+        # Its a CDF as listed in *_GM_cdf_list
+        file = infile
+    else:
+        # Assume its a gzipped file
+        file = gunzip_to_temp( infile + '.gz' )
+    
     # Read the file
     cdf = cdfread.CDF(file)
     globatts = cdf.globalattsget()
-    time = get_mhd_file_time(file)
+    time = get_mhd_file_time(infile)
     assert( time != -1 )  # Time not found
 
     # The CDF file contain four grids...
@@ -306,7 +316,6 @@ def get_openggcm_data_from_cdf(file, info):
         rCurrents = np.float64(globatts['r_currents'])
     else:
         rCurrents = info['rCurrents']
-
 
     # Get cells, each cell has an x,y,z point at the center and has
     # volume measure
@@ -506,8 +515,13 @@ def get_openggcm_data_from_cdf(file, info):
                     
                     units       = units,
                     time        = time,
-                    file        = file)    
+                    file        = infile)    
     
+    # If necessary, delete ungzipped temporary file
+    cdf.close()
+    if not exists( infile ):
+        remove(file)
+
     return openggcmdata
 
 if __name__ == "__main__":

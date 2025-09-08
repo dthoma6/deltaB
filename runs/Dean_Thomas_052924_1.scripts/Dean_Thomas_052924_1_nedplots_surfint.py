@@ -3,7 +3,7 @@
 """
 Created on Wed Jul 10 15:38:51 2024
 
-@author: Dean Thomas
+@author: Dean Thomas 
 """
 import os.path
 import deltaB as db
@@ -14,7 +14,7 @@ from Dean_Thomas_052924_1_info import info as info
 
 # COMPUTE, True or False compute delta B contributions
 # If false, only generate plots
-COMPUTE=True
+COMPUTE=False
 
 if __name__ == "__main__":
 
@@ -37,15 +37,15 @@ if __name__ == "__main__":
         db.loop_ms_b(info, point, reduce, maxcores=20)    
         # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
         # db.loop_iono_b(info, point, reduce)
-        # db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        # db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        # db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
+        db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
  
     # Set some plot configs
     plt.rcParams["figure.figsize"] = [12,4]
     plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 10
+    plt.rcParams['font.size'] = 12
     plt.rcParams.update({
         # "text.usetex": True,
         "font.family": "sans-serif",
@@ -106,37 +106,78 @@ if __name__ == "__main__":
     l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k-', label=r'$B_{BS}$' )
     ax[0].set_ylabel(r'$\mathsf{B_N}$ at ' + point)
     ax[0].set_xlabel('Time (UTC)')
-    l2 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r-', 
-               label=r'$B_{H}$ + $\delta B_{outer}$ + $\delta B_{div}$' )
-    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g:', label=r'$B_{H}$ + $\delta B_{outer}$')
+    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'$B_{H}$ + $B_{outer}$')
+    l2 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:', 
+               label=r'$B_{H}$ + $B_{outer}$ + $B_{div}$' )
     l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'$B_{H}$' )
-    ax[0].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00'])
+    ax[0].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     ax[0].legend([r'$\mathsf{B}_{\mathsf{BS}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}+\mathsf{\delta B_{div}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}$'])
+                  r'$\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}+\mathsf{B_{div}}$',
+                  r'$\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}$',
+                  r'$\mathsf{B}_{\mathsf{in}}$'], loc='upper right')
     # ax[0].legend()
     
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k-' )
     ax[1].set_ylabel(r'$\mathsf{B_E}$ at ' + point)
     ax[1].set_xlabel('Time (UTC)')
-    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r-')
-    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g:' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner'], 'b-' )
-    ax[1].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    ax[1].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k-' )
     ax[2].set_ylabel(r'$\mathsf{B_D}$ at ' + point)
     ax[2].set_xlabel('Time (UTC)')
-    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r-')
-    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g:' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner'], 'b-' )
-    ax[2].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    ax[2].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
     plt.tight_layout()
     
     pltname = 'tot-Bned-Test-' + point
     fig.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
+    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
+    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
+    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
+    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.tif' ) )
+    # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.svg' ) )
+    
+    import numpy as np
+    # Set some plot configs
+    plt.rcParams["figure.figsize"] = [4,4]
+    plt.rcParams["figure.dpi"] = 600
+    plt.rcParams['axes.grid'] = True
+    plt.rcParams['font.size'] = 12
+    plt.rcParams.update({
+        # "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": "Helvetica",
+    })
+
+    # df_bs[r'$B_H$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = np.sqrt( df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$']**2 + \
+    #                                                                     df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$']**2)
+    # df_bs[r'$B_H$ Biot-Savart'] = np.sqrt( df_bs[r'$B_N$ Biot-Savart']**2 + df_bs[r'$B_E$ Biot-Savart']**2 )
+
+    # plt.figure()
+    # plt.plot(df_bs[r'Time (hr)'], df_bs[r'$B_H$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] )
+    # plt.plot(df_bs[r'Time (hr)'], df_bs[r'$B_H$ Biot-Savart'] )
+        
+    df_bs[r'$|B|$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = np.sqrt( df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$']**2 + \
+                                                                        df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$']**2 + \
+                                                                        df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$']**2)
+    df_bs[r'$|B|$ Biot-Savart'] = np.sqrt( df_bs[r'$B_N$ Biot-Savart']**2 + df_bs[r'$B_E$ Biot-Savart']**2 + df_bs[r'$B_D$ Biot-Savart']**2)
+
+    plt.figure()
+    plt.plot(df_bs[r'Time (hr)'], df_bs[r'$|B|$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:' )
+    plt.plot(df_bs[r'Time (hr)'], df_bs[r'$|B|$ Biot-Savart'], 'k' )
+    plt.ylabel(r'$|B|$ at ' + point)
+    plt.xlabel('Time (UTC)')
+    plt.legend([r'$|\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}+\mathsf{B_{div}}|$', r'$|\mathsf{B}_{\mathsf{BS}}|$'], loc='lower right')
+    plt.xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00']) 
+        
+    pltname = 'tot-Bmag-Test-' + point
+    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )

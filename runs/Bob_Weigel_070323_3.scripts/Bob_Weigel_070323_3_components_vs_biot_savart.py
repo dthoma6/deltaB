@@ -56,12 +56,12 @@ from datetime import datetime
 from Bob_Weigel_070323_3_info import info as info
 
 # Set some plot configs
-plt.rcParams["figure.figsize"] = [12.5,8.0] # [17.0,10.0] #[12.8, 12.0]
+plt.rcParams["figure.figsize"] = [14.0,8.0] #[12.5,8.0] # [17.0,10.0] #[12.8, 12.0]
 plt.rcParams["figure.dpi"] = 600
 plt.rcParams['axes.grid'] = True
 plt.rcParams['font.size'] = 12 #18
 plt.rcParams.update({
-    "text.usetex": True,
+    # "text.usetex": True,
     "font.family": "sans-serif",
     "font.sans-serif": "Helvetica",
 })
@@ -74,12 +74,26 @@ figd, axd = plt.subplots(3, len( biotfiles ) )
 # Internal routine used in loop below
 def setlims(ax, row, col):
     # Set axis limits to max range of x or y axis
+    import math
     
     ylim = ax[row,col].get_ylim()
     xlim = ax[row,col].get_xlim()
-    lim = [ min(ylim[0],xlim[0]), max(ylim[1],xlim[1]) ]
+    # lim = [ min(ylim[0],xlim[0]), max(ylim[1],xlim[1]) ]
+    
+    bot = min(ylim[0],xlim[0])
+    top = max(ylim[1],xlim[1])
+    tb = max( abs(bot), top )
+    if( tb > 10 ):
+        tb2 = int(math.ceil(tb / 10.0)) * 10 
+    else:
+        tb2 = int(math.ceil(tb))
+    lim = [-tb2,tb2]
+    
     ax[row,col].set_ylim(lim)
     ax[row,col].set_xlim(lim)
+
+    ax[row,col].set_yticks([int(lim[0]-0.5),0,int(lim[1]+0.5)])
+    ax[row,col].set_xticks([int(lim[0]-0.5),0,int(lim[1]+0.5)])
 
     ax[row,col].grid(False)
     ax[row,col].set_aspect(1)
@@ -193,19 +207,19 @@ for axp, col in zip(axd[0], times2):
     axp.set_title(time_hhmm)
 
 # Add titles to each row
-for axp, row in zip(axn[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
-                               r'$\mathsf{\delta B_{div}}$ (nT)', 
-                               r'$\mathsf{\delta B_{out}}$ (nT)']):
+for axp, row in zip(axn[:,0], [r'$\mathsf{B_{in}}$ (nT)', 
+                               r'$\mathsf{B_{div}}$ (nT)', 
+                               r'$\mathsf{B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
-for axp, row in zip(axe[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
-                               r'$\mathsf{\delta B_{div}}$ (nT)', 
-                               r'$\mathsf{\delta B_{out}}$ (nT)']):
+for axp, row in zip(axe[:,0], [r'$\mathsf{B_{in}}$ (nT)', 
+                               r'$\mathsf{B_{div}}$ (nT)', 
+                               r'$\mathsf{B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
-for axp, row in zip(axd[:,0], [r'$\mathsf{B_{HDT}}$ (nT)', 
-                               r'$\mathsf{\delta B_{div}}$ (nT)', 
-                               r'$\mathsf{\delta B_{out}}$ (nT)']):
+for axp, row in zip(axd[:,0], [r'$\mathsf{B_{in}}$ (nT)', 
+                               r'$\mathsf{B_{div}}$ (nT)', 
+                               r'$\mathsf{B_{out}}$ (nT)']):
     axp.set_ylabel(row, rotation=90)
 
 # Add titles to each column

@@ -9,6 +9,7 @@ Created on Wed Jul 10 15:41:53 2024
 import os.path
 
 data_dir = r'/Volumes/PhysicsHD'
+# data_dir = r'/Volumes/Data2'
 
 info = {
         "model": "OpenGGCM",

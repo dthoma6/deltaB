@@ -128,15 +128,28 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
 
         # Get lats, lons, azimuthal electric field [mV/m], meridional electric field [mV/m]
         # from openggcm output file
-        lats = iofdata['lats'].to_numpy() * np.pi / 180   # (deg -> radians)
-        lons = iofdata['longs'].to_numpy() * np.pi / 180
+        lats = iofdata['lats'].to_numpy() 
+        lons = iofdata['longs'].to_numpy() 
+        
+        # Ensure angles are in expected format
+        # lats -180 -> 180 and lons -90 -> 90 
+        assert( np.abs(np.min(lons) + 180) < 0.1 )
+        assert( np.abs(np.max(lons) - 180) < 0.1 )
+        assert( np.abs(np.min(lats) +  90) < 0.1 )
+        assert( np.abs(np.max(lats) -  90) < 0.1 )
+
+        lats = lats * np.pi / 180   # (deg -> radians)
+        lons = lons * np.pi / 180   # (deg -> radians)
         
         # Verify units
         assert iofdata['epio'].attrs['units'] == 'mV/m'
         assert iofdata['etio'].attrs['units'] == 'mV/m'
         
-        epio = iofdata['epio'].to_numpy() # azimuthal electric field (mV/m)
-        etio = iofdata['etio'].to_numpy() # meridonal
+        # Note: OpenGGCM website says units are mV/m
+        # but email with Banafsheh "Bashi" Ferdousi said
+        # they are in V/m, so multiply by 10^3 to convert
+        epio = iofdata['epio'].to_numpy() * 10**3 # azimuthal electric field (mV/m)
+        etio = iofdata['etio'].to_numpy() * 10**3 # meridonal
         
         # Create arrays to stored results
         x = np.zeros([len(lons),len(lats)])
@@ -156,7 +169,7 @@ def calc_iono_b(XSM, filepath, timeISO, rCurrents, rIonosphere):
         # Loop through arrays to calculate x,y,z and Ex,Ey,Ez
         for i in range(len(lats)):
             for j in range(len(lons)):
-                   theta = lats[i]  # -pi/2 -> pi/2
+                   theta = lats[i]  # pi/2 -> -pi/2
                    phi   = lons[j]  # -pi -> pi
                    
                    # Calculate x,y,z pt at rIonosphere,phi,theta

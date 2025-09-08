@@ -21,6 +21,7 @@ install_requires = [
                         "swmfio @ git+https://github.com/GaryQ-physics/swmfio.git#egg=swmfio",
                         "magnetopost @ git+https://github.com/GaryQ-physics/magnetopost#egg=magnetopost",
                        # "kamodo_ccmc @ https://github.com/nasa/Kamodo",
+                        "ggcmpy @ git+https://github.com/unh-hpc/ggcmpy",
                         "vtk"
                     ]
 

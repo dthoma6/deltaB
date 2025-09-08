@@ -10,7 +10,13 @@ import numpy as np
 from os.path import exists
 from os import makedirs
 import os.path
+
+import gzip
+import tempfile
+import shutil
+
 import logging
+
 
 def date_timeISO(time):
     """Pull date and time from file basename
@@ -126,7 +132,7 @@ def setup(info):
             key = "ionosphere"
         if subdir == "IONO-2D_IOF" and exists( os.path.join(info['dir_run'], subdir) ):
             # Note period rather than underscore in name
-            file = open(os.path.join(info['dir_run'], subdir, info['run_name'] + '.iof_list'), 'r')
+            file = open(os.path.join(info['dir_run'], subdir, info['run_name'] + '_iof_list'), 'r')
             key = "ionosphere"
 
         if exists( os.path.join(info['dir_run'], subdir) ):
@@ -146,4 +152,24 @@ def setup(info):
                 info['files'][key][time] = os.path.join(info['dir_run'], subdir, linea[0])
 
     return
+
+def gunzip_to_temp(gzipped_filepath):
+    """
+    Unzips a gzip file to a temporary file.
+
+    Inputs:
+        gzipped_file_path (str): The path to the gzipped file.
+
+    Returns:
+        str: The path to the temporary file containing the unzipped content,
+             or None if an error occurs.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            with gzip.open(gzipped_filepath, 'rb') as gzipped_file:
+                shutil.copyfileobj(gzipped_file, temp_file)
+            return temp_file.name
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 

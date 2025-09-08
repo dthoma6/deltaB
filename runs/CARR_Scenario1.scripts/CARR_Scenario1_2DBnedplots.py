@@ -26,26 +26,26 @@ from CARR_Scenarios1_info import info as info
 
 if __name__ == "__main__":
 
-    from magnetopost import util as util
-    util.setup(info)
+    # from magnetopost import util as util
+    # util.setup(info)
     
     # Location to compute B. See config.py for list of known points.
     point = "Colaba"
     
-    # Do we skip files to save time.  If None, do all files.  If not
-    # None, then reduce is an integer that determine how many files are skipped
-    # e.g., do every 10th file
-    reduce = None
+    # # Do we skip files to save time.  If None, do all files.  If not
+    # # None, then reduce is an integer that determine how many files are skipped
+    # # e.g., do every 10th file
+    # reduce = None
     
-    # Calculate the delta B sums to get Bn, Be,and Bd contributions from 
-    # various current systems in the magnetosphere, gap region, and 
-    # the ionosphere.  Bn, Be, and Bd calcuated at points[0]
-    db.loop_ms_b(info, point, reduce)    
-    db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
-    db.loop_iono_b(info, point, reduce)
+    # # Calculate the delta B sums to get Bn, Be,and Bd contributions from 
+    # # various current systems in the magnetosphere, gap region, and 
+    # # the ionosphere.  Bn, Be, and Bd calcuated at points[0]
+    # db.loop_ms_b(info, point, reduce)    
+    # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
+    # db.loop_iono_b(info, point, reduce)
     
-    # # Plot the results
-    # db.plot_Bned_ms_gap_iono(info, point)
+    # # # Plot the results
+    # # db.plot_Bned_ms_gap_iono(info, point)
 
     # Create custom plot for paper
     

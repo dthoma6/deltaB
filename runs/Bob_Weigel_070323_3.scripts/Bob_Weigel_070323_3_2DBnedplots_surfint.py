@@ -104,7 +104,7 @@ if __name__ == "__main__":
     plt.rcParams["figure.figsize"] = [12,4]
     plt.rcParams["figure.dpi"] = 600
     plt.rcParams['axes.grid'] = True
-    plt.rcParams['font.size'] = 10
+    plt.rcParams['font.size'] = 12
     plt.rcParams.update({
         # "text.usetex": True,
         "font.family": "sans-serif",
@@ -188,11 +188,11 @@ if __name__ == "__main__":
                label=r'$B_{H} $+ $\delta B_{outer}$ + $\delta B_{div}$' )
     l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'$B_{H}$ + $\delta B_{outer}$ ')
     l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'$B_{H}$' )
-    ax[0].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00'])
+    ax[0].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     ax[0].legend([r'$\mathsf{B}_{\mathsf{BS}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}+\mathsf{\delta B_{div}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}+\mathsf{\delta B_{out}}$',
-                  r'$\mathsf{B}_{\mathsf{HDT}}$'])
+                  r'$\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}+\mathsf{B_{div}}$',
+                  r'$\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}$',
+                  r'$\mathsf{B}_{\mathsf{in}}$'], loc='upper right')
     # ax[0].legend()
     
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k-' )
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-' )
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner'], 'b-' )
-    ax[1].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    ax[1].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k-' )
     ax[2].set_ylabel(r'$\mathsf{B_D}$ at ' + point)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-' )
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner'], 'b-' )
-    ax[2].set_xticks(ticks=[1,4,7,10,13,16,19],labels=['01:00', '04:00', '07:00', '10:00', '13:00', '16:00', '19:00']) 
+    ax[2].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
     plt.tight_layout()
     

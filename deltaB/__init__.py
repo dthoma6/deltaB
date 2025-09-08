@@ -24,7 +24,8 @@ from .ms_dataframe import  convert_mhd_to_dataframe, \
     create_jrtp_cdf_dataframes, \
     create_jpp_cdf_dataframes
 
-from .util import date_timeISO, create_directory, get_mhd_file_time, setup
+from .util import date_timeISO, create_directory, get_mhd_file_time, setup, \
+    gunzip_to_temp
 
 from .process_ms import calc_ms_b, calc_ms_b_paraperp, loop_ms_b
 from .process_gap import calc_gap_b_sub, calc_gap_b, loop_gap_b, \

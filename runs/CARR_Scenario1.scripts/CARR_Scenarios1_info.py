@@ -13,7 +13,8 @@ import os.path
 ###############################################
 
 # data_dir = r'/Users/Shared'
-data_dir = r'/Volumes/PhysicsHD'
+# data_dir = r'/Volumes/PhysicsHD'
+data_dir = r'/Volumes/Data1/Do_NOT_Transfer'
 
 info = {
         "model": "SWMF",

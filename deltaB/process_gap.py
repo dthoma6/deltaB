@@ -327,7 +327,7 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
         theta_array = np.concatenate( [n_theta, s_theta], axis = 0 ) * np.pi/180
         phi_array = np.concatenate( [n_psi, s_psi], axis = 0 ) * np.pi/180
         jr_array = np.concatenate( [n_jr, s_jr], axis = 0 )
-       
+               
     elif base_typ[1] == '.iof':
         # If its an iof file, use xarray to read
         iofdata = open_dataset( filepath )
@@ -337,9 +337,20 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
         lats = iofdata['lats'].to_numpy() 
         lons = iofdata['longs'].to_numpy()
         
+        # Ensure angles are in expected format
+        # lats -180 -> 180 and lons -90 -> 90 
+        assert( np.abs(np.min(lons) + 180) < 0.1 )
+        assert( np.abs(np.max(lons) - 180) < 0.1 )
+        assert( np.abs(np.min(lats) +  90) < 0.1 )
+        assert( np.abs(np.max(lats) -  90) < 0.1 )
+
         # Get FAC current at ionosphere [micro-A/m**2]
         # Radial component, change from + in to + out
-        j_r = - iofdata['pacurr'].to_numpy() 
+        # Note: OpenGGCM website says units are microAmps/m^2
+        # but email with Banafsheh "Bashi" Ferdousi said
+        # they are in A/m^2, so multiply by 10^6 to convert
+        assert iofdata['fac_tot'].attrs['units'] == 'uA/m^2'
+        j_r = - iofdata['fac_tot'].to_numpy() * 10**6
         
         # Create arrays to stored results
         theta = np.zeros([len(lons),len(lats)])
@@ -347,9 +358,15 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
         
         # Loop through arrays to create theta, phi arrays
         for i in range(len(lats)):
-            for j in range(len(lons)):
-                   theta[j,i] = lats[i]
-                   phi[j,i]   = lons[j]
+            for j in range(len(lons)): 
+                   theta[j,i] = np.pi - lats[i]   # pi/2 -> -pi/2 to 0 -> pi consistent
+                                                  # with RIM and IDL files
+                                                  
+                   phi[j,i]   = lons[j]           # Note, OpenGGCM site says longs are
+                   if phi[j,i] < 0:               # 0->2*pi, but the files have -pi->pi
+                       phi[j,i] = 360. - phi[j,i] # https://openggcm.sr.unh.edu/?n=Main.Outputs
+                                                  # So need if-then to fix range
+                                                  # so its consistent with RIM and IDL
                    
         # Setup interpolator for finding jr at point theta, phi on 2D surface from 
         # RIM file.  NOTE, must transform input data from degrees to radians
@@ -362,6 +379,11 @@ def calc_gap_b(XSM, filepath, timeISO, rCurrents, rIonosphere, nTheta, nPhi, nR)
         data_arr, var_dict, units = swmfio.read_rim(filepath)
         assert(data_arr.shape[0] != 0)
     
+        # Ensure angles are in expected format
+        # Theta 0 -> 360 and Psi 0 -> 180
+        assert( data_arr[var_dict['Theta']][:] >= 0.0)
+        assert( data_arr[var_dict['Psi']][:] >= 0.0)
+        
         # Setup interpolator for finding jr at point theta, phi on 2D surface from 
         # RIM file.  NOTE, must transform input data from degrees to radians
         theta_array = data_arr[var_dict['Theta']][:] * np.pi/180
@@ -661,8 +683,6 @@ def calc_gap_b_rim_sub(XSM, timeISO, rCurrents, rIonosphere, nR, dR,
             # north pole, pi at south pole
             jr = jr_array[i]
             
-            # Bsub, i_sub = integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, 
-            #                            dTheta, phi, dPhi, jr, XSM)
             Bsub = integrate_r_sub( nR, dR, rIonosphere, r1, hemi, theta, 
                                        dTheta, phi, dPhi, jr, XSM)
             B[:] = B[:] + Bsub[:]
@@ -752,6 +772,11 @@ def calc_gap_b_rim(XSM, filepath, timeISO, rCurrents, rIonosphere, nR):
     # Read RIM file
     data_arr, var_dict, units = swmfio.read_rim(filepath)
     assert(data_arr.shape[0] != 0)
+
+    # Ensure angles are in expected format
+    # Theta 0 -> 360 and Psi 0 -> 180
+    assert( data_arr[var_dict['Theta']][:] >= 0.0)
+    assert( data_arr[var_dict['Psi']][:] >= 0.0)
 
     # Setup interpolator for finding jr at point theta, phi on 2D surface from 
     # RIM file.  NOTE, must transform input data from degrees to radians

@@ -1,6 +1,6 @@
 
 This branch supports $\delta B$ analysis of SWMF, LFM, and OpenGGCM simulations.
-The SWMF and OpenGGCM code have been tested.  The LFM code is not fully developed 
+The SWMF and OpenGGCM code has been tested.  The LFM code is not fully developed 
 or tested.
 
 # Install
@@ -53,13 +53,15 @@ python interpolate_amrdata_extension_build.py
 
 # Description
 
-In processing SWMF, OpenGGCM, or LFM results, the code uses the magnetosphere, 
-gap region, and ionosphere files to determine $\delta B$ contributions to the 
-magnetic field at a specified point. The user can specify a point on the Earth's 
-surface, for example, a magnetometer site. Or the user can specify a point in 
-space.  The algorithms will determine the contributions that the magnetospheric,
-ionospheric, and gap region current densities makes to the $B$ field in 
-North-East-Down components.
+In processing SWMF, OpenGGCM, or LFM results, the code uses the current densities 
+that the MHD models provide for the magnetosphere, gap region, and ionosphere. 
+From the current densities, the code determines $\delta B$ contributions to the 
+magnetic field at a specified point. $\delta B$ contributions include changes 
+due to the external fields, and do not include the Earth's dipole field. 
+The user can specify a point on the Earth's surface, for example, a magnetometer 
+site. Or the user can specify a point in space.  The algorithms will determine 
+the contributions that the magnetospheric,ionospheric, and gap region current 
+densities makes to the $B$ field in North-East-Down components.
 
 The key difference between this branch and earlier branches are in
 two areas. First, the code was expanded beyond analysis of SWMF code to include 
@@ -72,17 +74,16 @@ and surface integrals over the boundary of the volume.
 
 With this code, we examine the size of $\nabla \cdot B$ and outer surface boundary 
 integrals in estimating the surface magnetic field from 
-magnetohydrodynamic (MHD) simulations. Maxwell’s equations tell us 
-$\nabla \cdot B = 0$, which may be violated due to numerical error. Various 
-MHD models use different techniques to limit $\nabla \cdot B$. 
-Analyses of MHD simulations typically assume $\nabla \cdot B$ errors are small. 
-Similarly, analyses commonly use the Biot-Savart Law and magnetospheric current 
-density estimates from MHD simulations to determine the magnetic field at a 
-specific point on Earth. This calculation frequently omits the surface integral 
-over the outer boundary of the simulation volume that the Helmholtz decomposition 
-theorem requires. This code uses MHD simulation results to estimate the 
-magnitudes of the $\nabla \cdot B$ and outer boundary integrals compared to 
-Biot-Savart estimates of the magnetic field on Earth. 
+MHD simulations. Maxwell’s equations tell us $\nabla \cdot B = 0$, which may be 
+violated due to numerical error. Various MHD models use different techniques to 
+limit $\nabla \cdot B$. Analyses of MHD simulations typically assume $\nabla \cdot B$ 
+errors are small. Similarly, analyses commonly use the Biot-Savart Law and 
+magnetospheric current density estimates from MHD simulations to determine the 
+magnetic field at a specific point on Earth. This calculation frequently omits 
+the surface integral over the outer boundary of the simulation volume that the 
+Helmholtz decomposition theorem requires. This code uses MHD simulation results 
+to estimate the magnitudes of the $\nabla \cdot B$ and outer boundary integrals 
+compared to Biot-Savart estimates of the magnetic field on Earth. 
 
 For examining results from magnetospheric contributions, the major components are:
 

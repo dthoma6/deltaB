@@ -104,7 +104,7 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
             BptGSE[0] = openggcm_interp.interpolator(xxGSE, 'bxGSE')[0]
             BptGSE[1] = openggcm_interp.interpolator(xxGSE, 'byGSE')[0]
             BptGSE[2] = openggcm_interp.interpolator(xxGSE, 'bzGSE')[0]
-
+            
             # Distance to point XGSM where we want to know the magnetic field
             r = XGSE - xxGSE
             rmag = np.sqrt( r[0]**2 + r[1]**2 + r[2]**2 )
@@ -130,3 +130,93 @@ def OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, openggcm, nTheta=180, nPhi=180):
     Bsol = matmul( trans_to_GSM, BsolGSE )
 
     return B, Birr, Bsol
+
+if __name__ == "__main__":
+
+    # Code below tests OpenGGCM_surfint_rCurrents_b against a known B field
+
+    import os.path
+
+    # Read in a OpenGGCM file
+    
+    data_dir = r'/Volumes/PhysicsHD'
+    # data_dir = r'/Volumes/Data2'
+    
+    info = {
+            "model": "OpenGGCM",
+            "run_name": "Dean_Thomas_052924_1",
+            # "rCurrents": 3.0,
+            "rIonosphere": 1.01725,
+            "file_type": "cdf",
+            "method": "method1",
+            "dir_run": os.path.join(data_dir, "Dean_Thomas_052924_1"),
+            "dir_plots": os.path.join(data_dir, "Dean_Thomas_052924_1.plots"),
+            "dir_derived": os.path.join(data_dir, "Dean_Thomas_052924_1.derived"),
+            "dir_magnetosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "GM_CDF"),
+            "dir_ionosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "IONO-2D_CDF")
+            }
+
+    file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+    # file = '/Volumes/Data2/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+              
+    from deltaB import get_openggcm_data_from_cdf
+
+    oggcm = get_openggcm_data_from_cdf(file, info)
+    
+    DataArray = oggcm.DataArray
+    data_arr  = oggcm.data_arr
+    
+    _x = oggcm.varidx['x']
+    _y = oggcm.varidx['y']
+    _z = oggcm.varidx['z']
+
+    _bx = oggcm.varidx['bxGSE']
+    _by = oggcm.varidx['byGSE']
+    _bz = oggcm.varidx['bzGSE']
+    
+    varidx = oggcm.varidx
+    
+    x = data_arr[:,_x]
+    y = data_arr[:,_y]
+    z = data_arr[:,_z]
+    
+    XGSM = np.array([0.,0.,0.])
+    timeISO = '2000-01-01T04:30:00'  # ISO time for file 
+    
+    # Replace B field from file with known B field
+    # This should give us outer integral of the same values for B
+    valuex = 10.0
+    valuey = 100.0
+    valuez = 1000.0
+    data_arr[:,_bx] = valuex
+    data_arr[:,_by] = valuey
+    data_arr[:,_bz] = valuez
+
+    # # Replace B field from file with known B field
+    # # This should give us outer integral of 0,0,0 at the origin
+    # valuex = 0.
+    # valuey = 0.
+    # valuez = 0.
+    # data_arr[:,_bx] = 0.
+    # data_arr[:,_by] = 10.*z
+    # data_arr[:,_bz] = 10.*y
+    
+    # # Replace B field from file with known B field
+    # # This should give us outer integral of 0,0,0 at the origin
+    # valuex = 0.
+    # valuey = 0.
+    # valuez = 0.
+    # data_arr[:,_bx] = 10.*z
+    # data_arr[:,_by] = 0
+    # data_arr[:,_bz] = 10.*x
+
+    threshold = 0.0000001     
+
+    # Calculate outer integral
+    # Verify that we get the expected answer
+    print('Check values')
+    B, Birr, Bsol = OpenGGCM_surfint_rCurrents_b(XGSM, timeISO, oggcm)
+    print( 'Expect: ', np.array([valuex, valuey, valuez]) )
+    print( 'Found: ', B )
+    print('Done inner integral test')
+

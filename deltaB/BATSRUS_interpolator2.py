@@ -207,6 +207,9 @@ class BATSRUS_interpolator2():
 
 if __name__ == "__main__":
     
+    # Code below tests this interpolator (BATSRUS_interpolator2) against
+    # BATSRUS_interpolator
+    
     file = '/Volumes/PhysicsHD/Bob_Weigel_070323_3/GM_CDF/3d__ful_4_e20000101-193800-000.out.cdf'
     dir_derived = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived'
     info = {} # empty info dict

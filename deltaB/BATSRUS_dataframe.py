@@ -199,30 +199,30 @@ def get_batsrus_data_from_cdf(file, info):
     
     if USE_FALSEB:
         logging.info('WARNING: USE_FALSEB is True, fake B field in use. Check options')
-        # data_arr[:, varidx['bx']] = data_arr[:, varidx['z']]
-        # data_arr[:, varidx['by']] = data_arr[:, varidx['x']]
-        # data_arr[:, varidx['bz']] = data_arr[:, varidx['y']]
         
-        # data_arr[:, varidx['bx']] = 100. * data_arr[:, varidx['y']]
-        # data_arr[:, varidx['by']] = 1000.* data_arr[:, varidx['z']]
-        # data_arr[:, varidx['bz']] = 10.  * data_arr[:, varidx['x']]
-       
-        # data_arr[:, varidx['bx']] = data_arr[:, varidx['x']]
-        # data_arr[:, varidx['by']] = data_arr[:, varidx['y']]
-        # data_arr[:, varidx['bz']] = data_arr[:, varidx['z']]
+        # Create a magnetic field due to a line current parallel to x-axis
+        # offset 2*yGlobalMax in y-direction (So curl and div are zero inside volume)
+        # yGlobalMax = globatts['global_y_max']
+        yGlobalMax = 128.0  # Make it match value in SWMF file
         
-        # B = 1/z^2, 1/x^2, 1/y^2
-        data_arr[:, varidx['bx']] = data_arr[:, varidx['z']]**2
-        data_arr[:, varidx['by']] = data_arr[:, varidx['x']]**2
-        data_arr[:, varidx['bz']] = data_arr[:, varidx['y']]**2
-        data_arr[:, varidx['bx']] = 1/data_arr[:, varidx['bx']]
-        data_arr[:, varidx['by']] = 1/data_arr[:, varidx['by']]
-        data_arr[:, varidx['bz']] = 1/data_arr[:, varidx['bz']]
+        # rho squared around x-axis
+        rho2 = ( data_arr[:, varidx['y']] + 2*yGlobalMax )**2 + data_arr[:, varidx['z']]**2
+        
+        # New magnetic field
+        data_arr[:, varidx['bx']] = 0.
+        data_arr[:, varidx['by']] = - data_arr[:, varidx['z']] / rho2 # by = - sin(phi)/rho
+        data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
 
-        # # bx = 10.*z**2, by = 100.*x**2, bz = 1000.*y**2
-        # data_arr[:, varidx['bx']] = 10.*data_arr[:, varidx['z']]**2
-        # data_arr[:, varidx['by']] = 100.*data_arr[:, varidx['x']]**2
-        # data_arr[:, varidx['bz']] = 1000.*data_arr[:, varidx['y']]**2
+        # New field mean magnitude
+        Bnew = np.mean( np.sqrt(data_arr[:, varidx['bx']]**2 
+                                + data_arr[:, varidx['by']]**2 
+                                + data_arr[:, varidx['bz']]**2) )
+
+        # Normalize field to have a mean magnitude of Bmag
+        Bmag = 20.0
+        data_arr[:, varidx['bx']] = data_arr[:, varidx['bx']] * Bmag / Bnew
+        data_arr[:, varidx['by']] = data_arr[:, varidx['by']] * Bmag / Bnew
+        data_arr[:, varidx['bz']] = 0.
 
     if USE_CURLB or USE_FALSEB:
         logging.info('WARNING: USE_CURLB is True, check options')
@@ -343,16 +343,16 @@ if __name__ == "__main__":
     df = convert_mhd_to_dataframe( batsdata )
     df = create_deltaB_spherical_dataframe( df )
     
-    # from deltaB.BATSRUS_to_VTK import BATSRUS_to_VTK
+    from deltaB.BATSRUS_to_VTK import BATSRUS_to_VTK
 
-    # tovtk = BATSRUS_to_VTK(batsdata)
-    # tovtk.convert_to_vtk()
+    tovtk = BATSRUS_to_VTK(batsdata)
+    tovtk.convert_to_vtk()
     
-    # import os.path
-    # basename = os.path.basename(file)
+    import os.path
+    basename = os.path.basename(file)
     
-    # tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
+    tovtk.write_vtk_to_file( dir_derived, basename, 'vtk')
     
-    # complete = datetime.now()
-    # print('Complete: ', complete.time())
+    complete = datetime.now()
+    print('Complete: ', complete.time())
    

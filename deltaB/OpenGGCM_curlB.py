@@ -265,116 +265,115 @@ def OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, rCurrents):
 
 if __name__ == "__main__":
 
-        from OpenGGCM_dataframe import get_openggcm_grid_sub
-        
-        nI = 10
-        nJ = 10
-        nK = 10
-        
-        x_ = -np.array([9,8,7,6,5,4,3,2,1,0])
-        y_ = -np.array([9,8,7,6,5,4,3,2,1,0])        
-        z_ =  np.array([0,1,2,3,4,5,6,7,8,9])
-        
-        x_ = -x_**2
-        y_ = -y_**2
-        z_ =  z_**2
-        
-        # Nonsense cell vertex data
-        # Used to determine measure, which I don't need for this test
-        xcell_ =  (x_ - 0.5)
-        ycell_ =  (y_ - 0.5)
-        zcell_ =  (z_ - 0.5)
-        
-        # Setup grid
-        x, y, z, measure = get_openggcm_grid_sub( x_, y_, z_, 
-                                                    xcell_, ycell_, zcell_,
-                                                    nI, nJ, nK )
-         
-        # # This should give us curlB=(1,1,1)
-        # bx = z
-        # by = x
-        # bz = y
-        # value = np.array([1.,1.,1.])
-        # value2 = 3. * (1.2491 * 10**(-4))**2
-        
-        # # This should give us curlB=(-1000,-10,-100)
-        # bx = 100.*y
-        # by = 1000.*z
-        # bz = 10.*x
-        # value = np.array([-1000.,-10.,-100.])
-        # value2 = (1000.*1000. + 10.*10. + 100.*100.) * (1.2491 * 10**(-4))**2
-        
-        # This should give us curlB=(0,0,0)
-        bx = x
-        by = y
-        bz = z
-        value = np.array([0.0,0.0,0.0])
-        value2 = 0. * (1.2491 * 10**(-4))**2
-        
-        if True: # test curl function
-            # Create data array
-            data_arr = np.zeros((len(x),6))
-            data_arr[:,0] = x
-            data_arr[:,1] = y
-            data_arr[:,2] = z
-            data_arr[:,3] = bx
-            data_arr[:,4] = by
-            data_arr[:,5] = bz
-            
-            DataArray = data_arr.transpose()
-            DataArray = DataArray.reshape((6, nI, nJ, nK), order='F')
+ 
+    # Test curl B operations against known B fields
+
+    import os.path
+
+    # Read in a OpenGGCM file
     
-            # Calculate curlB for each point on grid
-            # Verify that we get the expected answer
-            for i in range(nI):
-                for j in range(nJ):
-                    for k in range(nK):
-                        curlB = calcCurlB(DataArray, i, j, k, nI, nJ, nK, 0,1,2,3,4,5 )
-                        if np.linalg.norm(curlB - value) > 0.000000001: print( i,j,k,curlB )
-            print('Done Curl')
-            
-        if True: # test curl B to J
-            # Create data array
-            data_arr = np.zeros((len(x),9))
-            data_arr[:,0] = x
-            data_arr[:,1] = y
-            data_arr[:,2] = z
-            data_arr[:,3] = bx
-            data_arr[:,4] = by
-            data_arr[:,5] = bz
-            data_arr[:,6] = 0
-            data_arr[:,7] = 0
-            data_arr[:,8] = 0
-            
-            import numba
-            
-            varidx = numba.typed.Dict.empty(key_type=numba.types.unicode_type, 
-                                            value_type=numba.types.int64,)
-            
-            varidx['x']  = 0
-            varidx['y']  = 1
-            varidx['z']  = 2
-            varidx['bx'] = 3
-            varidx['by'] = 4
-            varidx['bz'] = 5
-            varidx['jx'] = 6
-            varidx['jy'] = 7
-            varidx['jz'] = 8
-            nVar = len(varidx)
-            
-            DataArray = data_arr.transpose()
-            DataArray = DataArray.reshape((9, nI, nJ, nK), order='F')
-            
-            data_arr = OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, 0)
-            
-            jx = data_arr[:,6]
-            jy = data_arr[:,7]
-            jz = data_arr[:,8]
-            j2 = jx*jx + jy*jy + jz*jz
-            
-            for i in range(len(j2)):
-                if value2 > 0.:
-                    if abs(j2[i] - value2)/value2 > 0.000000001: print( 'A: ', i,j2[i] )
-                else:
-                    if abs(j2[i] - value2)        > 0.000000001: print( 'B: ', i,j2[i] )
-            print('Done j')
+    data_dir = r'/Volumes/PhysicsHD'
+    # data_dir = r'/Volumes/Data2'
+    
+    info = {
+            "model": "OpenGGCM",
+            "run_name": "Dean_Thomas_052924_1",
+            # "rCurrents": 3.0,
+            "rIonosphere": 1.01725,
+            "file_type": "cdf",
+            "method": "method1",
+            "dir_run": os.path.join(data_dir, "Dean_Thomas_052924_1"),
+            "dir_plots": os.path.join(data_dir, "Dean_Thomas_052924_1.plots"),
+            "dir_derived": os.path.join(data_dir, "Dean_Thomas_052924_1.derived"),
+            "dir_magnetosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "GM_CDF"),
+            "dir_ionosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "IONO-2D_CDF")
+            }
+
+    file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+    # file = '/Volumes/Data2/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+    
+    from deltaB import get_openggcm_data_from_cdf
+
+    oggcm = get_openggcm_data_from_cdf(file, info)
+    
+    DataArray = oggcm.DataArray
+    data_arr  = oggcm.data_arr
+    varidx    = oggcm.varidx
+    rCurrents = oggcm.rCurrents
+    
+    nVar = len(varidx)
+    
+    _x = oggcm.varidx['x']
+    _y = oggcm.varidx['y']
+    _z = oggcm.varidx['z']
+
+    _bx = oggcm.varidx['bx']
+    _by = oggcm.varidx['by']
+    _bz = oggcm.varidx['bz']
+    
+    _jx = oggcm.varidx['jx']
+    _jy = oggcm.varidx['jy']
+    _jz = oggcm.varidx['jz']
+
+    nI  = oggcm.nI
+    nJ  = oggcm.nJ
+    nK  = oggcm.nK
+
+    x = data_arr[:,_x]
+    y = data_arr[:,_y]
+    z = data_arr[:,_z]
+          
+    # # This should give us curlB=(1,1,1)
+    # data_arr[:,_bx] = data_arr[:,_z]
+    # data_arr[:,_by] = data_arr[:,_x]
+    # data_arr[:,_bz] = data_arr[:,_y]
+    # value = np.array([1.,1.,1.])
+    # value2 = 3. * (1.2491 * 10**(-4))**2
+    
+    # This should give us curlB=(1000,10,100)
+    data_arr[:,_bx] = 10.*data_arr[:,_z]
+    data_arr[:,_by] = 100.*data_arr[:,_x]
+    data_arr[:,_bz] = 1000.*data_arr[:,_y]
+    value = np.array([1000.,10.,100.])
+    value2 = (1000.*1000. + 10.*10. + 100.*100.) * (1.2491 * 10**(-4))**2
+    
+    # # This should give us curlB=(0,0,0)
+    # data_arr[:,_bx] = data_arr[:,_x]
+    # data_arr[:,_by] = data_arr[:,_y]
+    # data_arr[:,_bz] = data_arr[:,_z]
+    # value = np.array([0.0,0.0,0.0])
+    # value2 = 0. * (1.2491 * 10**(-4))**2
+    
+    if True: # test curl function
+    
+        # Calculate curlB for each point on grid
+        # Verify that we get the expected answer
+        for i in range(nI):
+            for j in range(nJ):
+                for k in range(nK):
+                    curlB = calcCurlB(DataArray, i, j, k, nI, nJ, nK, _x, _y, _z, _bx, _by, _bz )
+                    if np.linalg.norm(curlB - value) > 0.000000001: print( i,j,k,curlB )
+        print('If no values shown, test passed')
+        print('Done Curl')
+        
+    if True: # test curl B to J
+       
+        data_arr = OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, rCurrents)
+        
+        for i in range(nI):
+            for j in range(nJ):
+                for k in range(nK):
+                    jx = DataArray[_jx,i,j,k]
+                    jy = DataArray[_jy,i,j,k]
+                    jz = DataArray[_jz,i,j,k]
+                    j2 = jx*jx + jy*jy + jz*jz
+                    
+                    r0 = np.sqrt(DataArray[_x,i,j,k]**2 +
+                                 DataArray[_y,i,j,k]**2 +
+                                 DataArray[_z,i,j,k]**2)
+                    if r0 > rCurrents:
+                        if abs(j2 - value2) > 0.000000001: print( i,j,k,j2 )
+        print('If no values shown, test passed')
+        print('Done j')
+
+

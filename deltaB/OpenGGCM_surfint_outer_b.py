@@ -76,7 +76,7 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
         BptGSE[0] = interpolator.interpolator(xxGSE, 'bxGSE')[0]
         BptGSE[1] = interpolator.interpolator(xxGSE, 'byGSE')[0]
         BptGSE[2] = interpolator.interpolator(xxGSE, 'bzGSE')[0]
-
+        
         if( np.isnan(BptGSE[0]) or np.isnan(BptGSE[1]) or np.isnan(BptGSE[2]) ):
             import sys
             sys.exit(f'B interpolation error: xx = {xxGSE}, xxhat = {xxhatGSE}, Bpt = {BptGSE}')
@@ -197,3 +197,74 @@ def OpenGGCM_surfint_outer_b(XGSM, timeISO, openggcm, nX=100, nY=100, nZ=100):
 
     return B, Birr, Bsol
   
+if __name__ == "__main__":
+
+    # Code below tests OpenGGCM_surfint_outer_b against a known B field
+
+    import os.path
+
+    # Read in a OpenGGCM file
+    
+    data_dir = r'/Volumes/PhysicsHD'
+    # data_dir = r'/Volumes/Data2'
+    
+    info = {
+            "model": "OpenGGCM",
+            "run_name": "Dean_Thomas_052924_1",
+            # "rCurrents": 3.0,
+            "rIonosphere": 1.01725,
+            "file_type": "cdf",
+            "method": "method1",
+            "dir_run": os.path.join(data_dir, "Dean_Thomas_052924_1"),
+            "dir_plots": os.path.join(data_dir, "Dean_Thomas_052924_1.plots"),
+            "dir_derived": os.path.join(data_dir, "Dean_Thomas_052924_1.derived"),
+            "dir_magnetosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "GM_CDF"),
+            "dir_ionosphere": os.path.join(data_dir, "Dean_Thomas_052924_1", "IONO-2D_CDF")
+            }
+
+    file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+    # file = '/Volumes/Data2/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.023400.cdf'
+              
+    from deltaB import get_openggcm_data_from_cdf
+
+    oggcm = get_openggcm_data_from_cdf(file, info)
+    
+    DataArray = oggcm.DataArray
+    data_arr  = oggcm.data_arr
+    
+    _x = oggcm.varidx['x']
+    _y = oggcm.varidx['y']
+    _z = oggcm.varidx['z']
+
+    _bx = oggcm.varidx['bxGSE']
+    _by = oggcm.varidx['byGSE']
+    _bz = oggcm.varidx['bzGSE']
+    
+    varidx = oggcm.varidx
+    
+    x = data_arr[:,_x]
+    y = data_arr[:,_y]
+    z = data_arr[:,_z]
+    
+    XGSM = np.array([0.,0.,0.])
+    timeISO = '2000-01-01T04:30:00'  # ISO time for file 
+    
+    # Replace B field from file with known B field
+    # This should give us outer integral of the same values for B
+    valuex = 10.0
+    valuey = 100.0
+    valuez = 1000.0
+    data_arr[:,_bx] = valuex
+    data_arr[:,_by] = valuey
+    data_arr[:,_bz] = valuez
+
+    threshold = 0.0000001     
+
+    # Calculate outer integral
+    # Verify that we get the expected answer
+    print('Check values')
+    B, Birr, Bsol = OpenGGCM_surfint_outer_b(XGSM, timeISO, oggcm)
+    print( 'Expect: ', np.array([valuex, valuey, valuez]) )
+    print( 'Found: ', B )
+    print('Done outer integral test')
+

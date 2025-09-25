@@ -69,9 +69,9 @@ def BATSRUS_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
             Bpt[1] = interpolator.interpolator(FACTOR*xx, 'by')[0]
             Bpt[2] = interpolator.interpolator(FACTOR*xx, 'bz')[0]
         else:
-            Bpt[0] = interpolator.interpolator(xx, 'bx')
-            Bpt[1] = interpolator.interpolator(xx, 'by')
-            Bpt[2] = interpolator.interpolator(xx, 'bz')
+            Bpt[0] = interpolator.interpolator(xx, 'bx')[0]
+            Bpt[1] = interpolator.interpolator(xx, 'by')[0]
+            Bpt[2] = interpolator.interpolator(xx, 'bz')[0]
             
         if( np.isnan(Bpt[0]) or np.isnan(Bpt[1]) or np.isnan(Bpt[2]) ):
             import sys
@@ -189,3 +189,73 @@ def BATSRUS_surfint_outer_b(XGSM, timeISO, batsrus, nX=100, nY=100, nZ=100):
     
     return B, Birr, Bsol
   
+if __name__ == "__main__":
+
+    # Code below tests BATSRUS_surfint_rCurrents_b against a known B field
+
+    import os.path
+
+    # Readin a BATSRUS file
+    
+    data_dir = r'/Volumes/PhysicsHD'
+    # data_dir = r'/Volumes/Data1'
+    
+    info = {
+            "model": "SWMF",
+            "run_name": "Bob_Weigel_070323_3",
+            # "rCurrents": 3.0,
+            "rIonosphere": 1.01725,
+            "file_type": "cdf",
+            "method": "method1",
+            "dir_run": os.path.join(data_dir, "Bob_Weigel_070323_3"),
+            "dir_plots": os.path.join(data_dir, "Bob_Weigel_070323_3.plots"),
+            "dir_derived": os.path.join(data_dir, "Bob_Weigel_070323_3.derived"),
+            "dir_magnetosphere": os.path.join(data_dir, "Bob_Weigel_070323_3", "GM_CDF"),
+            "dir_ionosphere": os.path.join(data_dir, "Bob_Weigel_070323_3", "IONO-2D_CDF")
+    }
+    
+    file = '/Volumes/PhysicsHD/Bob_Weigel_070323_3/GM_CDF/3d__ful_4_e20000101-001800-000.out.cdf'
+              
+    from deltaB import get_batsrus_data_from_cdf
+
+    bats = get_batsrus_data_from_cdf(file, info)
+    
+    DataArray = bats.DataArray
+    data_arr  = bats.data_arr
+    
+    _x = bats.varidx['x']
+    _y = bats.varidx['y']
+    _z = bats.varidx['z']
+
+    _bx = bats.varidx['bx']
+    _by = bats.varidx['by']
+    _bz = bats.varidx['bz']
+    
+    varidx = bats.varidx
+    
+    x = data_arr[:,_x]
+    y = data_arr[:,_y]
+    z = data_arr[:,_z]
+    
+    XGSM = np.array([0.,0.,0.])
+    timeISO = '2000-01-01T00:18:00'  # ISO time for file read in
+    
+    # Replace B field from file with known B field
+    # This should give us outer integral of the same values for B
+    valuex = 10.0
+    valuey = 100.0
+    valuez = 1000.0
+    data_arr[:,_bx] = valuex
+    data_arr[:,_by] = valuey
+    data_arr[:,_bz] = valuez
+
+    # threshold = 0.0000001     
+
+    # Calculate outer integral
+    # Verify that we get the expected answer
+    print('Check values')
+    B, Birr, Bsol = BATSRUS_surfint_outer_b(XGSM, timeISO, bats)
+    print( 'Expect: ', np.array([valuex, valuey, valuez]) )
+    print( 'Found: ', B )
+    print('Done outer integral test')
+

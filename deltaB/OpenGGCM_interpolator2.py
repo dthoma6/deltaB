@@ -117,6 +117,9 @@ class OpenGGCM_interpolator2():
 
 if __name__ == "__main__":
     
+    # Code below tests this interpolator (OpenGGCM_interpolator2) against
+    # OpenGGCM_interpolator
+
     file = '/Volumes/PhysicsHD/Dean_Thomas_052924_1/GM_CDF/Dean_Thomas_052924_1.3df.035400.cdf'
  
     import os.path
@@ -140,7 +143,7 @@ if __name__ == "__main__":
 
     # Test interpolation algorithm
     
-    ogcmdata = get_openggcm_data_from_cdf(file)
+    ogcmdata = get_openggcm_data_from_cdf(file, info)
 
     from deltaB import OpenGGCM_interpolator
     ogcm_interp = OpenGGCM_interpolator(ogcmdata)

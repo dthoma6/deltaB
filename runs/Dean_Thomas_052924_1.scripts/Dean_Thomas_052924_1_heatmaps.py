@@ -13,7 +13,7 @@ from deltaB import setup, loop_heatmapworldned_ms, loop_heatmapworldned_divB, \
 from Dean_Thomas_052924_1_info import info as info 
 
 # True if we compute data for heatmaps, False if we only plot results
-COMPUTE = False
+COMPUTE = True
 
 ############################################################################
 #

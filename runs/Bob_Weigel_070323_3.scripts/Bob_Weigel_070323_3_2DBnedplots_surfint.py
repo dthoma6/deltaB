@@ -28,7 +28,7 @@ from Bob_Weigel_070323_3_info import info as info
 
 # COMPUTE, True or False compute delta B contributions
 # If false, only generate plots
-COMPUTE=False
+COMPUTE=True
 
 def extract_from_magnetopost_files(info, surface_location):
 
@@ -110,15 +110,6 @@ if __name__ == "__main__":
         "font.family": "sans-serif",
         "font.sans-serif": "Helvetica",
     })
-
-    # Read the magnetopost data: magnetosphere, fac, inner and outer surface integrals, divB integral
-    bs_msph, bs_fac, helm_rCurr, helm_outer, cl_msph = extract_from_magnetopost_files(info, point)
-    
-    # Rename the magnetopost columns for tidy names in plots
-    bs_msph.columns = ['$B_N$ Biot Gary', r'$B_E$ Biot Gary', r'$B_D$ Biot Gary', r'Time (hr)']
-    helm_rCurr.columns = ['$B_NG$', r'$B_EG$', r'$B_DG$', r'Time (hr)']
-    helm_outer.columns = ['$B_NG$', r'$B_EG$', r'$B_DG$', r'Time (hr)']
-    cl_msph.columns = ['$B_NG$', r'$B_EG$', r'$B_DG$', r'Time (hr)']
     
     # Read the deltaB magnetosphere, inner and outer surface integrals, and divB integral
     # Rename columns to make tidy names on plots
@@ -161,7 +152,7 @@ if __name__ == "__main__":
     
     # Verify that Biot-Savert = - outer surf integral - inner surf integral - divB integral
     # Note, that my inner integral is already negative, I calculate the outer
-    # integral for the gap regiomn
+    # integral for the gap region
     df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_N$'] - df_si_outer[r'$B_N$'] - df_divB[r'$B_N$'] 
     df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_E$'] - df_si_outer[r'$B_E$'] - df_divB[r'$B_E$'] 
     df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'] = df_si_inner[r'$B_D$'] - df_si_outer[r'$B_D$'] - df_divB[r'$B_D$'] 

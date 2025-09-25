@@ -14,7 +14,7 @@ from Dean_Thomas_052924_1_info import info as info
 
 # COMPUTE, True or False compute delta B contributions
 # If false, only generate plots
-COMPUTE=False
+COMPUTE=True
 
 if __name__ == "__main__":
 
@@ -103,13 +103,13 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(nrows=1, ncols=3)
     
-    l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k-', label=r'$B_{BS}$' )
+    l1 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Biot-Savart'],'k--', label=r'$B_{BS}$' )
     ax[0].set_ylabel(r'$\mathsf{B_N}$ at ' + point)
     ax[0].set_xlabel('Time (UTC)')
-    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-', label=r'$B_{H}$ + $B_{outer}$')
+    l3 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer'], 'g-.', label=r'$B_{H}$ + $B_{outer}$')
     l2 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:', 
                label=r'$B_{H}$ + $B_{outer}$ + $B_{div}$' )
-    l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b-', label=r'$B_{H}$' )
+    l4 = ax[0].plot(df_bs[r'Time (hr)'], df_bs[r'$B_N$ Inner'], 'b:', label=r'$B_{H}$' )
     ax[0].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     ax[0].legend([r'$\mathsf{B}_{\mathsf{BS}}$',
                   r'$\mathsf{B}_{\mathsf{in}}+\mathsf{B_{out}}+\mathsf{B_{div}}$',
@@ -117,20 +117,20 @@ if __name__ == "__main__":
                   r'$\mathsf{B}_{\mathsf{in}}$'], loc='upper right')
     # ax[0].legend()
     
-    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k-' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Biot-Savart'],'k--' )
     ax[1].set_ylabel(r'$\mathsf{B_E}$ at ' + point)
     ax[1].set_xlabel('Time (UTC)')
-    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer'], 'g-.' )
     ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
-    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner'], 'b-' )
+    ax[1].plot(df_bs[r'Time (hr)'], df_bs[r'$B_E$ Inner'], 'b:' )
     ax[1].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
-    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k-' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Biot-Savart'],'k--' )
     ax[2].set_ylabel(r'$\mathsf{B_D}$ at ' + point)
     ax[2].set_xlabel('Time (UTC)')
-    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer'], 'g-.' )
     ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner + Outer + $\nabla \cdot \mathbf{B}$'], 'r:')
-    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner'], 'b-' )
+    ax[2].plot(df_bs[r'Time (hr)'], df_bs[r'$B_D$ Inner'], 'b:' )
     ax[2].set_xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00'])
     
     plt.tight_layout()

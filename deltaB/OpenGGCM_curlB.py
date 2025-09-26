@@ -360,6 +360,13 @@ if __name__ == "__main__":
        
         data_arr = OpenGGCM_curlBtoJ(data_arr, DataArray, varidx, nVar, nI, nJ, nK, rCurrents)
         
+        # Reshape the data array     
+        DataArray = data_arr.transpose()
+        assert(np.isfortran(DataArray))
+        
+        DataArray = DataArray.reshape((nVar, nI, nJ, nK), order='F')
+        assert(np.isfortran(DataArray))
+        
         for i in range(nI):
             for j in range(nJ):
                 for k in range(nK):

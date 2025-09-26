@@ -222,7 +222,7 @@ def get_batsrus_data_from_cdf(file, info):
         Bmag = 20.0
         data_arr[:, varidx['bx']] = data_arr[:, varidx['bx']] * Bmag / Bnew
         data_arr[:, varidx['by']] = data_arr[:, varidx['by']] * Bmag / Bnew
-        data_arr[:, varidx['bz']] = 0.
+        data_arr[:, varidx['bz']] = data_arr[:, varidx['bz']] * Bmag / Bnew
 
     if USE_CURLB or USE_FALSEB:
         logging.info('WARNING: USE_CURLB is True, check options')

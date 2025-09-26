@@ -395,15 +395,16 @@ def get_openggcm_data_from_cdf(infile, info):
         data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
 
         # New field mean magnitude
-        Bnew = np.mean( np.sqrt(data_arr[:, varidx['bx']]**2 
-                                + data_arr[:, varidx['by']]**2 
-                                + data_arr[:, varidx['bz']]**2) )
-
+        # Bnew = np.mean( np.sqrt(data_arr[:, varidx['bx']]**2 
+        #                         + data_arr[:, varidx['by']]**2 
+        #                         + data_arr[:, varidx['bz']]**2) )
+        Bnew = 0.003911433508336921 # Make it match value in SWMF file
+        
         # Normalize field to have a mean magnitude of Bmag
         Bmag = 20.0
         data_arr[:, varidx['bx']] = data_arr[:, varidx['bx']] * Bmag / Bnew
         data_arr[:, varidx['by']] = data_arr[:, varidx['by']] * Bmag / Bnew
-        data_arr[:, varidx['bz']] = 0.
+        data_arr[:, varidx['bz']] = data_arr[:, varidx['bz']] * Bmag / Bnew
 
     if USE_CURLB or USE_FALSEB:
         logging.info('WARNING: USE_CURLB is True, check options')

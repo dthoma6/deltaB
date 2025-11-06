@@ -383,4 +383,20 @@ if __name__ == "__main__":
         print('If no values shown, test passed')
         print('Done j')
 
-
+    if True: # test curl of non-linear function
+        # This should give us curlB=(2y,2z,2x)
+        data_arr[:,_bx] = data_arr[:,_z]**2
+        data_arr[:,_by] = data_arr[:,_x]**2
+        data_arr[:,_bz] = data_arr[:,_y]**2
+        
+        # Calculate curlB for each point on grid
+        # Verify that we get the expected answer
+        for i in range(nI):
+            for j in range(nJ):
+                for k in range(nK):
+                    curlB = calcCurlB(DataArray, i, j, k, nI, nJ, nK, _x, _y, _z, _bx, _by, _bz )
+                    # Determine expected curlB=(2y,2z,2x)
+                    value = 2. * np.array([DataArray[_y,i,j,k], DataArray[_z,i,j,k], DataArray[_x,i,j,k]])
+                    if np.linalg.norm(curlB - value) > 0.000000001: print( i,j,k,curlB )
+        print('If no values shown, test passed')
+        print('Done Curl nonlinear')

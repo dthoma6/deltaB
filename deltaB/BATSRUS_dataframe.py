@@ -209,9 +209,15 @@ def get_batsrus_data_from_cdf(file, info):
         rho2 = ( data_arr[:, varidx['y']] + 2*yGlobalMax )**2 + data_arr[:, varidx['z']]**2
         
         # New magnetic field
-        data_arr[:, varidx['bx']] = 0.
-        data_arr[:, varidx['by']] = - data_arr[:, varidx['z']] / rho2 # by = - sin(phi)/rho
-        data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
+        if False: # field due to line current
+            data_arr[:, varidx['bx']] = 0.
+            data_arr[:, varidx['by']] = - data_arr[:, varidx['z']] / rho2 # by = - sin(phi)/rho
+            data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
+        else: # discontinuous field 
+            data_arr[:, varidx['bx']] = 0.
+            data_arr[:, varidx['by']] = 0.
+            data_arr[:, varidx['bz']] = np.where(data_arr[:, varidx['y']] > np.pi, -15., 5.) # Bz=-15 for x>pi, Bz=5 otherwise
+                                                                                             # pi chosen to avoid discontinuity on block boundary
 
         # New field mean magnitude
         Bnew = np.mean( np.sqrt(data_arr[:, varidx['bx']]**2 

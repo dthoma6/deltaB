@@ -21,8 +21,8 @@ from deltaB.OpenGGCM_curlB import OpenGGCM_curlBtoJ
 
 ####################################################################
 #
-# USE_CURLB, USE_FALSEB, and USE_GSE are flags for special test
-# cases.  In general, all three should be FALSE
+# USE_CURLB, USE_FALSEB, USE_GSE nd USE_SMOOTHB are flags for special 
+# test cases.  In general, all four should be FALSE
 #
 ####################################################################
 
@@ -32,6 +32,8 @@ USE_CURLB = False   # Use curl of B to find current density True,
 USE_FALSEB = False  # Use a 'made-up' B as test case
 
 USE_GSE = False     # When true, do not perform GSE->GSM tranformation
+
+USE_SMOOTHB = False # When true, smoothing applied to B field
 
 @numba.njit
 def get_openggcm_cells_sub( xcell_, ycell_, zcell_, nI, nJ, nK):
@@ -390,15 +392,21 @@ def get_openggcm_data_from_cdf(infile, info):
         rho2 = ( data_arr[:, varidx['y']] + 2*yGlobalMax )**2 + data_arr[:, varidx['z']]**2
         
         # New magnetic field
-        data_arr[:, varidx['bx']] = 0.
-        data_arr[:, varidx['by']] = - data_arr[:, varidx['z']] / rho2 # by = -sin(phi)/rho
-        data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
+        if False: # field due to line current
+            data_arr[:, varidx['bx']] = 0.
+            data_arr[:, varidx['by']] = - data_arr[:, varidx['z']] / rho2 # by = -sin(phi)/rho
+            data_arr[:, varidx['bz']] = + (data_arr[:, varidx['y']] + 2*yGlobalMax ) / rho2 # bz = cos(phi)/rho
+            Bnew = 0.003911433508336921 # Make it match value in SWMF file
+        else: # discontinuous field 
+            data_arr[:, varidx['bx']] = 0.
+            data_arr[:, varidx['by']] = 0.
+            data_arr[:, varidx['bz']] = np.where(data_arr[:, varidx['y']] > np.pi, -15., 5.) # Bz=-15 for x>pi, Bz=5 otherwise
+            Bnew = 8.470722398063675 # Make it match SWMF for y > np.pi
 
         # New field mean magnitude
         # Bnew = np.mean( np.sqrt(data_arr[:, varidx['bx']]**2 
         #                         + data_arr[:, varidx['by']]**2 
         #                         + data_arr[:, varidx['bz']]**2) )
-        Bnew = 0.003911433508336921 # Make it match value in SWMF file
         
         # Normalize field to have a mean magnitude of Bmag
         Bmag = 20.0
@@ -406,7 +414,24 @@ def get_openggcm_data_from_cdf(infile, info):
         data_arr[:, varidx['by']] = data_arr[:, varidx['by']] * Bmag / Bnew
         data_arr[:, varidx['bz']] = data_arr[:, varidx['bz']] * Bmag / Bnew
 
-    if USE_CURLB or USE_FALSEB:
+    if USE_SMOOTHB:
+        # Use SCIPY function to smooth OpenGGCM B field
+        # Smoothing should remove discontinuities that violate Helmholtz Decomposition Theorem
+        logging.info('WARNING: USE_SMOOTHB is True, check options')
+        from scipy.ndimage import uniform_filter 
+        
+        DataArray_tmp = data_arr.transpose()
+        assert(np.isfortran(DataArray_tmp))
+        
+        DataArray_tmp = DataArray_tmp.reshape((nVar, nI, nJ, nK), order='F')
+        assert(np.isfortran(DataArray_tmp))
+
+        SIZE=50
+        DataArray_tmp[varidx['bx'],:,:,:] = uniform_filter(DataArray_tmp[varidx['bx'],:,:,:], size=SIZE)
+        DataArray_tmp[varidx['by'],:,:,:] = uniform_filter(DataArray_tmp[varidx['by'],:,:,:], size=SIZE)
+        DataArray_tmp[varidx['bz'],:,:,:] = uniform_filter(DataArray_tmp[varidx['bz'],:,:,:], size=SIZE)
+
+    if USE_CURLB or USE_FALSEB or USE_SMOOTHB:
         logging.info('WARNING: USE_CURLB is True, check options')
         # Use curlB to determine current density, j, rather than use OpenGGCM 
         # provided values

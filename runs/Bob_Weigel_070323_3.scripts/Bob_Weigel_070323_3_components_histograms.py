@@ -9,7 +9,7 @@ Created on Tue Aug 20 13:08:36 2024
 # Analyze size of divB, inner surface, and outer surface integral contributions
 # to Biot-Savart
 
-rootdir = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived/heatmaps'
+rootdir = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived/heatmaps_no_transforms'
 
 biotfiles = [ '3d__ful_4_e20000101-010000-000.out.cdf.ms-heatmap-world.pkl',
     '3d__ful_4_e20000101-040000-000.out.cdf.ms-heatmap-world.pkl',
@@ -94,7 +94,7 @@ def setlims(ax, col):
     return
 
 # Create diretory for plots
-create_directory( info['dir_plots'], 'components' )
+create_directory( info['dir_plots'], 'components_no_transforms' )
 
 # Memory for statistics
 n = len(biotfiles)
@@ -246,21 +246,21 @@ fign.tight_layout()
 fige.tight_layout()
 figd.tight_layout()
          
-fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.png" ) )
+fign.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', 'Bn-' + times[i] + "-hist.png" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.pdf" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.eps" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.jpg" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.tif" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', 'Bn-' + times[i] + "-hist.svg" ) )
     
-fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.png" ) )
+fige.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', 'Be-' + times[i] + "-hist.png" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.pdf" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.eps" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.jpg" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.tif" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', 'Be-' + times[i] + "-hist.svg" ) )
     
-figd.savefig( os.path.join( info['dir_plots'], 'components', 'Bd-' + times[i] + "-hist.png" ) )
+figd.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', 'Bd-' + times[i] + "-hist.png" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', 'Bd-' + times[i] + "-hist.pdf" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', 'Bd-' + times[i] + "-hist.eps" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', 'Bd-' + times[i] + "-hist.jpg" ) )

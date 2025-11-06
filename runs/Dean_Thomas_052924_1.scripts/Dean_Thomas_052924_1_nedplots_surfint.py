@@ -37,8 +37,8 @@ if __name__ == "__main__":
         db.loop_ms_b(info, point, reduce, maxcores=20)    
         # db.loop_gap_b(info, point, reduce, nR=100, useRIM=True)
         # db.loop_iono_b(info, point, reduce)
-        db.loop_ms_surfint_rCurrents_b(info, point, reduce, maxcores=20, deltaBlist=False)    
-        db.loop_ms_surfint_outer_b(info, point, reduce, maxcores=20, deltaBlist=False)    
+        db.loop_ms_surfint_rCurrents_b(info, point, reduce, nTheta=360, nPhi=360, maxcores=20, deltaBlist=False)    
+        db.loop_ms_surfint_outer_b(info, point, reduce, nX=200, nY=200, nZ=200, maxcores=20, deltaBlist=False)    
         db.loop_ms_divBint_b(info, point, reduce, maxcores=20, deltaBlist=False)
  
     # Set some plot configs
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # Read the deltaB magnetosphere, inner and outer surface integrals, and divB integral
     # Rename columns to make tidy names on plots
     pklname = 'dB_bs_msph-' + point + '.pkl'
-    df_bs = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    df_bs = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries_no_transforms', pklname) )
     df_bs.columns = [r'$B_N$ Biot-Savart', r'$B_E$ Biot-Savart', r'$B_D$ Biot-Savart', \
                       r'$B_{N\parallel}$', r'$B_{E\parallel}$', r'$B_{D\parallel}$', \
                       r'$B_{N\perp}$', r'$B_{E\perp}$', r'$B_{D\perp}$', \
@@ -65,19 +65,19 @@ if __name__ == "__main__":
                       r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
     
     pklname = 'dB_si_msph_rCurrents-' + point + '.pkl'
-    df_si_inner = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    df_si_inner = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries_no_transforms', pklname) )
     df_si_inner.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_{Nirr}$', r'$B_{Eirr}$', r'$B_{Dirr}$', \
                   r'$B_{Nsol}$', r'$B_{Esol}$', r'$B_{Dsol}$', r'$B_x$', r'$B_y$', r'$B_z$', \
                   r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
 
     pklname = 'dB_si_msph_outer-' + point + '.pkl'
-    df_si_outer = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    df_si_outer = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries_no_transforms', pklname) )
     df_si_outer.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_{Nirr}$', r'$B_{Eirr}$', r'$B_{Dirr}$', \
                   r'$B_{Nsol}$', r'$B_{Esol}$', r'$B_{Dsol}$', r'$B_x$', r'$B_y$', r'$B_z$', \
                   r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
     
     pklname = 'dB_divB_msph_b-' + point + '.pkl'
-    df_divB = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries', pklname) )
+    df_divB = pd.read_pickle( os.path.join( info['dir_derived'], 'timeseries_no_transforms', pklname) )
     df_divB.columns = [r'$B_N$', r'$B_E$', r'$B_D$', r'$B_x$', r'$B_y$', r'$B_z$', \
                   r'Time (hr)', r'Datetime', r'Month', r'Day', r'Hour', r'Minute']
            
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     df_bs[r'$B_D$ Inner'] = df_si_inner[r'$B_D$'] 
         
     # Create directory for plots
-    db.create_directory( info['dir_plots'], 'BnedSurfInt'  )
+    db.create_directory( info['dir_plots'], 'BnedSurfInt_no_transforms'  )
     
     # Create plots and save them 
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     
     pltname = 'tot-Bned-Test-' + point
-    fig.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
+    fig.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt_no_transforms', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     plt.xticks(ticks=[1,7,13,19],labels=['01:00', '07:00', '13:00', '19:00']) 
         
     pltname = 'tot-Bmag-Test-' + point
-    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.png' ) )
+    plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt_no_transforms', pltname + '.png' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.pdf' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.eps' ) )
     # plt.savefig( os.path.join( info['dir_plots'], 'BnedSurfInt', pltname + '.jpg' ) )

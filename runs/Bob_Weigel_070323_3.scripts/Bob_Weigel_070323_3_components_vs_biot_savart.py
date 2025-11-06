@@ -9,7 +9,7 @@ Created on Tue Aug 20 13:08:36 2024
 # Analyze size of divB, inner surface, and outer surface integral contributions
 # to Biot-Savart
 
-rootdir = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived/heatmaps'
+rootdir = '/Volumes/PhysicsHD/Bob_Weigel_070323_3.derived/heatmaps_no_transforms'
 
 biotfiles = [ '3d__ful_4_e20000101-010000-000.out.cdf.ms-heatmap-world.pkl',
     '3d__ful_4_e20000101-040000-000.out.cdf.ms-heatmap-world.pkl',
@@ -56,7 +56,7 @@ from datetime import datetime
 from Bob_Weigel_070323_3_info import info as info
 
 # Set some plot configs
-plt.rcParams["figure.figsize"] = [14.0,8.0] #[12.5,8.0] # [17.0,10.0] #[12.8, 12.0]
+plt.rcParams["figure.figsize"] = [14.0,10.0] #[12.5,8.0] # [17.0,10.0] #[12.8, 12.0]
 plt.rcParams["figure.dpi"] = 600
 plt.rcParams['axes.grid'] = True
 plt.rcParams['font.size'] = 12 #18
@@ -104,7 +104,7 @@ color = 'Latitude'
 # color = 'Longitude'
 
 # Create diretory for plots
-create_directory( info['dir_plots'], 'components' )
+create_directory( info['dir_plots'], 'components_no_transforms' )
 
 # print( 'Time\tType\tAvg\tStd\tMax\tMin' )
 
@@ -251,22 +251,23 @@ figd.subplots_adjust( bottom=0.15 )
 cbar_axd = figd.add_axes([0.3,0.05,0.4,0.02]) # (left, bottom, width, height)
 cbard = figd.colorbar(scatterd, cax=cbar_axd, orientation='horizontal', shrink=0.4)
 cbard.set_label(color)
+
     
-fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.png" ) )
+fign.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', color + '-Bn-' + times[i] + "-grid.png" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.pdf" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.eps" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.jpg" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.tif" ) )
 # fign.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bn-' + times[i] + "-grid.svg" ) )
     
-fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.png" ) )
+fige.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', color + '-Be-' + times[i] + "-grid.png" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.pdf" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.eps" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.jpg" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.tif" ) )
 # fige.savefig( os.path.join( info['dir_plots'], 'components', color + '-Be-' + times[i] + "-grid.svg" ) )
     
-figd.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bd-' + times[i] + "-grid.png" ) )
+figd.savefig( os.path.join( info['dir_plots'], 'components_no_transforms', color + '-Bd-' + times[i] + "-grid.png" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bd-' + times[i] + "-grid.pdf" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bd-' + times[i] + "-grid.eps" ) )
 # figd.savefig( os.path.join( info['dir_plots'], 'components', color + '-Bd-' + times[i] + "-grid.jpg" ) )

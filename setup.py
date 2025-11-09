@@ -27,10 +27,10 @@ install_requires = [
 
 setup(
     name='deltaB',
-    version='1.0.1',
+    version='1.1.0',
     author='Dean Thomas',
     author_email='dean.thomas@physics123.net',
     packages=find_packages(),
-    description='For analyzing Space Weather Model Framework (SWMF) results, using Biot-Savart Law to determine delta B contributions from various currents and geospace regions',
+    description='For analyzing magnetohydrodynamic results to determine delta B contributions from various currents and geospace regions',
     install_requires=install_requires
 )

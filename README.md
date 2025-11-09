@@ -57,7 +57,7 @@ In processing SWMF, OpenGGCM, or LFM results, the code uses the current densitie
 that the MHD models provide for the magnetosphere, gap region, and ionosphere. 
 From the current densities, the code determines $\delta B$ contributions to the 
 magnetic field at a specified point. $\delta B$ contributions include changes 
-due to the external fields, and do not include the Earth's dipole field. 
+due to the external fields, and do not include the Earth's intrinsic dipole field. 
 The user can specify a point on the Earth's surface, for example, a magnetometer 
 site. Or the user can specify a point in space.  The algorithms will determine 
 the contributions that the magnetospheric,ionospheric, and gap region current 
@@ -98,3 +98,11 @@ calculate the $\nabla \cdot B$ volume integral, the outer boundary surface integ
 and the inner (rCurrents) boundary surface integrals that are terms from the 
 Helmholtz decomposition theorem. 
 
+# Test cases
+
+Many of the files have test cases at the end, in the 
+```
+if __name__ == "__main__":
+```
+section. These test cases use scenarios with known results to test calculation of
+$\nabla \cdot B$, $\nabla \times B$, interpolators, reading of data into dataframes.
